@@ -1,0 +1,136 @@
+project_name: apx
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: apx
+    binary: apx
+    main: ./cmd/apx
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: apx
+    builds:
+      - apx
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - apx.example.yaml
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+brews:
+  - name: apx
+    repository:
+      owner: infobloxopen
+      name: homebrew-tap
+    homepage: https://github.com/infobloxopen/apx
+    description: "API Publishing eXperience CLI"
+    license: Apache-2.0
+    install: |
+      bin.install "apx"
+      (bash_completion/"apx").write `#{bin}/apx completion bash`
+      (fish_completion/"apx.fish").write `#{bin}/apx completion fish`
+      (zsh_completion/"_apx").write `#{bin}/apx completion zsh`
+    test: |
+      system "#{bin}/apx", "--version"
+
+nfpms:
+  - id: apx
+    package_name: apx
+    homepage: https://github.com/infobloxopen/apx
+    description: "API Publishing eXperience CLI"
+    maintainer: Infoblox <info@infoblox.com>
+    license: Apache-2.0
+    vendor: Infoblox
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    contents:
+      - src: apx.example.yaml
+        dst: /etc/apx/apx.example.yaml
+        type: config|noreplace
+
+dockers:
+  - image_templates:
+      - "ghcr.io/infobloxopen/apx:{{ .Version }}-amd64"
+      - "ghcr.io/infobloxopen/apx:latest-amd64"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+  - image_templates:
+      - "ghcr.io/infobloxopen/apx:{{ .Version }}-arm64"
+      - "ghcr.io/infobloxopen/apx:latest-arm64"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    goarch: arm64
+
+docker_manifests:
+  - name_template: "ghcr.io/infobloxopen/apx:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/infobloxopen/apx:{{ .Version }}-amd64"
+      - "ghcr.io/infobloxopen/apx:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/infobloxopen/apx:latest"
+    image_templates:
+      - "ghcr.io/infobloxopen/apx:latest-amd64"
+      - "ghcr.io/infobloxopen/apx:latest-arm64"
+
+release:
+  github:
+    owner: infobloxopen
+    name: apx
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}}-v{{.Version}}"

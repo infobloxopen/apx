@@ -1,0 +1,57 @@
+version: 1
+org: your-org-name
+repo: your-apis-repo
+module_roots:
+  - proto
+  - openapi
+  - avro
+  - jsonschema
+  - parquet
+language_targets:
+  go:
+    enabled: true
+    plugins:
+      - name: protoc-gen-go
+        version: v1.64.0
+      - name: protoc-gen-go-grpc
+        version: v1.5.0
+  python:
+    enabled: true
+    tool: grpcio-tools
+    version: 1.64.0
+  java:
+    enabled: true
+    plugins:
+      - name: protoc-gen-grpc-java
+        version: 1.68.1
+policy:
+  forbidden_proto_options:
+    - "^gorm\\."
+  allowed_proto_plugins:
+    - protoc-gen-go
+    - protoc-gen-go-grpc
+  openapi:
+    spectral_ruleset: ".spectral.yaml"
+  avro:
+    compatibility: "BACKWARD"
+  jsonschema:
+    breaking_mode: "strict"
+  parquet:
+    allow_additive_nullable_only: true
+publishing:
+  tag_format: "{subdir}/v{version}"
+  ci_only: true
+tools:
+  buf:
+    version: v1.45.0
+  oasdiff:
+    version: v1.9.6
+  spectral:
+    version: v6.11.0
+  avrotool:
+    version: "1.11.3"
+  jsonschemadiff:
+    version: "0.3.0"
+execution:
+  mode: "local"
+  container_image: ""

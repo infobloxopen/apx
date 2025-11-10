@@ -1,0 +1,17 @@
+# Test configuration initialization and validation
+
+# Initialize config
+exec apx config init
+exists apx.yaml
+
+# Validate the created config
+exec apx config validate
+stdout 'Configuration is valid'
+
+# Test with explicit config path
+exec apx --config=apx.yaml config validate
+stdout 'Configuration is valid'
+
+# Test with non-existent config
+! exec apx --config=nonexistent.yaml config validate
+stderr 'Configuration validation failed'

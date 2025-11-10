@@ -1,0 +1,28 @@
+apx - API Publishing eXperience CLI
+
+USAGE:
+   apx [global options] command [command options] [arguments...]
+
+VERSION:
+   dev
+
+COMMANDS:
+   init      Initialize a new schema module
+   lint      Lint schema files
+   breaking  Check for breaking changes
+   semver    Semantic version operations
+   gen       Generate code
+   policy    Policy operations
+   catalog   Catalog operations
+   publish   Publish a module
+   config    Configuration operations
+   help, h   Shows a list of commands or help for one command
+
+GLOBAL OPTIONS:
+   --quiet, -q     suppress output (default: false)
+   --verbose       verbose output (default: false)
+   --json          output in JSON format (default: false)
+   --no-color      disable colored output (default: false)
+   --config value  config file path (default: "apx.yaml")
+   --help, -h      show help
+   --version, -v   print the version

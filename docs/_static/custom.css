@@ -1,0 +1,101 @@
+/* Custom CSS for APX documentation */
+
+/* Brand colors */
+:root {
+  --apx-primary: #2563eb;
+  --apx-secondary: #7c3aed;
+  --apx-success: #059669;
+  --apx-warning: #d97706;
+  --apx-danger: #dc2626;
+  --apx-dark: #1f2937;
+  --apx-light: #f8fafc;
+}
+
+/* Logo and branding */
+.navbar-brand img {
+  height: 32px;
+  width: auto;
+}
+
+/* Custom admonition styles */
+.admonition {
+  border-radius: 0.5rem;
+  border-left: 4px solid var(--apx-primary);
+}
+
+.admonition.tip {
+  border-left-color: var(--apx-success);
+}
+
+.admonition.warning {
+  border-left-color: var(--apx-warning);
+}
+
+.admonition.danger {
+  border-left-color: var(--apx-danger);
+}
+
+/* Code blocks */
+.highlight {
+  border-radius: 0.5rem;
+}
+
+/* Navigation improvements */
+.bd-sidebar-primary .bd-sidenav .active > .reference {
+  font-weight: 600;
+  color: var(--apx-primary);
+}
+
+/* Grid cards */
+.sd-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.sd-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Copy button styling */
+.copybtn {
+  border-radius: 0.25rem;
+}
+
+/* Table styling */
+table.docutils {
+  border-collapse: collapse;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+table.docutils th {
+  background-color: var(--apx-light);
+  font-weight: 600;
+}
+
+/* Footer */
+.bd-footer {
+  border-top: 1px solid #e5e7eb;
+  background-color: var(--apx-light);
+}
+
+/* Announcement bar */
+.bd-header-announcement {
+  background: linear-gradient(90deg, var(--apx-primary), var(--apx-secondary));
+  color: white;
+}
+
+/* Version selector */
+.version-switcher {
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .bd-main .bd-content .bd-article-container {
+    max-width: 100%;
+  }
+}

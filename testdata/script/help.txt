@@ -1,0 +1,20 @@
+# Test help command outputs usage information
+
+exec apx help
+stdout 'apx - API Publishing eXperience CLI'
+stdout 'USAGE:'
+stdout 'COMMANDS:'
+
+# Test global flags in help
+exec apx help
+stdout 'GLOBAL OPTIONS:'
+stdout '--quiet'
+stdout '--verbose'
+stdout '--json'
+stdout '--no-color'
+
+# Test specific command help
+exec apx help init
+stdout 'apx init - Initialize a new schema module'
+stdout 'USAGE:'
+stdout 'apx init'
