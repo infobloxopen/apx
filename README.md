@@ -4,6 +4,7 @@
 [![Release](https://img.shields.io/github/release/infobloxopen/apx.svg)](https://github.com/infobloxopen/apx/releases/latest)
 [![License](https://img.shields.io/github/license/infobloxopen/apx)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/infobloxopen/apx)](https://goreportcard.com/report/github.com/infobloxopen/apx)
+[![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://infobloxopen.github.io/apx/)
 
 **apx** is a CLI tool that implements the **canonical repository pattern** for API schema management. It enables organizations to centralize API schemas in a single source of truth while allowing teams to author schemas in their application repositories with canonical import paths.
 
@@ -31,7 +32,7 @@ APX implements a two-repository pattern:
 
 ## Quick Start
 
-See the [Quick Start Guide](docs/getting-started/quickstart.md) for a comprehensive walkthrough.
+See the [Quick Start Guide](https://infobloxopen.github.io/apx/getting-started/quickstart/) for a comprehensive walkthrough.
 
 ### 1. Bootstrap Canonical Repository
 
@@ -423,11 +424,17 @@ jobs:
 
 ## Documentation
 
-- 📖 [Quick Start Guide](docs/getting-started/quickstart.md) - Complete walkthrough
-- 🏗️ [Canonical Repository Structure](docs/canonical-repo/structure.md)
-- 📦 [Dependency Management](docs/dependencies/index.md)
-- 🔧 [Interactive Init Guide](docs/getting-started/interactive-init.md)
-- ❓ [FAQ & Troubleshooting](docs/troubleshooting/faq.md)
+**📚 [Full Documentation](https://infobloxopen.github.io/apx/)** - Complete documentation hosted on GitHub Pages
+
+### Quick Links
+
+- 📖 [Quick Start Guide](https://infobloxopen.github.io/apx/getting-started/quickstart/) - Complete walkthrough
+- 🏗️ [Canonical Repository Structure](https://infobloxopen.github.io/apx/canonical-repo/structure/)
+- 📦 [Dependency Management](https://infobloxopen.github.io/apx/dependencies/)
+- 🔧 [Interactive Init Guide](https://infobloxopen.github.io/apx/getting-started/interactive-init/)
+- 🚀 [Publishing Guide](https://infobloxopen.github.io/apx/publishing/)
+- 🔧 [CLI Reference](https://infobloxopen.github.io/apx/cli-reference/)
+- ❓ [FAQ & Troubleshooting](https://infobloxopen.github.io/apx/troubleshooting/faq/)
 
 ## Development Status
 
@@ -488,6 +495,6 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for detai
 
 ## Support
 
-- 📚 [Documentation](docs/)
-- 🐛 [Issues](https://github.com/infobloxopen/apx/issues)
-- 💬 [Discussions](https://github.com/infobloxopen/apx/discussions)
+- 📚 [Documentation](https://infobloxopen.github.io/apx/) - Full documentation on GitHub Pages
+- 🐛 [Issues](https://github.com/infobloxopen/apx/issues) - Bug reports and feature requests
+- 💬 [Discussions](https://github.com/infobloxopen/apx/discussions) - Questions and community support
