@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/infobloxopen/apx/internal/config"
+	"github.com/infobloxopen/apx/internal/overlay"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/urfave/cli/v2"
 )
@@ -54,12 +55,6 @@ func genAction(c *cli.Context) error {
 		path = "."
 	}
 
-	cfg, err := loadConfig(c)
-	if err != nil {
-		ui.Error("Failed to load config: %v", err)
-		return err
-	}
-
 	opts := GenerateOptions{
 		Language:  lang,
 		Path:      path,
@@ -68,15 +63,43 @@ func genAction(c *cli.Context) error {
 		Manifest:  c.Bool("manifest"),
 	}
 
-	return generateCode(cfg, opts)
+	return generateCode(opts)
 }
 
-func generateCode(cfg *config.Config, opts GenerateOptions) error {
-	// TODO: Implement code generation in internal/generator package
-	ui.Info("Generating %s code from %s...", opts.Language, opts.Path)
-	if opts.OutputDir != "" {
-		ui.Info("Output directory: %s", opts.OutputDir)
+func generateCode(opts GenerateOptions) error {
+	// For now, this creates overlay structure for dependencies in apx.lock
+	// Full codegen implementation would use buf/openapi-generator/etc.
+
+	ui.Info("Generating %s code from dependencies...", opts.Language)
+
+	// Load dependencies
+	dm := config.NewDependencyManager("apx.yaml", "apx.lock")
+	deps, err := dm.List()
+	if err != nil {
+		return fmt.Errorf("failed to list dependencies: %w", err)
 	}
+
+	if len(deps) == 0 {
+		ui.Info("No dependencies found in apx.lock")
+		return nil
+	}
+
+	// Create overlays for each dependency
+	mgr := overlay.NewManager(".")
+	for _, dep := range deps {
+		ui.Info("Creating overlay for %s...", dep.ModulePath)
+		if _, err := mgr.Create(dep.ModulePath, opts.Language); err != nil {
+			return fmt.Errorf("failed to create overlay: %w", err)
+		}
+	}
+
+	// For Go, automatically sync go.work to make overlays immediately usable
+	if opts.Language == "go" {
+		if err := mgr.Sync(); err != nil {
+			return fmt.Errorf("failed to sync go.work: %w", err)
+		}
+	}
+
 	ui.Success("Code generation completed successfully")
 	return nil
 }

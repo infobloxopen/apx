@@ -1,0 +1,39 @@
+# Test: apx breaking
+# Verifies breaking change detection command structure
+
+# Setup test environment
+mkdir proto-breaking
+cd proto-breaking
+
+# Initialize git repo with two commits for HEAD~1 to exist
+exec git init
+exec git config user.name 'Test User'
+exec git config user.email 'test@example.com'
+
+# Create first commit
+exec apx init app --org=testorg --non-interactive internal/apis/proto/test/v1
+exec git add .
+exec git commit -m 'Initial version'
+
+# Create second commit
+exec git commit --allow-empty -m 'Second commit'
+
+# Verify proto file exists
+exists internal/apis/proto/test/v1/test.proto
+
+# Test breaking command invocation (will fail without buf installed, but verifies command works)
+# The actual validation happens in integration tests with proper tooling
+! exec apx breaking --against=HEAD~1 internal/apis/proto/test/v1/test.proto
+stderr 'buf'
+
+# Test format detection
+! exec apx breaking --format=proto --against=HEAD internal/apis/proto/test/v1/test.proto
+stderr 'buf'
+
+# Test with missing --against flag (should fail with helpful error)
+! exec apx breaking internal/apis/proto/test/v1/test.proto
+stderr 'Required flag "against" not set'
+
+# Cleanup
+cd ..
+rm -rf proto-breaking

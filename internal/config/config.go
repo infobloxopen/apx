@@ -78,6 +78,27 @@ type Execution struct {
 	ContainerImage string `yaml:"container_image"`
 }
 
+// LockFile represents the apx.lock file structure for dependency pinning
+type LockFile struct {
+	Version      int                       `yaml:"version"`
+	Toolchains   map[string]ToolchainLock  `yaml:"toolchains"`
+	Dependencies map[string]DependencyLock `yaml:"dependencies"`
+}
+
+// ToolchainLock represents a locked toolchain version
+type ToolchainLock struct {
+	Version  string `yaml:"version"`
+	Checksum string `yaml:"checksum,omitempty"`
+	Path     string `yaml:"path,omitempty"` // For offline bundles
+}
+
+// DependencyLock represents a locked schema dependency
+type DependencyLock struct {
+	Repo    string   `yaml:"repo"`
+	Ref     string   `yaml:"ref"`
+	Modules []string `yaml:"modules"`
+}
+
 // ValidationError represents a configuration validation error
 type ValidationError struct {
 	Field   string

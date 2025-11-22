@@ -1,0 +1,45 @@
+# Test: apx init canonical
+# Verifies canonical repository scaffolding
+
+# Setup test environment
+mkdir canonical-test
+cd canonical-test
+
+# Run apx init canonical
+exec apx init canonical --org=testorg --repo=test-apis --skip-git --non-interactive
+
+# Verify directory structure
+exists proto/
+exists openapi/
+exists avro/
+exists jsonschema/
+exists parquet/
+exists catalog/
+
+# Verify key files exist
+exists buf.yaml
+exists buf.work.yaml
+exists CODEOWNERS
+exists catalog/catalog.yaml
+exists README.md
+
+# Verify buf.yaml content
+grep 'version: v2' buf.yaml
+grep 'path: proto' buf.yaml
+
+# Verify CODEOWNERS
+grep '@testorg/api-owners' CODEOWNERS
+
+# Verify catalog.yaml
+grep 'org: testorg' catalog/catalog.yaml
+grep 'repo: test-apis' catalog/catalog.yaml
+
+# Test with missing org (should fail)
+! exec apx init canonical --repo=test-apis --non-interactive
+
+# Test with missing repo (should fail)
+! exec apx init canonical --org=testorg --non-interactive
+
+# Cleanup
+cd ..
+rm -rf canonical-test

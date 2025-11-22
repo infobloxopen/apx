@@ -1,0 +1,45 @@
+# Test apx search command
+#
+# This scenario verifies the search command can discover APIs in the catalog
+
+# Setup: Create a test canonical repo with catalog
+mkdir canonical
+cd canonical
+exec git init
+exec apx init canonical --org=testorg --repo=apis --skip-git --non-interactive
+
+# Overwrite catalog/catalog.yaml with test data (using multiple echo statements)
+exec sh -c 'echo "version: 1" > catalog/catalog.yaml'
+exec sh -c 'echo "org: testorg" >> catalog/catalog.yaml'
+exec sh -c 'echo "repo: apis" >> catalog/catalog.yaml'
+exec sh -c 'echo "modules:" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - name: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    format: proto" >> catalog/catalog.yaml'
+exec sh -c 'echo "    description: Payment ledger API" >> catalog/catalog.yaml'
+exec sh -c 'echo "    version: v1.2.3" >> catalog/catalog.yaml'
+exec sh -c 'echo "    path: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - name: openapi/customer/accounts/v2" >> catalog/catalog.yaml'
+exec sh -c 'echo "    format: openapi" >> catalog/catalog.yaml'
+exec sh -c 'echo "    description: Customer accounts API" >> catalog/catalog.yaml'
+exec sh -c 'echo "    version: v2.0.0" >> catalog/catalog.yaml'
+exec sh -c 'echo "    path: openapi/customer/accounts/v2" >> catalog/catalog.yaml'
+
+# Search all APIs (uses default catalog/catalog.yaml)
+exec apx search
+stdout 'ledger'
+stdout 'accounts'
+
+# Search by name
+exec apx search ledger
+stdout 'ledger'
+! stdout 'accounts'
+
+# Search by format
+exec apx search --format=proto
+stdout 'ledger'
+! stdout 'accounts'
+
+# Search with no matches
+exec apx search nonexistent
+! stdout 'ledger'
+! stdout 'accounts'

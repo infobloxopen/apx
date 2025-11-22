@@ -1,0 +1,30 @@
+# Test apx gen command
+#
+# This scenario verifies code generation with go.work overlays
+
+# Setup: Create app with dependency
+mkdir app
+cd app
+exec git init
+exec apx init app --org=testorg --non-interactive internal/apis/proto/services/users
+exec apx add proto/payments/ledger/v1@v1.2.3
+
+# Generate Go code
+exec apx gen go
+exists internal/gen/go/proto/payments/ledger/v1
+
+# Verify generated code is excluded from git
+exec git status --porcelain
+! stdout 'internal/gen'
+
+# Verify go.work created with overlay entry
+exists go.work
+grep './internal/gen/go/proto/payments/ledger/v1' go.work
+
+# Generate for multiple languages
+exec apx gen python
+exists internal/gen/python/proto/payments/ledger/v1
+
+# Regenerate should be idempotent
+exec apx gen go
+exists internal/gen/go/proto/payments/ledger/v1

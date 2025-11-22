@@ -5,340 +5,373 @@
 [![License](https://img.shields.io/github/license/infobloxopen/apx)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/infobloxopen/apx)](https://goreportcard.com/report/github.com/infobloxopen/apx)
 
-**apx** is a cross-platform CLI tool that orchestrates API schema management, validation, and publishing. It provides a unified interface for working with Protocol Buffers, OpenAPI, Avro, JSON Schema, and Parquet schemas while enforcing organizational policies and automating semantic versioning.
+**apx** is a CLI tool that implements the **canonical repository pattern** for API schema management. It enables organizations to centralize API schemas in a single source of truth while allowing teams to author schemas in their application repositories with canonical import paths.
 
-## Features
+## Key Features
 
-- 🚀 **Multi-format support**: Protocol Buffers, OpenAPI, Avro, JSON Schema, Parquet
-- 🔍 **Schema validation**: Lint and validate schemas using industry-standard tools
-- 💥 **Breaking change detection**: Automatically detect breaking changes and suggest semantic version bumps
-- 🏗️ **Code generation**: Generate Go, Python, and Java code from schemas
-- 📋 **Policy enforcement**: Enforce organizational policies and allowed plugins
-- 🏷️ **Git integration**: Create subdirectory tags for modular releases
-- 🐳 **Container support**: Run tools locally or in containers
-- 📊 **Rich output**: Human-friendly CLI output with optional JSON for automation
+- 🎯 **Canonical Import Paths**: Single import path that works in development and production
+- 🔄 **go.work Overlays**: Seamless transition between local development and published modules
+- 🏢 **Organization-Wide Catalog**: Centralized API discovery across all teams
+- 🚀 **Multi-Format Support**: Protocol Buffers, OpenAPI, Avro, JSON Schema, Parquet
+- 🔍 **Schema Validation**: Automated linting and breaking change detection
+- 📦 **Code Generation**: Generate client code for Go, Python, and Java
+- 🔐 **Policy Enforcement**: Org-wide lint and breaking change policies
+
+## Architecture Overview
+
+APX implements a two-repository pattern:
+
+1. **Canonical Repository** (`github.com/<org>/apis`): Single source of truth for all published APIs
+2. **App Repositories**: Where teams author schemas and generate code with canonical import paths
+
+**Benefits:**
+- Import paths never change when switching from dev to production
+- No `replace` directives or import rewrites
+- Clean dependency management via `go.work` overlays
 
 ## Quick Start
 
-### Installation
+See the [Quick Start Guide](docs/getting-started/quickstart.md) for a comprehensive walkthrough.
 
-#### Homebrew (macOS/Linux)
+### 1. Bootstrap Canonical Repository
+
+```bash
+# Create your organization's canonical API repository
+git clone https://github.com/<org>/apis.git
+cd apis
+
+# Initialize the canonical structure
+apx init canonical --org=<org> --repo=apis
+```
+
+Creates:
+```
+apis/
+├── buf.yaml              # Org-wide lint/breaking policy
+├── buf.work.yaml         # Workspace config
+├── CODEOWNERS            # Per-path ownership
+├── catalog/
+│   └── catalog.yaml      # API discovery catalog
+└── proto/                # Schema directories
+    └── openapi/
+    └── avro/
+    └── jsonschema/
+    └── parquet/
+```
+
+### 2. Author API in App Repository
+
+```bash
+# In your application repository
+cd /path/to/your-app
+
+# Initialize app structure
+apx init app internal/apis/proto/payments/ledger
+
+# Lint your schema
+apx lint internal/apis/proto/payments/ledger
+
+# Check for breaking changes
+apx breaking internal/apis/proto/payments/ledger
+
+# Publish to canonical repo
+apx publish --module-path=internal/apis/proto/payments/ledger
+```
+
+### 3. Consume API in Another Service
+
+```bash
+# Search for APIs
+apx search payment
+
+# Add dependency
+apx add proto/payments/ledger/v1@v1.2.3
+
+# Generate code with canonical imports
+apx gen go
+
+# Your code now uses: github.com/<org>/apis/proto/payments/ledger/v1
+# Works seamlessly via go.work overlay!
+
+# When ready, switch to published module
+apx unlink proto/payments/ledger/v1
+```
+
+## Installation
+
+### Homebrew (macOS/Linux)
 
 ```bash
 brew install infobloxopen/tap/apx
 ```
 
-#### Download Binary
+### Download Binary
 
 Download the latest release from [GitHub Releases](https://github.com/infobloxopen/apx/releases) for your platform.
 
-#### Build from Source
+### Build from Source
 
 ```bash
 go install github.com/infobloxopen/apx/cmd/apx@latest
 ```
 
-### Install Dependencies
+### Install Tool Dependencies
 
-Install required external tools:
+APX integrates with format-specific tooling:
 
 ```bash
+# Install all required tools
 curl -sSL https://raw.githubusercontent.com/infobloxopen/apx/main/scripts/install-tools.sh | bash
 ```
 
-Or manually install:
-- [buf](https://github.com/bufbuild/buf) - Protocol Buffer tooling
-- [spectral](https://github.com/stoplightio/spectral) - OpenAPI linting
-- [oasdiff](https://github.com/Tufin/oasdiff) - OpenAPI diff tool
-- [protoc](https://github.com/protocolbuffers/protobuf) - Protocol Buffer compiler
+Or install individually:
+- [buf](https://github.com/bufbuild/buf) - Protocol Buffer linting and breaking change detection
+- [spectral](https://github.com/stoplightio/spectral) - OpenAPI linting (optional)
+- [oasdiff](https://github.com/Tufin/oasdiff) - OpenAPI breaking changes (optional)
 
-### Initialize Configuration
+## Command Reference
 
-```bash
-apx config init
-```
+### Repository Initialization
 
-This creates an `apx.yaml` configuration file with sensible defaults.
+#### `apx init canonical`
 
-## Usage
-
-### Basic Commands
+Bootstrap a canonical API repository.
 
 ```bash
-# Initialize a new schema module
-apx init proto payment/v1
-
-# Lint schemas
-apx lint
-
-# Check for breaking changes
-apx breaking --against main
-
-# Generate code
-apx gen go
-apx gen python
-apx gen java
-
-# Check policy compliance
-apx policy check
-
-# Suggest semantic version bump
-apx semver suggest --against v1.0.0
-
-# Publish a release (CI only by default)
-apx publish --version v1.1.0
+apx init canonical --org=myorg --repo=apis
 ```
 
-### Global Flags
+**Flags:**
+- `--org`: Organization name (required)
+- `--repo`: Repository name (required)
+- `--skip-git`: Skip git initialization
+- `--non-interactive`: Skip interactive prompts
+
+#### `apx init app <module-path>`
+
+Bootstrap an application repository for schema authoring.
+
+```bash
+apx init app internal/apis/proto/payments/ledger
+```
+
+**Flags:**
+- `--org`: Organization name (required)
+- `--non-interactive`: Skip interactive prompts
+
+**Auto-detects format** from path:
+- `/proto/` → Protocol Buffers
+- `/openapi/` → OpenAPI
+- `/avro/` → Avro
+- `/jsonschema/` → JSON Schema
+- `/parquet/` → Parquet
+
+### Schema Validation
+
+#### `apx lint [path]`
+
+Validate schema files for syntax and style issues.
+
+```bash
+apx lint                                  # Lint current directory
+apx lint internal/apis/proto/payments    # Lint specific path
+apx lint --format=proto                   # Explicit format
+```
+
+#### `apx breaking [path]`
+
+Check for breaking changes.
+
+```bash
+apx breaking internal/apis/proto/payments
+apx breaking --format=openapi
+```
+
+### Publishing
+
+#### `apx publish`
+
+Publish schema module to canonical repository.
+
+```bash
+apx publish --module-path=internal/apis/proto/payments/ledger
+apx publish --module-path=... --canonical-repo=git@github.com:org/apis.git
+apx publish --module-path=... --base-branch=develop
+```
+
+**Flags:**
+- `--module-path`: Path to module in app repo (required)
+- `--canonical-repo`: Canonical repository URL
+- `--base-branch`: Target branch (default: main)
+
+### Consumer Workflow
+
+#### `apx search [query]`
+
+Search for APIs in the canonical catalog.
+
+```bash
+apx search                          # List all APIs
+apx search payment                  # Search by keyword
+apx search --format=proto           # Filter by format
+apx search --catalog=path/to/catalog.yaml
+```
+
+#### `apx add <module-path>[@version]`
+
+Add a schema dependency.
+
+```bash
+apx add proto/payments/ledger/v1@v1.2.3
+apx add proto/users/profile/v1              # Uses latest
+```
+
+Updates both `apx.yaml` and `apx.lock` files.
+
+#### `apx gen <language> [path]`
+
+Generate client code from dependencies.
+
+```bash
+apx gen go                    # Generate Go code
+apx gen python                # Generate Python code  
+apx gen java                  # Generate Java code
+```
+
+**Generated structure:**
+```
+/internal/gen/
+├── go/
+│   └── proto/payments/ledger@v1.2.3/
+├── python/
+│   └── proto/payments/ledger/
+└── java/
+    └── proto/payments/ledger/
+```
+
+**Note:** `/internal/gen/` is git-ignored. Never commit generated code.
+
+#### `apx sync`
+
+Synchronize `go.work` with active Go overlays.
+
+```bash
+apx sync
+```
+
+Regenerates `go.work` to include all overlays in `/internal/gen/go/`.
+
+#### `apx unlink <module-path>`
+
+Remove overlay and switch to published module.
+
+```bash
+apx unlink proto/payments/ledger/v1
+```
+
+Removes overlay from `/internal/gen/` and updates `go.work`.
+
+## Configuration Files
+
+### `apx.yaml` (App Repository)
+
+Generated by `apx init app`:
+
+```yaml
+kind: proto
+module: payments.ledger.v1
+org: myorg
+version: v1
+```
+
+### `apx.lock` (App Repository)
+
+Pinned dependency versions (generated by `apx add`):
+
+```yaml
+dependencies:
+  proto/payments/ledger/v1:
+    repo: github.com/myorg/apis
+    ref: v1.2.3
+    modules:
+      - proto/payments/ledger/v1
+```
+
+### `catalog/catalog.yaml` (Canonical Repository)
+
+API discovery catalog (auto-generated):
+
+```yaml
+version: 1
+org: myorg
+repo: apis
+modules:
+  - name: proto/payments/ledger/v1
+    format: proto
+    description: Payment ledger API
+    version: v1.2.3
+    path: proto/payments/ledger/v1
+```
+
+## How It Works: Canonical Import Paths
+
+### Development Flow
+
+1. **Generate overlay**: `apx gen go` creates `/internal/gen/go/proto/payments/ledger@v1.2.3/`
+2. **go.work magic**: `apx sync` updates `go.work` to map canonical path to local overlay
+3. **Your code imports**: `import "github.com/myorg/apis/proto/payments/ledger/v1"`
+4. **Go resolves**: Via `go.work`, imports resolve to your local overlay
+
+### Production Flow
+
+1. **Remove overlay**: `apx unlink proto/payments/ledger/v1`
+2. **Add published module**: `go get github.com/myorg/apis/proto/payments/ledger/v1@v1.2.3`
+3. **Imports unchanged**: Same `import "github.com/myorg/apis/proto/payments/ledger/v1"`
+4. **Go resolves**: From published module in `go.mod`
+
+**No import rewrites. No replace directives. It just works.**
+
+## Multi-Language Support
+
+### Overlay Structure
+
+```
+/internal/gen/
+├── go/                           # Go overlays
+│   ├── proto/payments/ledger@v1.2.3/
+│   └── proto/users/profile@v1.0.1/
+├── python/                       # Python packages
+│   ├── proto/payments/ledger/
+│   └── proto/users/profile/
+└── java/                         # Java packages
+    ├── proto/payments/ledger/
+    └── proto/users/profile/
+```
+
+**Why language subdirectories?**
+- Prevents conflicts when generating for multiple languages
+- Each language has its own namespace and structure
+- Overlay manager handles language-specific path resolution
+
+## Global Flags
 
 - `--config <file>`: Specify config file (default: `apx.yaml`)
 - `--verbose`: Enable verbose output
 - `--quiet`: Suppress output
-- `--json`: Output in JSON format
+- `--json`: Output in JSON format (planned)
 - `--no-color`: Disable colored output
-
-## Configuration
-
-The `apx.yaml` file controls all behavior:
-
-```yaml
-version: 1
-org: your-org-name
-repo: your-apis-repo
-
-module_roots:
-  - proto
-  - openapi
-  - avro
-  - jsonschema
-  - parquet
-
-language_targets:
-  go:
-    enabled: true
-    plugins:
-      - name: protoc-gen-go
-        version: v1.64.0
-      - name: protoc-gen-go-grpc
-        version: v1.5.0
-
-policy:
-  forbidden_proto_options:
-    - "^gorm\\."
-  allowed_proto_plugins:
-    - protoc-gen-go
-    - protoc-gen-go-grpc
-
-publishing:
-  tag_format: "{subdir}/v{version}"
-  ci_only: true
-
-tools:
-  buf:
-    version: v1.45.0
-  spectral:
-    version: v6.11.0
-
-execution:
-  mode: "local"  # or "container"
-```
-
-See [apx.example.yaml](apx.example.yaml) for a complete configuration reference.
-
-## Command Reference
-
-### `apx init <kind> <modulePath>`
-
-Initialize a new schema module.
-
-**Kinds**: `proto`, `openapi`, `avro`, `jsonschema`, `parquet`
-
-```bash
-# Create a new protobuf module
-apx init proto payment/ledger/v1
-
-# Create an OpenAPI module
-apx init openapi user/v2
-```
-
-### `apx lint [path]`
-
-Lint and validate schema files.
-
-```bash
-# Lint current directory
-apx lint
-
-# Lint specific path
-apx lint proto/payment/v1
-
-# JSON output for CI
-apx lint --json
-```
-
-### `apx breaking --against <ref> [path]`
-
-Check for breaking changes against a Git reference.
-
-```bash
-# Check against main branch
-apx breaking --against main
-
-# Check against specific tag
-apx breaking --against v1.0.0
-
-# Check specific module
-apx breaking --against main proto/payment/v1
-```
-
-### `apx semver suggest --against <ref> [path]`
-
-Suggest semantic version bump based on changes.
-
-```bash
-# Get version suggestion
-apx semver suggest --against v1.0.0
-
-# Output: MAJOR (due to breaking changes)
-```
-
-### `apx gen <lang> [path]`
-
-Generate code for the specified language.
-
-```bash
-# Generate Go code
-apx gen go --out ./gen/go
-
-# Clean output before generation
-apx gen python --clean --out ./gen/python
-
-# Generate with manifest
-apx gen java --manifest
-```
-
-**Languages**: `go`, `python`, `java`
-
-### `apx policy check [path]`
-
-Check policy compliance.
-
-```bash
-# Check all modules
-apx policy check
-
-# Check specific path
-apx policy check proto/payment/v1
-```
-
-### `apx catalog build`
-
-Build a catalog of all discovered modules.
-
-```bash
-apx catalog build
-# Creates catalog.json
-```
-
-### `apx publish --version <version> [path]`
-
-Publish a module release.
-
-```bash
-# Publish with version (CI only by default)
-apx publish --version v1.2.3
-
-# Create tag only
-apx publish --version v1.2.3 --tag-only
-
-# Force local publish
-apx publish --version v1.2.3 --force
-```
-
-### `apx config`
-
-Configuration management.
-
-```bash
-# Initialize config
-apx config init
-
-# Validate config
-apx config validate
-```
-
-## Module Discovery
-
-APX automatically discovers schema modules by scanning configured `module_roots` for:
-
-- **Protocol Buffers**: `*.proto` files
-- **OpenAPI**: `openapi.{yaml,yml,json}` files
-- **Avro**: `*.avsc` files
-- **JSON Schema**: Files with `$schema` property
-- **Parquet**: `schema.{json,ddl}` files
-
-## Breaking Change Detection
-
-APX uses industry-standard tools to detect breaking changes:
-
-- **Protocol Buffers**: `buf breaking`
-- **OpenAPI**: `oasdiff breaking`
-- **Avro**: Compatibility mode validation
-- **JSON Schema**: `jsonschema-diff`
-- **Parquet**: Conservative policy checks
-
-## Semantic Versioning
-
-APX automatically suggests version bumps based on detected changes:
-
-- **MAJOR**: Any breaking changes in any format
-- **MINOR**: New features, additive changes
-- **PATCH**: Bug fixes, documentation updates
-
-## Policy Enforcement
-
-Enforce organizational standards:
-
-```yaml
-policy:
-  forbidden_proto_options:
-    - "^gorm\\."        # Ban GORM options
-    - "validate\\."     # Ban validation options
-  
-  allowed_proto_plugins:
-    - protoc-gen-go
-    - protoc-gen-go-grpc
-  
-  openapi:
-    spectral_ruleset: ".spectral.yaml"
-  
-  avro:
-    compatibility: "BACKWARD"
-```
-
-## Git Integration
-
-APX creates subdirectory tags for modular repositories:
-
-```bash
-# Creates tag: proto/payment/v1/v1.2.3
-apx publish --version v1.2.3 proto/payment/v1
-```
-
-Tag format is configurable via `publishing.tag_format`.
 
 ## CI/CD Integration
 
-### GitHub Actions
+### GitHub Actions Example
 
 ```yaml
-name: API Schema CI
+name: API Schema Workflow
 
 on:
   pull_request:
     paths:
-      - 'proto/**'
-      - 'openapi/**'
+      - 'internal/apis/**'
 
 jobs:
   validate:
@@ -349,25 +382,18 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.24'
 
       - name: Install APX
         run: go install github.com/infobloxopen/apx/cmd/apx@latest
 
-      - name: Install Tools
-        run: |
-          curl -sSL https://raw.githubusercontent.com/infobloxopen/apx/main/scripts/install-tools.sh | bash
-
       - name: Lint Schemas
-        run: apx lint --json
+        run: apx lint internal/apis
 
       - name: Check Breaking Changes
-        run: apx breaking --against origin/main --json
-
-      - name: Check Policy
-        run: apx policy check --json
+        run: apx breaking internal/apis
 
   publish:
     if: github.ref == 'refs/heads/main'
@@ -377,37 +403,64 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.CANONICAL_REPO_TOKEN }}
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.24'
 
       - name: Install APX
         run: go install github.com/infobloxopen/apx/cmd/apx@latest
 
-      - name: Get Version Suggestion
-        id: version
+      - name: Publish to Canonical Repo
         run: |
-          VERSION=$(apx semver suggest --against $(git describe --tags --abbrev=0))
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Publish Release
-        if: steps.version.outputs.version != 'NONE'
-        run: |
-          apx publish --version v$(steps.version.outputs.version)
+          apx publish --module-path=internal/apis/proto/payments/ledger \
+            --canonical-repo=git@github.com:myorg/apis.git
         env:
-          CI: true
+          GIT_SSH_COMMAND: "ssh -i ${{ secrets.DEPLOY_KEY }}"
 ```
+
+## Documentation
+
+- 📖 [Quick Start Guide](docs/getting-started/quickstart.md) - Complete walkthrough
+- 🏗️ [Canonical Repository Structure](docs/canonical-repo/structure.md)
+- 📦 [Dependency Management](docs/dependencies/index.md)
+- 🔧 [Interactive Init Guide](docs/getting-started/interactive-init.md)
+- ❓ [FAQ & Troubleshooting](docs/troubleshooting/faq.md)
+
+## Development Status
+
+### Implemented Features ✅
+
+- ✅ Canonical repository initialization
+- ✅ App repository scaffolding
+- ✅ Schema validation (lint, breaking)
+- ✅ Code generation (Go, Python, Java)
+- ✅ Overlay management with go.work
+- ✅ API discovery and search
+- ✅ Dependency management (apx.lock)
+- ✅ Publishing workflow (git subtree + PR)
+- ✅ Multi-language overlay structure
+
+### Planned Features 🚧
+
+- 🚧 JSON output for CI automation (`--json` flag)
+- 🚧 Offline/air-gapped mode via `apx fetch`
+- 🚧 GitHub Enterprise Server support
+- 🚧 Performance instrumentation
+- 🚧 Enhanced error messages with actionable guidance
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed release notes.
 
 ## Exit Codes
 
 - `0`: Success
-- `2`: Lint errors
+- `1`: General error
+- `2`: Validation/lint errors
 - `3`: Breaking changes detected
-- `4`: Policy violations
-- `5`: Tool execution failure
-- `6`: Configuration error
+- `4`: Dependency not found
+- `5`: Configuration error
 
 ## Development
 
@@ -420,8 +473,9 @@ make build
 ### Testing
 
 ```bash
-make test
-make test-integration
+make test                    # Unit tests
+go test -run TestScript      # Integration testscripts
+go test ./tests/integration  # Full integration tests
 ```
 
 ### Contributing
@@ -434,6 +488,6 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for detai
 
 ## Support
 
-- 📚 [Documentation](https://github.com/infobloxopen/apx/wiki)
+- 📚 [Documentation](docs/)
 - 🐛 [Issues](https://github.com/infobloxopen/apx/issues)
 - 💬 [Discussions](https://github.com/infobloxopen/apx/discussions)

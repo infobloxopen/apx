@@ -95,3 +95,12 @@ func RunSetup(defaults *detector.ProjectDefaults, kind, modulePath string) (stri
 	ui.Success("Configuration complete! 🎉")
 	return kind, modulePath, nil
 }
+
+// PromptForString prompts the user for a string value with a default
+func PromptForString(message, defaultValue string, result *string) error {
+	prompt := &survey.Input{
+		Message: message,
+		Default: defaultValue,
+	}
+	return survey.AskOne(prompt, result)
+}
