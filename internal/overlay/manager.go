@@ -405,6 +405,8 @@ func (m *Manager) SyncWorkFile() error {
 			if err != nil {
 				return fmt.Errorf("failed to get relative path: %w", err)
 			}
+			// Always use forward slashes in go.work (even on Windows)
+			relPath = filepath.ToSlash(relPath)
 			content.WriteString(fmt.Sprintf("\t./%s\n", relPath))
 		}
 	}
