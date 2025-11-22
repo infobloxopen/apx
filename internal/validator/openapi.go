@@ -18,7 +18,7 @@ func NewOpenAPIValidator(resolver *ToolchainResolver) *OpenAPIValidator {
 
 // Lint runs spectral lint on OpenAPI specs
 func (v *OpenAPIValidator) Lint(path string) error {
-	spectralPath, err := v.resolver.ResolveTool("spectral", "v6.11.0")
+	spectralPath, err := v.resolver.ResolveTool("spectral", "v6.15.0")
 	if err != nil {
 		return fmt.Errorf("failed to resolve spectral: %w", err)
 	}

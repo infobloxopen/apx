@@ -51,8 +51,8 @@ jobs:
           sudo mv /tmp/buf /usr/local/bin/buf
         fi
         
-        # Install spectral (Node.js based)
-        npm install -g @stoplight/spectral-cli@6.11.0
+        # Install spectral (Node.js based) - latest version fixes deprecation warnings
+        npm install -g @stoplight/spectral-cli@6.15.0
         
         # Install oasdiff using go install (latest stable version)
         go install github.com/oasdiff/oasdiff@v1.11.7
@@ -61,7 +61,7 @@ jobs:
         echo "Verifying tool installations..."
         buf --version || echo "buf not found"
         spectral --version || echo "spectral not found"
-        oasdiff version || echo "oasdiff not found"
+        oasdiff --help | head -1 || echo "oasdiff not found"
     
     - name: Build binary
       shell: bash

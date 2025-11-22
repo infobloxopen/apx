@@ -15,7 +15,7 @@ func TestToolchainResolver(t *testing.T) {
 		if runtime.GOOS == "windows" && os.Getenv("CI") == "1" {
 			t.Skip("Skipping on Windows CI - buf not in PATH")
 		}
-		
+
 		resolver := NewToolchainResolver()
 
 		path, err := resolver.ResolveTool("buf", "v1.45.0")
@@ -47,7 +47,7 @@ func TestToolchainResolver(t *testing.T) {
 
 		resolver := NewToolchainResolver(WithBundlePath(bundleDir))
 
-		path, err := resolver.ResolveTool("spectral", "v6.11.0")
+		path, err := resolver.ResolveTool("spectral", "v6.15.0")
 		require.NoError(t, err)
 		require.Equal(t, toolPath, path)
 	})
@@ -64,7 +64,7 @@ tools:
     version: v1.45.0
     checksum: abc123
   spectral:
-    version: v6.11.0
+    version: v6.15.0
     checksum: def456
 `
 		require.NoError(t, os.WriteFile(lockPath, []byte(lockContent), 0644))
