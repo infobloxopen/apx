@@ -123,14 +123,15 @@ func TestErrorHandling(t *testing.T) {
 
 	apxBinary := getRelativeBinaryPath()
 
-	// Test with invalid command
-	invalidCmd := exec.Command(apxBinary, "nonexistent")
+	// Test with invalid command - urfave/cli shows help for unknown commands
+	// and returns 0, so we test with invalid flags instead which should error
+	invalidCmd := exec.Command(apxBinary, "init", "--invalid-flag-that-does-not-exist")
 	invalidCmd.Env = append(os.Environ(), ciEnv, noColorEnv, disableTTY)
 	err = invalidCmd.Run()
-	require.Error(t, err)
+	require.Error(t, err, "Invalid flag should cause an error")
 
 	if exitError, ok := err.(*exec.ExitError); ok {
-		require.NotEqual(t, 0, exitError.ExitCode())
+		require.NotEqual(t, 0, exitError.ExitCode(), "Exit code should be non-zero for invalid flag")
 	}
 }
 

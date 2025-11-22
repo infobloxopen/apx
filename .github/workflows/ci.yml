@@ -39,6 +39,51 @@ jobs:
     - name: Verify dependencies
       run: go mod verify
     
+    - name: Install toolchain dependencies
+      shell: bash
+      run: |
+        echo "Installing validator toolchains..."
+        
+        # Install buf
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          mkdir -p "$HOME/bin"
+          curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.45.0/buf-Windows-x86_64.exe" -o "$HOME/bin/buf.exe"
+          chmod +x "$HOME/bin/buf.exe"
+          echo "$HOME/bin" >> $GITHUB_PATH
+        elif [[ "${{ runner.os }}" == "macOS" ]]; then
+          curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.45.0/buf-Darwin-arm64" -o /tmp/buf
+          chmod +x /tmp/buf
+          sudo mv /tmp/buf /usr/local/bin/buf
+        else
+          curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.45.0/buf-Linux-x86_64" -o /tmp/buf
+          chmod +x /tmp/buf
+          sudo mv /tmp/buf /usr/local/bin/buf
+        fi
+        
+        # Install spectral (Node.js based)
+        npm install -g @stoplight/spectral-cli@6.11.0
+        
+        # Install oasdiff
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          curl -sSL "https://github.com/Tufin/oasdiff/releases/download/v1.10.0/oasdiff_1.10.0_windows_amd64.tar.gz" -o oasdiff.tar.gz
+          tar -xzf oasdiff.tar.gz
+          mv oasdiff.exe "$HOME/bin/"
+        elif [[ "${{ runner.os }}" == "macOS" ]]; then
+          curl -sSL "https://github.com/Tufin/oasdiff/releases/download/v1.10.0/oasdiff_1.10.0_darwin_arm64.tar.gz" -o oasdiff.tar.gz
+          tar -xzf oasdiff.tar.gz
+          sudo mv oasdiff /usr/local/bin/
+        else
+          curl -sSL "https://github.com/Tufin/oasdiff/releases/download/v1.10.0/oasdiff_1.10.0_linux_amd64.tar.gz" -o oasdiff.tar.gz
+          tar -xzf oasdiff.tar.gz
+          sudo mv oasdiff /usr/local/bin/
+        fi
+        
+        # Verify installations
+        echo "Verifying tool installations..."
+        buf --version || echo "buf not found"
+        spectral --version || echo "spectral not found"
+        oasdiff version || echo "oasdiff not found"
+    
     - name: Build binary
       shell: bash
       run: |

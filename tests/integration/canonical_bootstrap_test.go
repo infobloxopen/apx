@@ -213,8 +213,13 @@ func TestCanonicalBootstrapWithGit(t *testing.T) {
 	}
 
 	// Configure git user for test
-	exec.Command("git", "config", "user.name", "Test User").Run()
-	exec.Command("git", "config", "user.email", "test@example.com").Run()
+	gitConfigName := exec.Command("git", "config", "user.name", "Test User")
+	gitConfigName.Dir = workspaceDir
+	gitConfigName.Run()
+
+	gitConfigEmail := exec.Command("git", "config", "user.email", "test@example.com")
+	gitConfigEmail.Dir = workspaceDir
+	gitConfigEmail.Run()
 
 	// Add all files
 	gitAdd := exec.Command("git", "add", ".")
