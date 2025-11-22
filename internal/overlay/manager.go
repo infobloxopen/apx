@@ -289,7 +289,7 @@ func (m *Manager) List() ([]Overlay, error) {
 			if err != nil {
 				return err
 			}
-			
+
 			// Normalize to forward slashes for cross-platform consistency
 			relPath = filepath.ToSlash(relPath)
 

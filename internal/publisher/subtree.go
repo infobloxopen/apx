@@ -27,7 +27,18 @@ func (p *SubtreePublisher) Split(moduleDir, branch string) (string, error) {
 	}
 
 	// Get relative path from repo root
-	relPath := strings.TrimPrefix(absPath, p.repoPath+"/")
+	absRepoPath, err := filepath.Abs(p.repoPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve repo path: %w", err)
+	}
+
+	relPath, err := filepath.Rel(absRepoPath, absPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get relative path: %w", err)
+	}
+
+	// Git always uses forward slashes, even on Windows
+	relPath = filepath.ToSlash(relPath)
 
 	// Run git subtree split
 	cmd := exec.Command("git", "subtree", "split", "--prefix="+relPath, "-b", branch)

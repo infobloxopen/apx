@@ -13,16 +13,15 @@ func TestCanonicalBootstrap(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
-	
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping on Windows - binary path execution issues")
-	}
 
 	// Create temporary directory for test
 	tmpDir := t.TempDir()
 
-	// Build apx binary
+	// Build apx binary with correct extension for Windows
 	apxBin := filepath.Join(tmpDir, "apx")
+	if runtime.GOOS == "windows" {
+		apxBin += ".exe"
+	}
 	buildCmd := exec.Command("go", "build", "-o", apxBin, "../../cmd/apx")
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build apx: %v\n%s", err, output)
@@ -157,10 +156,6 @@ func TestCanonicalBootstrapWithGit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
-	
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping on Windows - binary path execution issues")
-	}
 
 	// Check if git is available
 	if _, err := exec.LookPath("git"); err != nil {
@@ -170,8 +165,11 @@ func TestCanonicalBootstrapWithGit(t *testing.T) {
 	// Create temporary directory for test
 	tmpDir := t.TempDir()
 
-	// Build apx binary
+	// Build apx binary with correct extension for Windows
 	apxBin := filepath.Join(tmpDir, "apx")
+	if runtime.GOOS == "windows" {
+		apxBin += ".exe"
+	}
 	buildCmd := exec.Command("go", "build", "-o", apxBin, "../../cmd/apx")
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build apx: %v\n%s", err, output)
