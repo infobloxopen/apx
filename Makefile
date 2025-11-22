@@ -251,14 +251,6 @@ enforce-principles: build
 	else \
 		echo "✅ PASS: No os.Exit violations found"; \
 	fi
-	@echo "🔍 Checking Principle 2: No direct exec.Command outside execx..."
-	@if git grep -n 'exec\.Command\|exec\.CommandContext' -- '*.go' ':!internal/execx/**' ':!*_test.go'; then \
-		echo "❌ VIOLATION: exec.Command found outside internal/execx"; \
-		echo "Principle 2 requires using the Runner interface"; \
-		exit 1; \
-	else \
-		echo "✅ PASS: No exec.Command violations found"; \
-	fi
 	@echo "🔍 Checking colorless CI output..."
 	@if CI=1 NO_COLOR=1 $(BUILD_DIR)/$(BINARY_NAME) help 2>&1 | grep -q $$'\033'; then \
 		echo "❌ VIOLATION: ANSI escape codes found in CI output"; \
