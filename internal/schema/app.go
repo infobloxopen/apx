@@ -69,6 +69,8 @@ func (s *AppScaffolder) Generate(baseDir string) error {
 }
 
 func detectFormatFromPath(path string) string {
+	// Normalize path to use forward slashes for consistent detection
+	path = filepath.ToSlash(path)
 	if strings.Contains(path, "/proto/") {
 		return "proto"
 	}
@@ -103,6 +105,8 @@ version: v1
 func extractModuleName(path, format string) string {
 	// Extract module name from path
 	// Example: internal/apis/proto/payments/ledger/v1 -> payments.ledger.v1
+	// Normalize to forward slashes for consistent parsing
+	path = filepath.ToSlash(path)
 	parts := strings.Split(path, "/")
 
 	// Find the format directory and extract everything after it
@@ -318,6 +322,8 @@ coverage.out
 func (s *AppScaffolder) generateBufWorkYaml(path, modulePath string) error {
 	// Extract the base path for buf workspace (up to the format directory)
 	// Example: internal/apis/proto/payments/ledger/v1 -> internal/apis/proto/payments/ledger
+	// Normalize to forward slashes for consistent parsing
+	modulePath = filepath.ToSlash(modulePath)
 	parts := strings.Split(modulePath, "/")
 	var baseParts []string
 	for _, part := range parts {
@@ -327,6 +333,7 @@ func (s *AppScaffolder) generateBufWorkYaml(path, modulePath string) error {
 		}
 		baseParts = append(baseParts, part)
 	}
+	// Use forward slashes for YAML (cross-platform compatible)
 	workspacePath := strings.Join(baseParts, "/")
 
 	content := fmt.Sprintf(`version: v2

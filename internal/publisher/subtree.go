@@ -66,7 +66,9 @@ func (p *SubtreePublisher) Push(branch, remoteURL string) error {
 
 // PublishModule performs a complete publish: split and push
 func (p *SubtreePublisher) PublishModule(moduleDir, remoteURL, version string) (string, error) {
-	branchName := fmt.Sprintf("publish/%s", strings.ReplaceAll(moduleDir, "/", "-"))
+	// Normalize moduleDir to forward slashes for branch name
+	normalizedPath := filepath.ToSlash(moduleDir)
+	branchName := fmt.Sprintf("publish/%s", strings.ReplaceAll(normalizedPath, "/", "-"))
 
 	// Split subtree
 	commitHash, err := p.Split(moduleDir, branchName)
