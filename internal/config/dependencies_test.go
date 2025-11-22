@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -9,6 +10,18 @@ func TestAddDependency(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "apx.yaml")
 	lockPath := filepath.Join(tmpDir, "apx.lock")
+
+	// Create initial apx.yaml and apx.lock files
+	initialConfig := `dependencies: []
+`
+	initialLock := `dependencies: {}
+`
+	if err := os.WriteFile(configPath, []byte(initialConfig), 0644); err != nil {
+		t.Fatalf("failed to create initial apx.yaml: %v", err)
+	}
+	if err := os.WriteFile(lockPath, []byte(initialLock), 0644); err != nil {
+		t.Fatalf("failed to create initial apx.lock: %v", err)
+	}
 
 	tests := []struct {
 		name        string
@@ -69,6 +82,19 @@ func TestRemoveDependency(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "apx.yaml")
 	lockPath := filepath.Join(tmpDir, "apx.lock")
+
+	// Create initial apx.yaml and apx.lock files
+	initialConfig := `dependencies: []
+`
+	initialLock := `dependencies: {}
+`
+	if err := os.WriteFile(configPath, []byte(initialConfig), 0644); err != nil {
+		t.Fatalf("failed to create initial apx.yaml: %v", err)
+	}
+	if err := os.WriteFile(lockPath, []byte(initialLock), 0644); err != nil {
+		t.Fatalf("failed to create initial apx.lock: %v", err)
+	}
+
 	mgr := NewDependencyManager(configPath, lockPath)
 
 	// Add a dependency
@@ -97,6 +123,19 @@ func TestUpdateDependencyVersion(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "apx.yaml")
 	lockPath := filepath.Join(tmpDir, "apx.lock")
+
+	// Create initial apx.yaml and apx.lock files
+	initialConfig := `dependencies: []
+`
+	initialLock := `dependencies: {}
+`
+	if err := os.WriteFile(configPath, []byte(initialConfig), 0644); err != nil {
+		t.Fatalf("failed to create initial apx.yaml: %v", err)
+	}
+	if err := os.WriteFile(lockPath, []byte(initialLock), 0644); err != nil {
+		t.Fatalf("failed to create initial apx.lock: %v", err)
+	}
+
 	mgr := NewDependencyManager(configPath, lockPath)
 
 	// Add dependency
@@ -132,6 +171,19 @@ func TestListDependencies(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "apx.yaml")
 	lockPath := filepath.Join(tmpDir, "apx.lock")
+
+	// Create initial apx.yaml and apx.lock files
+	initialConfig := `dependencies: []
+`
+	initialLock := `dependencies: {}
+`
+	if err := os.WriteFile(configPath, []byte(initialConfig), 0644); err != nil {
+		t.Fatalf("failed to create initial apx.yaml: %v", err)
+	}
+	if err := os.WriteFile(lockPath, []byte(initialLock), 0644); err != nil {
+		t.Fatalf("failed to create initial apx.lock: %v", err)
+	}
+
 	mgr := NewDependencyManager(configPath, lockPath)
 
 	// Add multiple dependencies

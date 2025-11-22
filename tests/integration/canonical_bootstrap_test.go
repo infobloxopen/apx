@@ -113,7 +113,7 @@ func TestCanonicalBootstrap(t *testing.T) {
 			},
 		},
 		{
-			file: "catalog.yaml",
+			file: "catalog/catalog.yaml",
 			expectedContents: []string{
 				"version: 1",
 				"org: infoblox",

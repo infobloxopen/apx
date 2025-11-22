@@ -70,8 +70,8 @@ func TestCanonicalScaffold(t *testing.T) {
 			expectedFiles := []string{
 				"buf.yaml",
 				"CODEOWNERS",
-				"catalog.yaml",
 				"README.md",
+				"buf.work.yaml",
 			}
 
 			for _, file := range expectedFiles {
@@ -79,6 +79,12 @@ func TestCanonicalScaffold(t *testing.T) {
 				if _, err := os.Stat(filePath); os.IsNotExist(err) {
 					t.Errorf("Expected file not created: %s", file)
 				}
+			}
+
+			// Verify catalog/catalog.yaml was created
+			catalogPath := filepath.Join(tmpDir, "catalog", "catalog.yaml")
+			if _, err := os.Stat(catalogPath); os.IsNotExist(err) {
+				t.Errorf("Expected file not created: catalog/catalog.yaml")
 			}
 		})
 	}
@@ -152,10 +158,10 @@ func TestCatalogGeneration(t *testing.T) {
 		t.Fatalf("Generate() failed: %v", err)
 	}
 
-	catalogPath := filepath.Join(tmpDir, "catalog.yaml")
+	catalogPath := filepath.Join(tmpDir, "catalog", "catalog.yaml")
 	content, err := os.ReadFile(catalogPath)
 	if err != nil {
-		t.Fatalf("Failed to read catalog.yaml: %v", err)
+		t.Fatalf("Failed to read catalog/catalog.yaml: %v", err)
 	}
 
 	// Verify catalog.yaml contains expected content

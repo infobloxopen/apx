@@ -72,12 +72,18 @@ func TestInitCanonical_CLIOutput(t *testing.T) {
 	}
 
 	// Verify files were created
-	expectedFiles := []string{"buf.yaml", "CODEOWNERS", "catalog.yaml", "README.md"}
+	expectedFiles := []string{"buf.yaml", "CODEOWNERS", "README.md", "buf.work.yaml"}
 	for _, file := range expectedFiles {
 		filePath := filepath.Join(tmpDir, file)
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			t.Errorf("Expected file %s to exist", file)
 		}
+	}
+
+	// Verify catalog/catalog.yaml exists
+	catalogPath := filepath.Join(tmpDir, "catalog", "catalog.yaml")
+	if _, err := os.Stat(catalogPath); os.IsNotExist(err) {
+		t.Errorf("Expected file catalog/catalog.yaml to exist")
 	}
 }
 

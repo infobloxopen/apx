@@ -61,8 +61,8 @@ func TestAppScaffold(t *testing.T) {
 				t.Errorf("Expected module directory %s to exist", tt.modulePath)
 			}
 
-			// Verify apx.yaml was created in module directory
-			apxYamlPath := filepath.Join(modulePath, "apx.yaml")
+			// Verify apx.yaml was created at root
+			apxYamlPath := filepath.Join(tmpDir, "apx.yaml")
 			if _, err := os.Stat(apxYamlPath); os.IsNotExist(err) {
 				t.Errorf("Expected apx.yaml at %s", apxYamlPath)
 			}
@@ -95,8 +95,8 @@ func TestAppScaffoldProtoStructure(t *testing.T) {
 		t.Errorf("Expected example proto file at %s", exampleProto)
 	}
 
-	// Verify apx.yaml contains proto configuration
-	apxYaml := filepath.Join(moduleDir, "apx.yaml")
+	// Verify apx.yaml contains proto configuration (at root)
+	apxYaml := filepath.Join(tmpDir, "apx.yaml")
 	content, err := os.ReadFile(apxYaml)
 	if err != nil {
 		t.Fatalf("Failed to read apx.yaml: %v", err)
@@ -134,8 +134,8 @@ func TestAppScaffoldOpenAPIStructure(t *testing.T) {
 		t.Errorf("Expected example OpenAPI spec at %s", exampleSpec)
 	}
 
-	// Verify apx.yaml contains openapi configuration
-	apxYaml := filepath.Join(moduleDir, "apx.yaml")
+	// Verify apx.yaml contains openapi configuration (at root)
+	apxYaml := filepath.Join(tmpDir, "apx.yaml")
 	content, err := os.ReadFile(apxYaml)
 	if err != nil {
 		t.Fatalf("Failed to read apx.yaml: %v", err)
