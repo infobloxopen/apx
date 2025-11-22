@@ -26,7 +26,7 @@ func (v *JSONSchemaValidator) Lint(path string) error {
 
 	// Placeholder: actual implementation would use jsonschema validator
 	_ = absPath
-	return nil
+	return ErrNotImplemented
 }
 
 // Breaking runs jsonschema-diff to detect breaking changes

@@ -1,10 +1,14 @@
 package validator
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 )
+
+// ErrNotImplemented is returned when a validator method is not yet implemented
+var ErrNotImplemented = errors.New("validator not implemented")
 
 // SchemaFormat represents supported schema formats
 type SchemaFormat string

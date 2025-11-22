@@ -33,7 +33,7 @@ func (v *ParquetValidator) Lint(path string) error {
 
 	// Placeholder: actual implementation would parse and validate Parquet schema
 	_ = absPath
-	return nil
+	return ErrNotImplemented
 }
 
 // Breaking checks for breaking changes in Parquet schemas
@@ -57,5 +57,5 @@ func (v *ParquetValidator) Breaking(path, against string) error {
 		// Check that changes are additive and nullable only
 	}
 
-	return nil
+	return ErrNotImplemented
 }

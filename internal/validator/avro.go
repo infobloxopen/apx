@@ -64,5 +64,5 @@ func (v *AvroValidator) Breaking(path, against string) error {
 	_ = absPath
 	_ = absAgainst
 
-	return nil
+	return ErrNotImplemented
 }
