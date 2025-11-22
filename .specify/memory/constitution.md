@@ -14,7 +14,39 @@ The `/docs/` directory defines the **target state** for user experience and prod
 
 **Rationale:** Users depend on documented behavior. Documentation-first ensures intentional design, prevents feature drift, and maintains consistency across the product lifecycle.
 
-### II. Test-First Development (NON-NEGOTIABLE)
+### II. Cross-Platform Path Operations (NON-NEGOTIABLE)
+All path operations MUST work identically on Unix (Linux/macOS) and Windows systems.
+
+**Rules:**
+- **Use `filepath` package**: All file system operations MUST use `filepath.Join()`, `filepath.Rel()`, `filepath.Abs()`, etc.
+- **Normalize for git/config**: Use `filepath.ToSlash()` before any string-based path manipulation (Split/Join/Contains/HasPrefix/TrimPrefix)
+- **Git operations**: Always use forward slashes for git paths, branch names, and configuration files (git expects forward slashes even on Windows)
+- **Module paths**: Normalize paths to forward slashes for module names, import paths, and YAML/JSON configuration
+- **Binary names**: Add `.exe` extension on Windows for executable files (`runtime.GOOS == "windows"`)
+- **Never hardcode separators**: No string literals with `/` or `\` for path construction or manipulation
+- **Test on Windows CI**: All path-related code MUST pass tests on Windows GitHub Actions runners
+
+**Forbidden patterns:**
+```go
+// ❌ WRONG - hardcoded separator
+strings.Split(path, "/")
+strings.TrimPrefix(absPath, repoPath + "/")
+branchName := "publish/" + moduleDir  // fails on Windows
+
+// ✅ CORRECT - normalize then manipulate
+path = filepath.ToSlash(path)
+strings.Split(path, "/")
+
+relPath, _ := filepath.Rel(repoPath, absPath)
+relPath = filepath.ToSlash(relPath)  // for git operations
+
+normalizedPath := filepath.ToSlash(moduleDir)
+branchName := "publish/" + normalizedPath
+```
+
+**Rationale:** APX must work on developer machines across all platforms. Windows uses backslashes for file paths but git operations require forward slashes. Inconsistent path handling causes failures in schema detection, git operations, and configuration generation.
+
+### III. Test-First Development (NON-NEGOTIABLE)
 Every feature follows strict TDD: Tests written → User/reviewer approval → Tests fail (Red) → Implement (Green) → Refactor.
 
 **Rules:**
@@ -264,7 +296,16 @@ This constitution supersedes all other development practices and guidelines. All
 **Version Control:**
 - Constitution changes increment version following semver:
   - MAJOR: Backward-incompatible principle changes (e.g., removing a core principle)
-  - MINOR: New principles or expanded guidance (e.g., adding GitHub testing requirement)
+  - MINOR: New principles or expanded guidance (e.g., adding cross-platform path requirement)
   - PATCH: Clarifications, typo fixes, non-semantic refinements
 
-**Version**: 1.0.0 | **Ratified**: 2025-11-21 | **Last Amended**: 2025-11-21
+**Version**: 1.1.0 | **Ratified**: 2025-11-21 | **Last Amended**: 2025-11-22
+
+## Changelog
+
+### v1.1.0 (2025-11-22)
+- **ADDED**: Section II "Cross-Platform Path Operations" as non-negotiable requirement
+- Ensures all path operations work identically on Unix and Windows systems
+- Mandates use of `filepath` package and normalization with `filepath.ToSlash()` for git/config operations
+- Requires Windows CI testing for all path-related code
+- Renumbered subsequent sections (Test-First Development is now III, etc.)
