@@ -32,7 +32,7 @@ APX implements a two-repository pattern:
 
 ## Quick Start
 
-See the [Quick Start Guide](https://infobloxopen.github.io/apx/getting-started/quickstart/) for a comprehensive walkthrough.
+See the [Quick Start Guide](https://infobloxopen.github.io/apx/getting-started/quickstart.html) for a comprehensive walkthrough.
 
 ### 1. Bootstrap Canonical Repository
 
