@@ -1,0 +1,469 @@
+openapi: 3.1.0
+info:
+  title: APX Management API
+  version: 0.1.0
+  description: |
+    Service surface enabling automation of the documentation-driven workflows described in `/docs/getting-started/quickstart.md`.
+    The CLI delegates to these endpoints when running in managed mode or connected automation.
+servers:
+  - url: https://apx.example.com
+    description: Managed APX control plane (optional for self-hosted adopters)
+  - url: http://localhost:8080
+    description: Local developer instance (used in tests)
+paths:
+  /canonical/bootstrap:
+    post:
+      summary: Initialize canonical repository structure and policies
+      description: Mirrors the `apx init canonical` command, generating structure, policy files, and catalog scaffolding.
+      operationId: bootstrapCanonicalRepo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanonicalBootstrapRequest'
+      responses:
+        '200':
+          description: Canonical repository scaffolded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CanonicalBootstrapResponse'
+        '409':
+          description: Repository already initialized or conflicting structure detected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /app/bootstrap:
+    post:
+      summary: Initialize application repository for schema authoring
+      description: Mirrors the `apx init app` command, scaffolding schema directories, config files, and lock state.
+      operationId: bootstrapAppRepo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppBootstrapRequest'
+      responses:
+        '200':
+          description: Application repository initialized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppBootstrapResponse'
+        '409':
+          description: Requested module path already initialized or conflicting files present
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /schemas/{format}/{domain}/{api}/{major}/validate:
+    post:
+      summary: Run lint and breaking checks for a schema module
+      description: Executes the validator pipeline equivalent to `apx lint` + `apx breaking`.
+      operationId: validateSchema
+      parameters:
+        - $ref: '#/components/parameters/FormatParam'
+        - $ref: '#/components/parameters/DomainParam'
+        - $ref: '#/components/parameters/ApiParam'
+        - $ref: '#/components/parameters/MajorVersionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchemaValidationRequest'
+      responses:
+        '200':
+          description: Validation executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaValidationResponse'
+        '422':
+          description: Validation failed with blocking issues
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaValidationResponse'
+  /schemas/{format}/{domain}/{api}/{major}/publish:
+    post:
+      summary: Publish a schema version to canonical repository
+      description: Implements `apx publish`, invoking git subtree, tagging, and catalog updates.
+      operationId: publishSchema
+      parameters:
+        - $ref: '#/components/parameters/FormatParam'
+        - $ref: '#/components/parameters/DomainParam'
+        - $ref: '#/components/parameters/ApiParam'
+        - $ref: '#/components/parameters/MajorVersionParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchemaPublishRequest'
+      responses:
+        '202':
+          description: Publish workflow enqueued (PR opened against canonical repo)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaPublishResponse'
+        '409':
+          description: Publish blocked due to git conflicts or version mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /catalog/search:
+    post:
+      summary: Discover APIs available in the canonical repository
+      description: Supports the `apx search` experience used by consumers.
+      operationId: searchCatalog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogSearchRequest'
+      responses:
+        '200':
+          description: Matching catalog entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogSearchResponse'
+  /overlays:
+    post:
+      summary: Generate or refresh dependency overlays for consumers
+      description: Aligns with `apx gen` + `apx sync`, returning overlay instructions and go.work entries.
+      operationId: createOverlay
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OverlayRequest'
+      responses:
+        '200':
+          description: Overlay generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverlayResponse'
+components:
+  parameters:
+    FormatParam:
+      name: format
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [proto, openapi, avro, jsonschema, parquet]
+    DomainParam:
+      name: domain
+      in: path
+      required: true
+      schema:
+        type: string
+    ApiParam:
+      name: api
+      in: path
+      required: true
+      schema:
+        type: string
+    MajorVersionParam:
+      name: major
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^v[0-9]+$'
+  schemas:
+    CanonicalBootstrapRequest:
+      type: object
+      required: [org, repository, formats, enableCatalog]
+      properties:
+        org:
+          type: string
+          description: GitHub organization slug
+        repository:
+          type: string
+          default: apis
+        formats:
+          type: array
+          items:
+            type: string
+            enum: [proto, openapi, avro, jsonschema, parquet]
+        enableCatalog:
+          type: boolean
+          default: true
+        branchProtection:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ProtectionRule'
+        tagProtectionPatterns:
+          type: array
+          items:
+            type: string
+            example: proto/**/v*
+        toolchainProfileId:
+          type: string
+          description: Identifier referencing `apx.lock`
+    CanonicalBootstrapResponse:
+      type: object
+      required: [org, repository, filesCreated]
+      properties:
+        org:
+          type: string
+        repository:
+          type: string
+        filesCreated:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+    AppBootstrapRequest:
+      type: object
+      required: [modulePath, format]
+      properties:
+        modulePath:
+          type: string
+          description: Relative path for schema sources
+        format:
+          type: string
+          enum: [proto, openapi, avro, jsonschema, parquet]
+        languages:
+          type: array
+          items:
+            type: string
+        interactive:
+          type: boolean
+          default: false
+        org:
+          type: string
+          description: Used to configure canonical import paths
+    AppBootstrapResponse:
+      type: object
+      required: [modulePath, filesCreated, apxConfig]
+      properties:
+        modulePath:
+          type: string
+        filesCreated:
+          type: array
+          items:
+            type: string
+        apxConfig:
+          $ref: '#/components/schemas/ApxConfigSummary'
+    SchemaValidationRequest:
+      type: object
+      required: [reference, toolchainProfileId]
+      properties:
+        reference:
+          type: string
+          description: Git ref or tag to compare against (defaults to `main`)
+        toolchainProfileId:
+          type: string
+        additionalChecks:
+          type: array
+          items:
+            type: string
+            example: ['lint', 'breaking']
+    SchemaValidationResponse:
+      type: object
+      required: [format, status, reports]
+      properties:
+        format:
+          type: string
+        status:
+          type: string
+          enum: [pass, warn, fail]
+        reports:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationReport'
+    SchemaPublishRequest:
+      type: object
+      required: [version, sourceTag, canonicalRepo]
+      properties:
+        version:
+          type: string
+          description: SemVer string, e.g., v1.2.3
+        sourceTag:
+          type: string
+          description: App repository tag (proto/...)
+        canonicalRepo:
+          type: string
+          description: Destination repo URI
+        commitMessage:
+          type: string
+        reviewers:
+          type: array
+          items:
+            type: string
+    SchemaPublishResponse:
+      type: object
+      required: [pullRequestUrl, status]
+      properties:
+        pullRequestUrl:
+          type: string
+        status:
+          type: string
+          enum: [queued, completed]
+        tagCreated:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+    CatalogSearchRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        format:
+          type: string
+          enum: [proto, openapi, avro, jsonschema, parquet]
+        owners:
+          type: array
+          items:
+            type: string
+        includeDeprecated:
+          type: boolean
+          default: false
+    CatalogSearchResponse:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogEntry'
+    OverlayRequest:
+      type: object
+      required: [schemaRef, languages]
+      properties:
+        schemaRef:
+          $ref: '#/components/schemas/SchemaRef'
+        languages:
+          type: array
+          minItems: 1
+          items:
+            type: string
+        preferPublishedModule:
+          type: boolean
+          default: false
+    OverlayResponse:
+      type: object
+      required: [overlays]
+      properties:
+        overlays:
+          type: array
+          items:
+            $ref: '#/components/schemas/OverlayEntry'
+        goWorkEntries:
+          type: array
+          items:
+            type: string
+        instructions:
+          type: array
+          items:
+            type: string
+    ProtectionRule:
+      type: object
+      properties:
+        requiredApprovals:
+          type: integer
+          minimum: 1
+        checks:
+          type: array
+          items:
+            type: string
+        enforceAdmins:
+          type: boolean
+    ApxConfigSummary:
+      type: object
+      properties:
+        apis:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchemaRef'
+        codegen:
+          type: object
+          properties:
+            languages:
+              type: array
+              items:
+                type: string
+            out:
+              type: string
+    ValidationReport:
+      type: object
+      required: [tool, status]
+      properties:
+        tool:
+          type: string
+        status:
+          type: string
+          enum: [pass, warn, fail]
+        output:
+          type: string
+    CatalogEntry:
+      type: object
+      required: [format, domain, api, latestVersion]
+      properties:
+        format:
+          type: string
+        domain:
+          type: string
+        api:
+          type: string
+        latestVersion:
+          type: string
+        owners:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+    SchemaRef:
+      type: object
+      required: [format, domain, api, major]
+      properties:
+        format:
+          type: string
+        domain:
+          type: string
+        api:
+          type: string
+        major:
+          type: string
+    OverlayEntry:
+      type: object
+      required: [language, path, module]
+      properties:
+        language:
+          type: string
+        path:
+          type: string
+        module:
+          type: string
+        version:
+          type: string
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: string

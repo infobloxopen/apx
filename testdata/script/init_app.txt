@@ -1,0 +1,55 @@
+# Test: apx init app
+# Verifies app repository scaffolding with module structure
+
+# Setup test environment
+mkdir app-repo
+cd app-repo
+exec git init
+exec git config user.name "Test User"
+exec git config user.email "test@example.com"
+
+# Run apx init app with proto module
+exec apx init app --org=myorg --non-interactive internal/apis/proto/payments/ledger/v1
+
+# Verify module directory structure
+exists internal/apis/proto/payments/ledger/v1/
+exists apx.yaml
+exists internal/apis/proto/payments/ledger/v1/ledger.proto
+
+# Verify root .gitignore
+exists .gitignore
+grep 'internal/gen/' .gitignore
+
+# Verify apx.yaml content at workspace root
+grep 'kind: proto' apx.yaml
+grep 'module: payments.ledger.v1' apx.yaml
+grep 'org: myorg' apx.yaml
+
+# Verify example proto file has package declaration
+grep 'package payments.ledger.v1' internal/apis/proto/payments/ledger/v1/ledger.proto
+
+# Test OpenAPI module scaffolding
+cd ..
+mkdir app-openapi
+cd app-openapi
+exec git init
+exec apx init app --org=testorg --non-interactive internal/apis/openapi/inventory/v2
+
+# Verify OpenAPI structure
+exists internal/apis/openapi/inventory/v2/
+exists apx.yaml
+exists internal/apis/openapi/inventory/v2/inventory.yaml
+
+# Verify OpenAPI apx.yaml at workspace root
+grep 'kind: openapi' apx.yaml
+grep 'module: inventory/v2' apx.yaml
+
+# Test with missing org (should fail)
+cd ..
+mkdir app-fail
+cd app-fail
+! exec apx init app --non-interactive internal/apis/proto/test/v1
+
+# Cleanup
+cd ..
+rm -rf app-repo app-openapi app-fail

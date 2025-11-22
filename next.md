@@ -7,22 +7,10 @@ You are a senior Go engineer implementing a cross-platform CLI. Your primary obj
 
 1. **Separate core from CLI**
 
-   * All business logic lives in internal packages (e.g., `semver`, `policy`, `execx`, `config`).
+   * All business logic lives in internal packages (e.g., `semver`, `policy`, `config`).
    * The command layer only parses flags and calls internal packages.
 
-2. **Testable exec runner**
-
-   * Define an interface:
-
-     ```go
-     type Runner interface {
-       Run(ctx context.Context, name string, args []string, env []string, wd string) (stdout, stderr string, exit int, err error)
-     }
-     ```
-   * Provide a real implementation (uses `exec.CommandContext`) and a fake for unit tests.
-   * Allow tests to place stub binaries on `PATH` to simulate external tools.
-
-3. **No `os.Exit` in library code**
+2. **No `os.Exit` in library code**
 
    * Commands return `error`.
    * Only `main()` maps errors to exit codes via a small helper:
@@ -32,25 +20,25 @@ You are a senior Go engineer implementing a cross-platform CLI. Your primary obj
      ```
    * Export `NewRootCmd()` (Cobra) or `NewApp()` (urfave/cli) to enable in-process command tests.
 
-4. **Deterministic output**
+3. **Deterministic output**
 
    * Support `--json`, `--no-color`, and `--quiet` flags.
    * Disable TTY spinners when `CI=1` or when not a TTY.
    * Inject `clock` and `rand` where time/entropy is used.
    * Normalize path separators and line endings for tests.
 
-5. **Filesystem strategy**
+4. **Filesystem strategy**
 
    * Use real FS in tests with `t.TempDir()`; keep FS-touching code isolated behind small functions.
    * Prefer no global CWD mutation; accept `--workdir` or inject WD in code paths.
 
-6. **Golden tests**
+5. **Golden tests**
 
    * Provide a `-update` flag in tests to refresh goldens.
    * Normalize `\r\n`→`\n`.
    * Store goldens under `testdata/golden/`.
 
-7. **Testscript workflows**
+6. **Testscript workflows**
 
    * Use `rogpeppe/go-internal/testscript` for end-to-end scenarios under `testdata/script/`.
    * Include a reusable `apx` command wrapper in the harness to run the built binary and assert exit codes/stdout/stderr.
@@ -110,11 +98,6 @@ You are a senior Go engineer implementing a cross-platform CLI. Your primary obj
     ```bash
     ! git grep -n 'os\\.Exit' -- ':!cmd/**/main.go'
     ```
-  * **No direct `exec.Command`** outside `internal/execx`:
-
-    ```bash
-    ! git grep -n 'exec\\.Command' -- ':!internal/execx/**'
-    ```
   * **Colorless CI**: set `CI=1` and `NO_COLOR=1` env; tests must pass with identical outputs across OSes.
 
 ---
@@ -129,8 +112,7 @@ You are a senior Go engineer implementing a cross-platform CLI. Your primary obj
 * Testscript scenarios pass on all three OSes.
 * CI grep checks confirm:
 
-  * no `os.Exit` outside `main.go`,
-  * no direct `exec.Command` outside `internal/execx`.
+  * no `os.Exit` outside `main.go`.
 
 ---
 
@@ -149,4 +131,4 @@ You are a senior Go engineer implementing a cross-platform CLI. Your primary obj
 * CI workflow file that enforces the grep gates and runs e2e + testscript.
 * `CONTRIBUTING.md` explaining how to run unit, e2e, golden, and testscript tests.
 
-> **Do not proceed** unless each Principle (1–7) is demonstrably enforced by tests and CI gates.
+> **Do not proceed** unless each Principle (1–6) is demonstrably enforced by tests and CI gates.

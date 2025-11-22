@@ -12,6 +12,18 @@ import (
 )
 
 func TestScript(t *testing.T) {
+	// Build the binary once before running tests to avoid race conditions
+	binPath := filepath.Join(".", "bin", getBinaryName("apx"))
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
+		// Binary not pre-built, build it now
+		if err := os.MkdirAll("./bin", 0755); err != nil {
+			t.Fatalf("failed to create bin directory: %v", err)
+		}
+		if err := buildBinary(binPath); err != nil {
+			t.Fatalf("failed to build binary: %v", err)
+		}
+	}
+
 	testscript.Run(t, testscript.Params{
 		Dir:                 "testdata/script",
 		Setup:               setupTestScript,
@@ -105,14 +117,15 @@ func copyFile(src, dst string) error {
 	}
 	defer srcFile.Close()
 
-	dstFile, err := os.Create(dst)
+	// Read entire file into memory first to avoid holding file open
+	data, err := io.ReadAll(srcFile)
 	if err != nil {
 		return err
 	}
-	defer dstFile.Close()
+	srcFile.Close()
 
-	_, err = io.Copy(dstFile, srcFile)
-	return err
+	// Write to destination atomically
+	return os.WriteFile(dst, data, 0755)
 }
 
 // buildBinary builds the apx binary to the specified path

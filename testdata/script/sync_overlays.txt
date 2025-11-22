@@ -1,0 +1,33 @@
+# Test apx sync command
+#
+# This scenario verifies overlay synchronization with go.work
+
+# Setup: Create app with dependencies
+mkdir app
+cd app
+exec git init
+exec apx init app --org=testorg --non-interactive internal/apis/proto/services/users
+exec apx add proto/payments/ledger/v1@v1.2.3
+exec apx add openapi/customer/accounts/v2@v2.0.0
+
+# Generate code for both dependencies
+exec apx gen go
+
+# Verify go.work has both overlays
+exec apx sync
+exists go.work
+grep './internal/gen/go/proto/payments/ledger/v1' go.work
+grep './internal/gen/go/openapi/customer/accounts/v2' go.work
+
+# Add new dependency and sync
+exec apx add proto/payments/wallet/v1@v1.0.0
+exec apx gen go
+exec apx sync
+grep './internal/gen/go/proto/payments/wallet/v1' go.work
+
+# Verify sync is idempotent
+exec apx sync
+grep './internal/gen/go/proto/payments/ledger/v1' go.work
+
+# Verify .gitignore includes generated code
+grep 'internal/gen' .gitignore

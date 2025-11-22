@@ -1,0 +1,31 @@
+# Test apx add command
+#
+# This scenario verifies the add command can add dependencies to apx.yaml
+
+# Setup: Create a test app repo
+mkdir app
+cd app
+exec git init
+exec apx init app --org=testorg --non-interactive internal/apis/proto/services/users
+
+# Add a dependency
+exec apx add proto/payments/ledger/v1@v1.2.3
+exists apx.lock
+
+# Verify dependency added to apx.yaml
+grep 'proto/payments/ledger/v1' apx.yaml
+
+# Verify version locked in apx.lock
+grep 'v1.2.3' apx.lock
+
+# Try to add same dependency again (should update version)
+exec apx add proto/payments/ledger/v1@v1.3.0
+grep 'v1.3.0' apx.lock
+
+# Add multiple dependencies
+exec apx add openapi/customer/accounts/v2@v2.0.0
+grep 'openapi/customer/accounts/v2' apx.yaml
+
+# Add without version (should fetch latest)
+exec apx add proto/payments/wallet/v1
+grep 'proto/payments/wallet/v1' apx.yaml

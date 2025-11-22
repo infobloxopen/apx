@@ -1,0 +1,28 @@
+# Test: apx lint
+# Verifies lint command basic functionality
+
+# Setup test environment
+mkdir proto-test
+cd proto-test
+
+# Initialize app repo with proto
+exec apx init app --org=testorg --non-interactive internal/apis/proto/test/v1
+
+# Verify the proto file exists
+exists internal/apis/proto/test/v1/test.proto
+
+# Test lint command invocation (will fail without buf installed, but verifies command works)
+# The actual validation happens in integration tests with proper tooling
+! exec apx lint internal/apis/proto/test/v1/test.proto
+stderr 'buf'
+
+# Test format detection
+! exec apx lint --format=proto internal/apis/proto/test/v1/test.proto
+stderr 'buf'
+
+# Test with non-existent file (should fail)
+! exec apx lint /tmp/nonexistent_file_12345.proto
+
+# Cleanup
+cd ..
+rm -rf proto-test

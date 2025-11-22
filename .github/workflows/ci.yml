@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: [1.24.x]
+        go-version: ['1.24.x']
     
     runs-on: ${{ matrix.os }}
     
@@ -22,22 +22,46 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
-    
-    - name: Cache Go modules
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+        cache: true
     
     - name: Download dependencies
       run: go mod download
     
     - name: Verify dependencies
       run: go mod verify
+    
+    - name: Install toolchain dependencies
+      shell: bash
+      run: |
+        echo "Installing validator toolchains..."
+        
+        # Install buf
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          mkdir -p "$HOME/bin"
+          curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.45.0/buf-Windows-x86_64.exe" -o "$HOME/bin/buf.exe"
+          chmod +x "$HOME/bin/buf.exe"
+          echo "$HOME/bin" >> $GITHUB_PATH
+        elif [[ "${{ runner.os }}" == "macOS" ]]; then
+          curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.45.0/buf-Darwin-arm64" -o /tmp/buf
+          chmod +x /tmp/buf
+          sudo mv /tmp/buf /usr/local/bin/buf
+        else
+          curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.45.0/buf-Linux-x86_64" -o /tmp/buf
+          chmod +x /tmp/buf
+          sudo mv /tmp/buf /usr/local/bin/buf
+        fi
+        
+        # Install spectral (Node.js based) - latest version fixes deprecation warnings
+        npm install -g @stoplight/spectral-cli@6.15.0
+        
+        # Install oasdiff using go install (latest stable version)
+        go install github.com/oasdiff/oasdiff@v1.11.7
+        
+        # Verify installations
+        echo "Verifying tool installations..."
+        buf --version || echo "buf not found"
+        spectral --version || echo "spectral not found"
+        oasdiff --help | head -1 || echo "oasdiff not found"
     
     - name: Build binary
       shell: bash

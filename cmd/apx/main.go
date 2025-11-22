@@ -21,6 +21,9 @@ func main() {
 	ui.InitializeFromEnv()
 	app := NewApp()
 	err := app.RunContext(context.Background(), os.Args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	}
 	os.Exit(exitCode(err))
 }
 
@@ -83,6 +86,10 @@ func NewApp() *cli.App {
 			commands.PolicyCommand(),
 			commands.CatalogCommand(),
 			commands.PublishCommand(),
+			commands.SearchCommand(),
+			commands.AddCommand(),
+			commands.SyncCommand(),
+			commands.UnlinkCommand(),
 			commands.ConfigCommand(),
 		},
 	}

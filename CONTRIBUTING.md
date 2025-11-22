@@ -229,14 +229,13 @@ apx/
 ├── cmd/apx/               # CLI entry point
 ├── internal/              # Internal packages
 │   ├── config/           # Configuration management
-│   ├── execx/            # External tool execution
-│   ├── protoval/         # Protocol Buffer validation
-│   ├── openapival/       # OpenAPI validation
-│   ├── policy/           # Policy enforcement
-│   ├── semver/           # Semantic versioning
-│   ├── gitx/             # Git operations
-│   ├── gen/              # Code generation
 │   ├── catalog/          # Module discovery
+│   ├── detector/         # Project type detection
+│   ├── interactive/      # Interactive setup
+│   ├── overlay/          # Overlay management
+│   ├── publisher/        # Publishing workflows
+│   ├── schema/           # Schema scaffolding
+│   ├── validator/        # Multi-format validation
 │   └── ui/               # User interface
 ├── scripts/              # Helper scripts
 └── testdata/             # Test fixtures

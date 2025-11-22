@@ -1,0 +1,59 @@
+# Test: apx publish
+# Verifies publish workflow with git subtree (dry-run mode for testing)
+
+# Setup app repository
+mkdir app-repo
+cd app-repo
+exec git init
+exec git config user.name 'Test User'
+exec git config user.email 'test@example.com'
+
+# Initialize app with proto module
+exec apx init app --org=myorg --non-interactive internal/apis/proto/payments/ledger/v1
+
+# Verify the module structure was created
+exists internal/apis/proto/payments/ledger/v1/ledger.proto
+exists apx.yaml
+
+# Commit the initial module
+exec git add .
+exec git commit -m 'Add ledger API v1.0.0'
+
+# Create a tag for the module version
+exec git tag proto/payments/ledger/v1/v1.0.0
+
+# Test dry-run publish (should succeed without actual git operations)
+exec apx publish --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis --dry-run
+stdout 'Dry-run mode'
+stdout 'internal/apis/proto/payments/ledger/v1'
+stdout 'github.com/myorg/apis'
+
+# Make a second commit to test against previous version
+exec git commit --allow-empty -m 'Second commit'
+
+# Verify lint works before publishing
+! exec apx lint internal/apis/proto/payments/ledger/v1/ledger.proto
+stderr 'buf'
+
+# Verify breaking detection works
+! exec apx breaking --against=HEAD~1 internal/apis/proto/payments/ledger/v1/ledger.proto
+stderr 'buf'
+
+# Test publish with version flag
+exec apx publish --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis --version=v1.0.1 --dry-run
+stdout 'v1.0.1'
+
+# Test with missing required flags
+! exec apx publish
+stderr 'module-path'
+
+! exec apx publish --module-path=internal/apis/proto/payments/ledger/v1
+stderr 'canonical-repo'
+
+# Test with non-existent module path
+! exec apx publish --module-path=nonexistent/path --canonical-repo=github.com/test/apis
+stderr 'does not exist'
+
+# Cleanup
+cd ..
+rm -rf app-repo

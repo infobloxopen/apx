@@ -1,0 +1,38 @@
+# Test apx unlink command
+#
+# This scenario verifies unlinking overlays and switching to published modules
+
+# Setup: Create app with overlays
+mkdir app
+cd app
+exec git init
+exec apx init app --org=testorg --non-interactive internal/apis/proto/services/users
+
+# Initialize go module (required for Go apps)
+exec go mod init example.com/myapp
+
+exec apx add proto/payments/ledger/v1@v1.2.3
+exec apx gen go
+exec apx sync
+
+# Verify overlay is active
+exists go.work
+grep './internal/gen/go/proto/payments/ledger/v1' go.work
+
+# Unlink the dependency (switch to published module)
+exec apx unlink proto/payments/ledger/v1
+
+# Verify overlay removed from go.work
+exists go.work
+! grep './internal/gen/go/proto/payments/ledger/v1' go.work
+
+# Verify generated code can be removed
+! exists internal/gen/go/proto/payments/ledger/v1
+
+# Note: After unlinking, user would run:
+# go get github.com/testorg/apis-go/proto/payments/ledger/v1
+# to add the published module to go.mod
+
+# Try unlinking non-existent dependency
+! exec apx unlink proto/nonexistent/api/v1
+stderr 'not found'

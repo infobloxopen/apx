@@ -1,8 +1,12 @@
 package commands
 
 import (
-	"github.com/infobloxopen/apx/internal/config"
+	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/infobloxopen/apx/internal/ui"
+	"github.com/infobloxopen/apx/internal/validator"
 	"github.com/urfave/cli/v2"
 )
 
@@ -10,13 +14,18 @@ import (
 func BreakingCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "breaking",
-		Usage:     "Check for breaking changes",
+		Usage:     "Check for breaking changes in schema files",
 		ArgsUsage: "[path]",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "against",
-				Usage:    "git reference to compare against",
+				Usage:    "git reference or path to compare against",
 				Required: true,
+			},
+			&cli.StringFlag{
+				Name:    "format",
+				Aliases: []string{"f"},
+				Usage:   "Schema format (proto, openapi, avro, jsonschema, parquet)",
 			},
 		},
 		Action: breakingAction,
@@ -24,24 +33,57 @@ func BreakingCommand() *cli.Command {
 }
 
 func breakingAction(c *cli.Context) error {
-	path := c.Args().First()
-	if path == "" {
-		path = "."
+	// Get path from args or default to current directory
+	path := "."
+	if c.Args().Len() > 0 {
+		path = c.Args().First()
 	}
-	against := c.String("against")
 
-	cfg, err := loadConfig(c)
+	// Get the baseline to compare against
+	against := c.String("against")
+	if against == "" {
+		return fmt.Errorf("--against flag is required")
+	}
+
+	// Resolve absolute paths
+	absPath, err := filepath.Abs(path)
 	if err != nil {
-		ui.Error("Failed to load config: %v", err)
+		return fmt.Errorf("failed to resolve path: %w", err)
+	}
+
+	// Check if path exists
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		return fmt.Errorf("path does not exist: %s", absPath)
+	}
+
+	// Create toolchain resolver with default settings
+	resolver := validator.NewToolchainResolver()
+
+	// Create validator
+	v := validator.NewValidator(resolver)
+
+	// Detect or use specified format
+	format := validator.FormatUnknown
+	if formatStr := c.String("format"); formatStr != "" {
+		format = validator.SchemaFormat(formatStr)
+	} else {
+		format = validator.DetectFormat(absPath)
+	}
+
+	// Validate format
+	if format == validator.FormatUnknown {
+		return fmt.Errorf("could not detect schema format for: %s\nPlease specify format with --format flag", absPath)
+	}
+
+	// Run breaking change detection
+	ui.Info("Checking %s for breaking changes against: %s", format, against)
+
+	err = v.Breaking(absPath, against, format)
+	if err != nil {
+		ui.Error("Breaking changes detected: %v", err)
 		return err
 	}
 
-	return checkBreaking(cfg, path, against)
-}
-
-func checkBreaking(cfg *config.Config, path, against string) error {
-	// TODO: Implement breaking change detection in internal/validator package
-	ui.Info("Checking for breaking changes in %s against %s...", path, against)
-	ui.Success("No breaking changes detected")
+	ui.Success("✓ No breaking changes detected")
 	return nil
 }
