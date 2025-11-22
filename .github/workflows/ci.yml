@@ -63,8 +63,8 @@ jobs:
         # Install spectral (Node.js based)
         npm install -g @stoplight/spectral-cli@6.11.0
         
-        # Install oasdiff using go install (cross-platform, simpler)
-        go install github.com/oasdiff/oasdiff@v1.10.0
+        # Install oasdiff using go install (latest stable version)
+        go install github.com/oasdiff/oasdiff@v1.11.7
         
         # Verify installations
         echo "Verifying tool installations..."
