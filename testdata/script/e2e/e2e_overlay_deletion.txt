@@ -1,0 +1,60 @@
+# Test: Overlay Deletion Recovery (Edge Case)
+# Validates that apx sync handles manual overlay deletion gracefully.
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Step 1: Create app with dependencies
+mkdir app
+cd app
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/overlay/v1
+exists apx.yaml
+
+# Add dependencies
+exec apx add proto/common/v1@v1.0.0
+exec apx add proto/payments/ledger/v1@v1.0.0
+exists apx.lock
+
+# Verify dependencies in apx.yaml
+exec grep 'proto/common/v1' apx.yaml
+exec grep 'proto/payments/ledger/v1' apx.yaml
+
+exec git add .
+exec git commit -m 'App with two dependencies'
+
+# Step 2: Generate overlays
+exec apx gen go
+exists internal/gen/go/proto/common/v1
+exists internal/gen/go/proto/payments/ledger/v1
+
+# Step 3: Sync to create go.work
+exec apx sync
+exists go.work
+
+# Step 4: Manually delete one overlay (simulate accidental deletion)
+exec rm -rf internal/gen/go/proto/common/v1
+
+# Verify it's gone
+! exists internal/gen/go/proto/common/v1
+
+# Still exists
+exists internal/gen/go/proto/payments/ledger/v1
+
+# Step 5: Re-generate should restore the deleted overlay
+exec apx gen go
+exists internal/gen/go/proto/common/v1
+exists internal/gen/go/proto/payments/ledger/v1
+
+# Step 6: Sync should still work
+exec apx sync
+exists go.work
+
+cd ..
+
+# Success: Overlay deletion recovery validated
+# - Manually deleted overlays can be regenerated
+# - Remaining overlays are unaffected
+# - go.work is maintained after regeneration

@@ -23,6 +23,10 @@ go.work
 # Bin directory
 bin/*
 
+# kuberlr cached binaries
+.kuberlr/
+tests/e2e/.kuberlr/
+
 # Generated code (never commit)
 internal/gen/**
 

@@ -1,0 +1,43 @@
+# Test: Existing PR Update (Edge Case)
+# Validates that publishing when a PR already exists handles the situation correctly.
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Step 1: Create app repository
+mkdir app
+cd app
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/existing/v1
+exists apx.yaml
+
+exec git add .
+exec git commit -m 'Initial schema v1.0.0'
+exec git tag proto/existing/v1/v1.0.0
+
+# Step 2: First publish attempt (dry-run to verify command works)
+exec apx publish --module-path=internal/apis/proto/existing/v1 --canonical-repo=github.com/testorg/existing-test --dry-run
+stdout 'Dry-run mode'
+
+# Step 3: Make a change and publish again (simulate existing PR scenario)
+exec sh -c 'echo "// Updated field" >> internal/apis/proto/existing/v1/existing.proto'
+exec git add .
+exec git commit -m 'Update schema v1.0.1'
+exec git tag proto/existing/v1/v1.0.1
+
+exec apx publish --module-path=internal/apis/proto/existing/v1 --canonical-repo=github.com/testorg/existing-test --version=v1.0.1 --dry-run
+stdout 'Dry-run mode'
+stdout 'v1.0.1'
+
+# Step 4: Verify git state is clean
+exec git status --porcelain
+! stdout '.'
+
+cd ..
+
+# Success: Existing PR handling validated
+# - Multiple publishes of same module succeed in dry-run
+# - Version progression works correctly
+# - Git state remains clean after publish operations

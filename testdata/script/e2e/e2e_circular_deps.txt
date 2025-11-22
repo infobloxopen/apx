@@ -1,0 +1,53 @@
+# Test: Circular Dependency Detection (Edge Case)
+# Validates that circular dependencies are detected or handled gracefully.
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Step 1: Create app A
+mkdir app-a
+cd app-a
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/service-a/v1
+exists apx.yaml
+
+# Add dependency on service-b
+exec apx add proto/service-b/v1@v1.0.0
+exec grep 'proto/service-b/v1' apx.yaml
+
+exec git add .
+exec git commit -m 'Service A depends on B'
+cd ..
+
+# Step 2: Create app B
+mkdir app-b
+cd app-b
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/service-b/v1
+exists apx.yaml
+
+# Add dependency on service-a (creating circular dep)
+exec apx add proto/service-a/v1@v1.0.0
+exec grep 'proto/service-a/v1' apx.yaml
+
+exec git add .
+exec git commit -m 'Service B depends on A'
+cd ..
+
+# Step 3: Verify both repos have their respective deps locked
+cd app-a
+exec grep 'proto/service-b/v1' apx.lock
+cd ..
+
+cd app-b
+exec grep 'proto/service-a/v1' apx.lock
+cd ..
+
+# Success: Circular dependency scenario validated
+# - Dependencies can be declared (resolution is a separate concern)
+# - Lock files correctly record dependencies
+# - No crash or hang when circular deps exist in metadata

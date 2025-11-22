@@ -1,0 +1,578 @@
+openapi: 3.0.0
+info:
+  title: Gitea API (E2E Test Subset)
+  description: Subset of Gitea API v1 used by APX end-to-end integration tests
+  version: 1.22.0
+  contact:
+    name: Gitea
+    url: https://docs.gitea.com/api/
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local Gitea instance for E2E tests
+
+paths:
+  /user/repos:
+    post:
+      summary: Create a repository for authenticated user
+      operationId: createCurrentUserRepo
+      tags:
+        - repository
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Repository name
+                  example: api-schemas
+                description:
+                  type: string
+                  description: Repository description
+                  example: Canonical API repository for organization
+                private:
+                  type: boolean
+                  description: Make repository private
+                  default: false
+                auto_init:
+                  type: boolean
+                  description: Initialize repository with README
+                  default: false
+                default_branch:
+                  type: string
+                  description: Default branch name
+                  default: main
+      responses:
+        '201':
+          description: Repository created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Repository'
+        '409':
+          description: Repository already exists
+        '422':
+          description: Validation error
+
+  /repos/{owner}/{repo}:
+    get:
+      summary: Get repository details
+      operationId: getRepo
+      tags:
+        - repository
+      parameters:
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/repo'
+      responses:
+        '200':
+          description: Repository details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Repository'
+        '404':
+          description: Repository not found
+    
+    delete:
+      summary: Delete a repository
+      operationId: deleteRepo
+      tags:
+        - repository
+      parameters:
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/repo'
+      responses:
+        '204':
+          description: Repository deleted successfully
+        '404':
+          description: Repository not found
+
+  /repos/{owner}/{repo}/pulls:
+    get:
+      summary: List pull requests
+      operationId: listPulls
+      tags:
+        - issue
+      parameters:
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/repo'
+        - name: state
+          in: query
+          schema:
+            type: string
+            enum: [open, closed, all]
+            default: open
+      responses:
+        '200':
+          description: List of pull requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PullRequest'
+    
+    post:
+      summary: Create a pull request
+      operationId: createPull
+      tags:
+        - repository
+      parameters:
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/repo'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - head
+                - base
+              properties:
+                title:
+                  type: string
+                  description: Pull request title
+                  example: "Publish proto/payments/ledger/v1"
+                head:
+                  type: string
+                  description: Source branch
+                  example: publish/proto/payments/ledger/v1
+                base:
+                  type: string
+                  description: Target branch
+                  example: main
+                body:
+                  type: string
+                  description: Pull request description
+                  example: "Publishing payment ledger API v1.0.0 from payment-service repository"
+      responses:
+        '201':
+          description: Pull request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullRequest'
+        '409':
+          description: Pull request already exists
+        '422':
+          description: Validation error
+
+  /repos/{owner}/{repo}/pulls/{index}:
+    get:
+      summary: Get pull request details
+      operationId: getPull
+      tags:
+        - repository
+      parameters:
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/repo'
+        - name: index
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Pull request index/number
+      responses:
+        '200':
+          description: Pull request details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullRequest'
+        '404':
+          description: Pull request not found
+
+  /repos/{owner}/{repo}/pulls/{index}/commits:
+    get:
+      summary: Get pull request commits
+      operationId: getPullCommits
+      tags:
+        - repository
+      parameters:
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/repo'
+        - name: index
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of commits in pull request
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Commit'
+
+  /repos/{owner}/{repo}/tags:
+    get:
+      summary: List repository tags
+      operationId: listTags
+      tags:
+        - repository
+      parameters:
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/repo'
+      responses:
+        '200':
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tag'
+
+  /repos/{owner}/{repo}/contents/{filepath}:
+    get:
+      summary: Get file contents
+      operationId: getContents
+      tags:
+        - repository
+      parameters:
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/repo'
+        - name: filepath
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Path to file (e.g., CODEOWNERS)
+      responses:
+        '200':
+          description: File contents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileResponse'
+        '404':
+          description: File not found
+    
+    post:
+      summary: Create or update file
+      operationId: createOrUpdateFile
+      tags:
+        - repository
+      parameters:
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/repo'
+        - name: filepath
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+                - message
+              properties:
+                content:
+                  type: string
+                  description: Base64-encoded file content
+                message:
+                  type: string
+                  description: Commit message
+                branch:
+                  type: string
+                  description: Branch name
+                  default: main
+      responses:
+        '201':
+          description: File created/updated
+
+  /admin/users:
+    post:
+      summary: Create user (admin only)
+      operationId: createUser
+      tags:
+        - admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+              properties:
+                username:
+                  type: string
+                  example: testuser
+                email:
+                  type: string
+                  example: testuser@example.com
+                password:
+                  type: string
+                  example: testpassword123
+                must_change_password:
+                  type: boolean
+                  default: false
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/{username}/tokens:
+    post:
+      summary: Create access token
+      operationId: createAccessToken
+      tags:
+        - user
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  description: Token name
+                  example: e2e-test-token
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                  example: ["repo", "admin"]
+      responses:
+        '201':
+          description: Token created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessToken'
+
+  /user:
+    get:
+      summary: Get current authenticated user
+      operationId: getCurrentUser
+      tags:
+        - user
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /version:
+    get:
+      summary: Get Gitea version
+      operationId: getVersion
+      tags:
+        - miscellaneous
+      responses:
+        '200':
+          description: Version information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                    example: "1.22.0"
+
+components:
+  parameters:
+    owner:
+      name: owner
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Owner of the repository (username or organization)
+    
+    repo:
+      name: repo
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Repository name
+
+  schemas:
+    Repository:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        owner:
+          $ref: '#/components/schemas/User'
+        clone_url:
+          type: string
+        ssh_url:
+          type: string
+        default_branch:
+          type: string
+        private:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PullRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        number:
+          type: integer
+        title:
+          type: string
+        body:
+          type: string
+        state:
+          type: string
+          enum: [open, closed, merged]
+        head:
+          type: object
+          properties:
+            ref:
+              type: string
+            sha:
+              type: string
+        base:
+          type: object
+          properties:
+            ref:
+              type: string
+            sha:
+              type: string
+        commits:
+          type: integer
+        additions:
+          type: integer
+        deletions:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        merged_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    Commit:
+      type: object
+      properties:
+        sha:
+          type: string
+        commit:
+          type: object
+          properties:
+            message:
+              type: string
+            author:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                date:
+                  type: string
+                  format: date-time
+
+    Tag:
+      type: object
+      properties:
+        name:
+          type: string
+        commit:
+          type: object
+          properties:
+            sha:
+              type: string
+        message:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        email:
+          type: string
+        is_admin:
+          type: boolean
+
+    AccessToken:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        sha1:
+          type: string
+          description: The actual token value (only returned on creation)
+        scopes:
+          type: array
+          items:
+            type: string
+
+    FileResponse:
+      type: object
+      properties:
+        content:
+          type: string
+          description: Base64-encoded file content
+        name:
+          type: string
+        path:
+          type: string
+        sha:
+          type: string
+        size:
+          type: integer
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: "API token authentication (Header: Authorization: token <TOKEN>)"
+
+security:
+  - bearerAuth: []

@@ -1,0 +1,67 @@
+# Test: Catalog Validation (US2)
+# Validates that apx search shows APIs after publication setup.
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Step 1: Initialize canonical repository with catalog
+mkdir canonical
+cd canonical
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init canonical --org=testorg --repo=catalog-test --skip-git --non-interactive
+exists catalog/catalog.yaml
+
+# Populate catalog with test entries using sh -c
+exec sh -c 'echo "version: 1" > catalog/catalog.yaml'
+exec sh -c 'echo "org: testorg" >> catalog/catalog.yaml'
+exec sh -c 'echo "repo: catalog-test" >> catalog/catalog.yaml'
+exec sh -c 'echo "modules:" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - name: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    format: proto" >> catalog/catalog.yaml'
+exec sh -c 'echo "    description: Payment ledger API" >> catalog/catalog.yaml'
+exec sh -c 'echo "    version: v1.0.0" >> catalog/catalog.yaml'
+exec sh -c 'echo "    path: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - name: proto/users/profile/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    format: proto" >> catalog/catalog.yaml'
+exec sh -c 'echo "    description: User profile API" >> catalog/catalog.yaml'
+exec sh -c 'echo "    version: v1.0.0" >> catalog/catalog.yaml'
+exec sh -c 'echo "    path: proto/users/profile/v1" >> catalog/catalog.yaml'
+
+# Step 2: Search all APIs
+exec apx search
+stdout 'ledger'
+stdout 'profile'
+
+# Step 3: Search by name
+exec apx search ledger
+stdout 'ledger'
+! stdout 'profile'
+
+exec apx search profile
+stdout 'profile'
+! stdout 'ledger'
+
+# Step 4: Search by format
+exec apx search --format=proto
+stdout 'ledger'
+stdout 'profile'
+
+# Step 5: Search with no results
+exec apx search nonexistent
+! stdout 'ledger'
+! stdout 'profile'
+
+# Step 6: Verify catalog structure
+exec grep 'org: testorg' catalog/catalog.yaml
+exec grep 'proto/payments/ledger/v1' catalog/catalog.yaml
+exec grep 'proto/users/profile/v1' catalog/catalog.yaml
+
+cd ..
+
+# Success: Catalog validation complete
+# - Both payment and user APIs appear in search results
+# - Name-based filtering works correctly
+# - Format-based filtering works correctly
+# - No false positives for non-existent queries

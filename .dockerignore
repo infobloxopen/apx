@@ -31,6 +31,9 @@ testdata/
 tests/
 testscript_test.go
 
+# kuberlr cached binaries
+.kuberlr/
+
 # Specification files
 specs/
 .specify/

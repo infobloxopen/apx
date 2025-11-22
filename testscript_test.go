@@ -28,6 +28,17 @@ func TestScript(t *testing.T) {
 		Dir:                 "testdata/script",
 		Setup:               setupTestScript,
 		RequireExplicitExec: true,
+		Condition: func(cond string) (bool, error) {
+			// Support conditional test execution based on environment
+			switch cond {
+			case "e2e":
+				// E2E tests require E2E_ENABLED=1 environment variable
+				// This prevents running E2E tests in regular CI/local runs
+				return os.Getenv("E2E_ENABLED") == "1", nil
+			default:
+				return false, nil
+			}
+		},
 	})
 }
 

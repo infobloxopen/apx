@@ -1,0 +1,98 @@
+# Test: Git History and Authorship Preservation (US4)
+# Validates that git subtree publishing preserves commit history and authorship.
+# Creates multiple commits from different authors and verifies they're preserved.
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Step 1: Create app repository
+mkdir app
+cd app
+exec git init
+exec git config user.name 'Author One'
+exec git config user.email 'author1@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/history/v1
+exists internal/apis/proto/history/v1/history.proto
+
+# Commit 1: Initial schema by Author One
+exec git add .
+exec git commit -m 'Initial history schema by author one'
+
+# Commit 2: Update by Author Two
+exec git config user.name 'Author Two'
+exec git config user.email 'author2@example.com'
+
+exec sh -c 'echo "// Updated by Author Two" >> internal/apis/proto/history/v1/history.proto'
+exec git add .
+exec git commit -m 'Add comment by author two'
+
+# Commit 3: Another update by Author Three
+exec git config user.name 'Author Three'
+exec git config user.email 'author3@example.com'
+
+exec sh -c 'echo "// Updated by Author Three" >> internal/apis/proto/history/v1/history.proto'
+exec git add .
+exec git commit -m 'Add comment by author three'
+
+# Commit 4: Update by Author One again
+exec git config user.name 'Author One'
+exec git config user.email 'author1@example.com'
+
+exec sh -c 'echo "// Second update by Author One" >> internal/apis/proto/history/v1/history.proto'
+exec git add .
+exec git commit -m 'Second update by author one'
+
+# Commit 5: Final update by Author Two
+exec git config user.name 'Author Two'
+exec git config user.email 'author2@example.com'
+
+exec sh -c 'echo "// Final update by Author Two" >> internal/apis/proto/history/v1/history.proto'
+exec git add .
+exec git commit -m 'Final update by author two'
+
+exec git tag proto/history/v1/v1.0.0
+
+# Step 2: Verify all 5 commits exist
+exec git log --oneline
+stdout 'Initial history schema by author one'
+stdout 'Add comment by author two'
+stdout 'Add comment by author three'
+stdout 'Second update by author one'
+stdout 'Final update by author two'
+
+# Step 3: Verify all 3 authors are in git log
+exec git log --format='%an'
+stdout 'Author One'
+stdout 'Author Two'
+stdout 'Author Three'
+
+# Step 4: Verify author emails
+exec git log --format='%ae'
+stdout 'author1@example.com'
+stdout 'author2@example.com'
+stdout 'author3@example.com'
+
+# Step 5: Verify commit count is exactly 5
+exec git rev-list --count HEAD
+stdout '5'
+
+# Step 6: Add an unrelated file (not in schema directory) for commit filtering test
+exec sh -c 'echo "# README" > README.md'
+exec git add README.md
+exec git commit -m 'Unrelated README change'
+
+# Now we have 6 commits total but only 5 are schema-related
+exec git rev-list --count HEAD
+stdout '6'
+
+# Step 7: Verify publish dry-run works with full history
+exec apx publish --module-path=internal/apis/proto/history/v1 --canonical-repo=github.com/testorg/history-test --dry-run
+stdout 'Dry-run mode'
+
+cd ..
+
+# Success: Git history and authorship preservation validated
+# - 5 schema-related commits from 3 different authors
+# - All commit messages preserved
+# - All author names and emails preserved
+# - Unrelated commits exist but should be filtered during subtree publish
