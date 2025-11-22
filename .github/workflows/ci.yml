@@ -63,20 +63,8 @@ jobs:
         # Install spectral (Node.js based)
         npm install -g @stoplight/spectral-cli@6.11.0
         
-        # Install oasdiff
-        if [[ "${{ runner.os }}" == "Windows" ]]; then
-          curl -sSL "https://github.com/Tufin/oasdiff/releases/download/v1.10.0/oasdiff_1.10.0_windows_amd64.tar.gz" -o oasdiff.tar.gz
-          tar -xzf oasdiff.tar.gz
-          mv oasdiff.exe "$HOME/bin/"
-        elif [[ "${{ runner.os }}" == "macOS" ]]; then
-          curl -sSL "https://github.com/Tufin/oasdiff/releases/download/v1.10.0/oasdiff_1.10.0_darwin_arm64.tar.gz" -o oasdiff.tar.gz
-          tar -xzf oasdiff.tar.gz
-          sudo mv oasdiff /usr/local/bin/
-        else
-          curl -sSL "https://github.com/Tufin/oasdiff/releases/download/v1.10.0/oasdiff_1.10.0_linux_amd64.tar.gz" -o oasdiff.tar.gz
-          tar -xzf oasdiff.tar.gz
-          sudo mv oasdiff /usr/local/bin/
-        fi
+        # Install oasdiff using go install (cross-platform, simpler)
+        go install github.com/oasdiff/oasdiff@v1.10.0
         
         # Verify installations
         echo "Verifying tool installations..."
