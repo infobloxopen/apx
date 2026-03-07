@@ -1,0 +1,28 @@
+# Test: Basic E2E Infrastructure Validation
+# This test validates that the E2E infrastructure (k3d + Gitea) is working correctly.
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Verify environment variables are set
+env GITEA_URL
+env GITEA_TOKEN
+env E2E_CLUSTER
+
+# Echo the environment for debugging
+exec echo 'Gitea URL: '$GITEA_URL
+stdout 'Gitea URL:'
+
+exec echo 'Cluster: '$E2E_CLUSTER
+stdout 'Cluster:'
+
+# Test basic repository initialization
+exec apx init canonical --org=testorg --repo=basic-test --skip-git --non-interactive
+exists buf.yaml
+exec grep 'org: testorg' catalog/catalog.yaml
+
+# Test git is available
+exec git --version
+stdout 'git version'
+
+# Success: Basic infrastructure is working

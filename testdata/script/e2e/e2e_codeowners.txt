@@ -1,0 +1,45 @@
+# Test: CODEOWNERS Enforcement Validation (Edge Case)
+# Validates that CODEOWNERS file is correctly generated and maintained.
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Step 1: Initialize canonical repo and verify CODEOWNERS
+mkdir canonical
+cd canonical
+exec apx init canonical --org=testorg --repo=codeowners-test --skip-git --non-interactive
+exists CODEOWNERS
+exec grep '@testorg/api-owners' CODEOWNERS
+
+# Step 2: Initialize different org and verify CODEOWNERS changes
+cd ..
+mkdir canonical2
+cd canonical2
+exec apx init canonical --org=mycompany --repo=apis --skip-git --non-interactive
+exists CODEOWNERS
+exec grep '@mycompany/api-owners' CODEOWNERS
+
+# Step 3: Verify CODEOWNERS content structure
+cd ..
+cd canonical
+exec sh -c 'cat CODEOWNERS'
+stdout '@testorg'
+
+cd ..
+
+# Step 4: Initialize app repo - should NOT have CODEOWNERS
+mkdir app
+cd app
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/owners/v1
+exists apx.yaml
+! exists CODEOWNERS
+
+cd ..
+
+# Success: CODEOWNERS enforcement validated
+# - Canonical repos have CODEOWNERS with correct org
+# - Different orgs produce different CODEOWNERS content
+# - App repos do NOT have CODEOWNERS (only canonical repos do)

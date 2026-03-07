@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "github.com/example/test-canonical/gen/go/common/v1;commonv1";
+
+// Money represents a monetary amount with currency
+message Money {
+  // Currency code (e.g., USD, EUR)
+  string currency = 1;
+  // Amount in the smallest unit (e.g., cents)
+  int64 amount = 2;
+}
+
+// Address represents a physical address
+message Address {
+  string street = 1;
+  string city = 2;
+  string state = 3;
+  string postal_code = 4;
+  string country = 5;
+}

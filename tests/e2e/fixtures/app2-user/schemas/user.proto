@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package user.v1;
+
+import "common/v1/common.proto";
+
+option go_package = "github.com/example/user-service/gen/go/user/v1;userv1";
+
+// User represents a user account
+message User {
+  string id = 1;
+  string email = 2;
+  string full_name = 3;
+  common.v1.Address address = 4;
+  int64 created_at = 5;
+}
+
+// CreateUserRequest for creating a new user
+message CreateUserRequest {
+  string email = 1;
+  string full_name = 2;
+  common.v1.Address address = 3;
+}
+
+// CreateUserResponse after creating a user
+message CreateUserResponse {
+  User user = 1;
+}

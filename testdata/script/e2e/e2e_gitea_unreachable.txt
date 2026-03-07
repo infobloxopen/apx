@@ -1,0 +1,35 @@
+# Test: Gitea Unreachable Error Handling (Edge Case)
+# Validates graceful error handling when Gitea is not accessible.
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Step 1: Create app repository
+mkdir app
+cd app
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/unreachable/v1
+exists apx.yaml
+
+exec git add .
+exec git commit -m 'Initial schema'
+exec git tag proto/unreachable/v1/v1.0.0
+
+# Step 2: Try to publish with an invalid Gitea URL
+# This should fail with a connection error, not a panic
+! exec apx publish --module-path=internal/apis/proto/unreachable/v1 --canonical-repo=http://localhost:9999/testorg/nonexistent
+stderr '.'
+
+# Step 3: Verify the app repo is still intact after failed publish
+exists apx.yaml
+exists internal/apis/proto/unreachable/v1/unreachable.proto
+exec git log --oneline
+stdout 'Initial schema'
+
+cd ..
+
+# Success: Gitea unreachable error handling validated
+# - Publish fails gracefully when Gitea is unreachable
+# - Local repository state is not corrupted

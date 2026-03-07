@@ -165,6 +165,29 @@ reset-gitea:
 test-integration:
 	@echo "Running integration tests..."
 	@go test -race -v ./tests/integration/...
+
+## install-e2e-deps: Install E2E test dependencies (k3d, kubectl)
+install-e2e-deps:
+	@echo "Installing E2E test dependencies..."
+	@./scripts/install-e2e-tools.sh
+
+## test-e2e: Run end-to-end integration tests
+test-e2e:
+	@echo "Running E2E integration tests..."
+	@echo "This will create a k3d cluster and deploy Gitea..."
+	@go test -v -timeout 15m ./tests/e2e/...
+
+## clean-e2e: Clean up E2E test resources (clusters, containers, volumes)
+clean-e2e:
+	@echo "Cleaning up E2E test resources..."
+	@echo "Deleting k3d clusters..."
+	@k3d cluster list -o json 2>/dev/null | grep -o 'apx-e2e-[0-9]*' | xargs -I {} k3d cluster delete {} 2>/dev/null || true
+	@echo "Deleting Gitea containers..."
+	@docker ps -a --filter "name=k3d-apx-e2e" --format "{{.ID}}" | xargs -r docker rm -f 2>/dev/null || true
+	@echo "Deleting Gitea volumes..."
+	@docker volume ls --filter "name=k3d-apx-e2e" --format "{{.Name}}" | xargs -r docker volume rm 2>/dev/null || true
+	@echo "✓ E2E cleanup complete"
+
 validate-tools:
 	@echo "Validating external tools..."
 	@command -v buf >/dev/null 2>&1 || { echo "buf is not installed"; exit 1; }

@@ -1,0 +1,128 @@
+# Test: Cross-Repository Dependency Chain (US2)
+# Validates that schema dependencies work across multiple application repositories.
+# App2 (user service) consumes App1's (payment service) published schema and publishes its own.
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Step 1: Initialize canonical repository with common schemas
+mkdir canonical-repo
+cd canonical-repo
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init canonical --org=testorg --repo=cross-deps-canonical --skip-git --non-interactive
+exists buf.yaml
+exists catalog/catalog.yaml
+
+# Create common schema
+exec mkdir -p proto/common/v1
+cp ../common.proto proto/common/v1/common.proto
+
+exec git add .
+exec git commit -m 'Initial canonical schemas'
+exec git tag v1.0.0
+cd ..
+
+# Step 2: Initialize app1 (payment service) - the "producer"
+mkdir app1-payment
+cd app1-payment
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/payments/ledger/v1
+exists apx.yaml
+exists internal/apis/proto/payments/ledger/v1/ledger.proto
+
+# Add dependency on canonical common schemas
+exec apx add proto/common/v1@v1.0.0
+exists apx.lock
+exec grep 'proto/common/v1' apx.lock
+exec grep 'v1.0.0' apx.lock
+
+# Verify apx.yaml has dependency listed
+exec grep 'proto/common/v1' apx.yaml
+
+exec git add .
+exec git commit -m 'Payment service with common dependency'
+exec git tag proto/payments/ledger/v1/v1.0.0
+cd ..
+
+# Step 3: Initialize app2 (user service) - the "consumer"
+mkdir app2-user
+cd app2-user
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/users/profile/v1
+exists apx.yaml
+exists internal/apis/proto/users/profile/v1/profile.proto
+
+# App2 depends on same canonical repo
+exec apx add proto/common/v1@v1.0.0
+exists apx.lock
+exec grep 'proto/common/v1' apx.lock
+
+# App2 also depends on app1's payment API
+exec apx add proto/payments/ledger/v1@v1.0.0
+exec grep 'proto/payments/ledger/v1' apx.yaml
+exec grep 'proto/payments/ledger/v1' apx.lock
+
+exec git add .
+exec git commit -m 'User service with payment and common dependencies'
+exec git tag proto/users/profile/v1/v1.0.0
+cd ..
+
+# Step 4: Verify both apps can independently publish (dry-run)
+cd app1-payment
+exec apx publish --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/testorg/cross-deps-canonical --dry-run
+stdout 'Dry-run mode'
+cd ..
+
+cd app2-user
+exec apx publish --module-path=internal/apis/proto/users/profile/v1 --canonical-repo=github.com/testorg/cross-deps-canonical --dry-run
+stdout 'Dry-run mode'
+cd ..
+
+# Step 5: Validate dependency chain is consistent
+cd app2-user
+exec grep 'proto/common/v1' apx.lock
+exec grep 'proto/payments/ledger/v1' apx.lock
+cd ..
+
+# Step 6: Verify git history in both apps
+cd app1-payment
+exec git log --oneline
+stdout 'Payment service'
+cd ..
+
+cd app2-user
+exec git log --oneline
+stdout 'User service'
+cd ..
+
+# Success: Cross-repository dependency chain validated
+# - App1 depends on canonical common schemas
+# - App2 depends on both canonical and app1 schemas
+# - Both apps can publish independently
+# - Dependency versions are locked correctly
+
+-- common.proto --
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "github.com/testorg/cross-deps-canonical/gen/go/common/v1;commonv1";
+
+message Money {
+  string currency = 1;
+  int64 amount = 2;
+}
+
+message Address {
+  string street = 1;
+  string city = 2;
+  string state = 3;
+  string postal_code = 4;
+  string country = 5;
+}

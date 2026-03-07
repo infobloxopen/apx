@@ -1,0 +1,65 @@
+# Test: Major Version Bump (US3)
+# Validates that breaking changes are allowed in new major versions (v2 directory).
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Step 1: Create app with v1 proto module
+mkdir app
+cd app
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/versioned/v1
+exists internal/apis/proto/versioned/v1/versioned.proto
+
+exec git add .
+exec git commit -m 'Initial schema v1.0.0'
+exec git tag proto/versioned/v1/v1.0.0
+
+# Step 2: Create v2 module with breaking changes
+exec apx init app --org=testorg --non-interactive internal/apis/proto/versioned/v2
+
+# Verify v2 directory was created alongside v1
+exists internal/apis/proto/versioned/v1/versioned.proto
+exists internal/apis/proto/versioned/v2/versioned.proto
+
+# Step 3: Customize v2 schema with completely different structure
+exec sh -c 'echo "syntax = \"proto3\";" > internal/apis/proto/versioned/v2/versioned.proto'
+exec sh -c 'echo "" >> internal/apis/proto/versioned/v2/versioned.proto'
+exec sh -c 'echo "package versioned.v2;" >> internal/apis/proto/versioned/v2/versioned.proto'
+exec sh -c 'echo "" >> internal/apis/proto/versioned/v2/versioned.proto'
+exec sh -c 'echo "// V2: Complete redesign with breaking changes" >> internal/apis/proto/versioned/v2/versioned.proto'
+exec sh -c 'echo "message VersionedEntity {" >> internal/apis/proto/versioned/v2/versioned.proto'
+exec sh -c 'echo "  string uuid = 1; // renamed from id" >> internal/apis/proto/versioned/v2/versioned.proto'
+exec sh -c 'echo "  string display_name = 2; // renamed from name" >> internal/apis/proto/versioned/v2/versioned.proto'
+exec sh -c 'echo "  int64 created_at_unix = 3; // new field" >> internal/apis/proto/versioned/v2/versioned.proto'
+exec sh -c 'echo "}" >> internal/apis/proto/versioned/v2/versioned.proto'
+
+exec git add .
+exec git commit -m 'Add v2 schema with breaking changes'
+exec git tag proto/versioned/v2/v2.0.0
+
+# Step 4: Verify both versions can coexist
+exists internal/apis/proto/versioned/v1/versioned.proto
+exists internal/apis/proto/versioned/v2/versioned.proto
+
+# Step 5: Both versions can be published independently
+exec apx publish --module-path=internal/apis/proto/versioned/v1 --canonical-repo=github.com/testorg/version-test --dry-run
+stdout 'Dry-run mode'
+
+exec apx publish --module-path=internal/apis/proto/versioned/v2 --canonical-repo=github.com/testorg/version-test --dry-run
+stdout 'Dry-run mode'
+
+# Step 6: Verify git history
+exec git log --oneline
+stdout 'Initial schema'
+stdout 'Add v2 schema'
+
+cd ..
+
+# Success: Major version bump validated
+# - v1 and v2 can coexist in the same repository
+# - Breaking changes in v2 directory are independent of v1
+# - Both versions can be published independently
+# - Follows semantic versioning with directory-based major versions

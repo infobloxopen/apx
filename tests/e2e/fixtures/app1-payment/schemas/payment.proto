@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package payment.v1;
+
+import "common/v1/common.proto";
+
+option go_package = "github.com/example/payment-service/gen/go/payment/v1;paymentv1";
+
+// Payment represents a payment transaction
+message Payment {
+  string id = 1;
+  string user_id = 2;
+  common.v1.Money amount = 3;
+  string status = 4; // pending, completed, failed
+  int64 created_at = 5;
+}
+
+// PaymentRequest for creating a payment
+message PaymentRequest {
+  string user_id = 1;
+  common.v1.Money amount = 2;
+  string description = 3;
+}
+
+// PaymentResponse after creating a payment
+message PaymentResponse {
+  Payment payment = 1;
+}

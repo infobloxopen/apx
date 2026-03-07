@@ -1,0 +1,6 @@
+---
+type: app
+name: payment-service
+description: Payment processing service for E2E tests
+version: 1.0.0
+dependencies: []

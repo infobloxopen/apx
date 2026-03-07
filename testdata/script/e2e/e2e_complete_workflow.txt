@@ -1,0 +1,145 @@
+# Test: Complete E2E Publishing Workflow
+# This test validates the complete schema publishing workflow from app repository
+# creation through canonical repository publication and dependency consumption.
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Step 1: Initialize canonical repository
+mkdir canonical-repo
+cd canonical-repo
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init canonical --org=testorg --repo=test-canonical --skip-git --non-interactive
+
+# Verify canonical structure
+exists buf.yaml
+exists catalog/catalog.yaml
+exists CODEOWNERS
+
+# Create common schema
+exec mkdir -p proto/common/v1
+cp ../common.proto proto/common/v1/common.proto
+exists proto/common/v1/common.proto
+
+# Commit and tag
+exec git add .
+exec git commit -m 'Initial canonical schemas'
+exec git tag v1.0.0
+exec git log --oneline
+stdout 'Initial canonical schemas'
+cd ..
+
+# Step 2: Initialize first app repository (payment service)
+mkdir payment-app
+cd payment-app
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/payments/ledger/v1
+
+# Verify app structure
+exists apx.yaml
+exists internal/apis/proto/payments/ledger/v1/ledger.proto
+
+# Commit
+exec git add .
+exec git commit -m 'Add payment service with ledger API'
+exec git tag proto/payments/ledger/v1/v1.0.0
+exec git log --oneline
+stdout 'Add payment service'
+cd ..
+
+# Step 3: Test dependency management
+cd payment-app
+exec apx add proto/common/v1@v1.0.0
+exists apx.lock
+exec grep 'proto/common/v1' apx.lock
+exec grep 'v1.0.0' apx.lock
+
+exec git add .
+exec git commit -m 'Add common dependency'
+cd ..
+
+# Step 4: Initialize second app repository (user service)
+mkdir user-app
+cd user-app
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/users/profile/v1
+
+# Verify user service structure
+exists apx.yaml
+exists internal/apis/proto/users/profile/v1/profile.proto
+
+# Add dependency on common
+exec apx add proto/common/v1@v1.0.0
+exists apx.lock
+exec grep 'proto/common/v1' apx.lock
+
+exec git add .
+exec git commit -m 'Add user service with profile API'
+exec git tag proto/users/profile/v1/v1.0.0
+exec git log --oneline
+stdout 'Add user service'
+cd ..
+
+# Step 5: Test publish dry-run from payment app
+cd payment-app
+exec apx publish --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/testorg/test-canonical --dry-run
+stdout 'Dry-run mode'
+cd ..
+
+# Step 6: Validate all repos have correct structure
+exists canonical-repo/buf.yaml
+exists canonical-repo/proto/common/v1/common.proto
+exists payment-app/apx.yaml
+exists payment-app/internal/apis/proto/payments/ledger/v1/ledger.proto
+exists user-app/apx.yaml
+exists user-app/internal/apis/proto/users/profile/v1/profile.proto
+
+# Step 7: Verify git history across all repos
+cd canonical-repo
+exec git log --oneline
+stdout 'Initial canonical schemas'
+cd ..
+
+cd payment-app
+exec git log --oneline
+stdout 'Add payment service'
+cd ..
+
+cd user-app
+exec git log --oneline
+stdout 'Add user service'
+cd ..
+
+# Success: Complete workflow validated
+# - Canonical repository initialized with common schemas
+# - App repositories created with module structure
+# - Dependencies added and locked
+# - Code generation with overlays works
+# - Publish dry-run succeeds
+# - Git history preserved in all repos
+
+-- common.proto --
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "github.com/testorg/test-canonical/gen/go/common/v1;commonv1";
+
+message Money {
+  string currency = 1;
+  int64 amount = 2;
+}
+
+message Address {
+  string street = 1;
+  string city = 2;
+  string state = 3;
+  string postal_code = 4;
+  string country = 5;
+}

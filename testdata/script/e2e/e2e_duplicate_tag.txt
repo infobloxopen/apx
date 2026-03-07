@@ -1,0 +1,54 @@
+# Test: Duplicate Tag Error Handling (Edge Case)
+# Validates that tag conflict errors are handled gracefully.
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Step 1: Create app repository
+mkdir app
+cd app
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/tagtest/v1
+exists apx.yaml
+
+exec git add .
+exec git commit -m 'Initial schema'
+exec git tag proto/tagtest/v1/v1.0.0
+
+# Step 2: Publish with v1.0.0 (dry-run)
+exec apx publish --module-path=internal/apis/proto/tagtest/v1 --canonical-repo=github.com/testorg/tag-test --version=v1.0.0 --dry-run
+stdout 'Dry-run mode'
+
+# Step 3: Try creating duplicate tag (git rejects this)
+! exec git tag proto/tagtest/v1/v1.0.0
+stderr 'already exists'
+
+# Step 4: Try force overwriting the tag
+exec git tag -f proto/tagtest/v1/v1.0.0
+exec git tag -l 'proto/tagtest/v1/*'
+stdout 'v1.0.0'
+
+# Step 5: Create a new version tag succeeds
+exec sh -c 'echo "// updated" >> internal/apis/proto/tagtest/v1/tagtest.proto'
+exec git add .
+exec git commit -m 'Update for v1.0.1'
+exec git tag proto/tagtest/v1/v1.0.1
+
+exec git tag -l 'proto/tagtest/v1/*'
+stdout 'v1.0.0'
+stdout 'v1.0.1'
+
+# Step 6: Publish new version succeeds
+exec apx publish --module-path=internal/apis/proto/tagtest/v1 --canonical-repo=github.com/testorg/tag-test --version=v1.0.1 --dry-run
+stdout 'Dry-run mode'
+stdout 'v1.0.1'
+
+cd ..
+
+# Success: Duplicate tag handling validated
+# - Git rejects duplicate tag creation with clear error
+# - Force-overwrite tags works
+# - New version tags can be created alongside existing ones
+# - Publishing with new version succeeds

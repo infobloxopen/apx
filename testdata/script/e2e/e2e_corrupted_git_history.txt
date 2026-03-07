@@ -1,0 +1,46 @@
+# Test: Corrupted Git History (Edge Case)
+# Validates handling of git subtree split failures with unusual git state.
+#
+# Prerequisites: k3d and Gitea running (handled by TestE2E)
+# Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
+
+# Step 1: Create app repo with shallow history
+mkdir app
+cd app
+exec git init
+exec git config user.name 'E2E Test Bot'
+exec git config user.email 'e2e@example.com'
+exec apx init app --org=testorg --non-interactive internal/apis/proto/corrupt/v1
+exists apx.yaml
+
+exec git add .
+exec git commit -m 'Initial schema'
+exec git tag proto/corrupt/v1/v1.0.0
+
+# Step 2: Test publish from empty tree (no module content)
+mkdir -p internal/apis/proto/empty/v1
+exec git add .
+exec git commit --allow-empty -m 'Empty commit'
+
+# Try to publish a non-existent module path
+! exec apx publish --module-path=internal/apis/proto/nonexistent/v1 --canonical-repo=github.com/testorg/corrupt-test --dry-run
+stderr 'does not exist'
+
+# Step 3: Verify the valid module still works
+exec apx publish --module-path=internal/apis/proto/corrupt/v1 --canonical-repo=github.com/testorg/corrupt-test --dry-run
+stdout 'Dry-run mode'
+
+# Step 4: Test with detached HEAD
+exec git checkout --detach HEAD
+exec apx publish --module-path=internal/apis/proto/corrupt/v1 --canonical-repo=github.com/testorg/corrupt-test --dry-run
+stdout 'Dry-run mode'
+
+# Return to main branch
+exec git checkout -
+
+cd ..
+
+# Success: Corrupted git history handling validated
+# - Non-existent module paths produce clear errors
+# - Valid modules still work despite unusual git states
+# - Detached HEAD doesn't prevent operations

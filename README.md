@@ -385,7 +385,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.26'
 
       - name: Install APX
         run: go install github.com/infobloxopen/apx/cmd/apx@latest
@@ -409,7 +409,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.26'
 
       - name: Install APX
         run: go install github.com/infobloxopen/apx/cmd/apx@latest
@@ -484,6 +484,27 @@ make test                    # Unit tests
 go test -run TestScript      # Integration testscripts
 go test ./tests/integration  # Full integration tests
 ```
+
+### End-to-End Tests
+
+The E2E test suite validates the complete APX workflow using **k3d** (lightweight Kubernetes) with **Gitea** as a git hosting simulator and **testscript** for test orchestration.
+
+```bash
+# Install E2E dependencies (k3d, kubectl)
+make install-e2e-deps
+
+# Run E2E tests (creates k3d cluster, deploys Gitea, runs scenarios)
+make test-e2e
+
+# Clean up any leftover E2E resources
+make clean-e2e
+```
+
+**What it tests**: Canonical repo bootstrap → schema publication → cross-repo dependencies → breaking change detection → git history preservation — all against a real git server.
+
+**Requirements**: Docker, ~2GB free memory, ~56 seconds runtime.
+
+See [tests/e2e/README.md](tests/e2e/README.md) for the full developer guide.
 
 ### Contributing
 

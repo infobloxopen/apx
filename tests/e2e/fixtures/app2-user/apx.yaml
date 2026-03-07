@@ -1,0 +1,6 @@
+---
+type: app
+name: user-service
+description: User management service for E2E tests
+version: 1.0.0
+dependencies: []
