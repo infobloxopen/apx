@@ -36,6 +36,16 @@ func TestE2E(t *testing.T) {
 		t.Skip("Skipping E2E tests (E2E_SKIP is set)")
 	}
 
+	// Skip if k3d is not installed (e.g., regular CI test run without E2E deps)
+	if _, err := exec.LookPath("k3d"); err != nil {
+		t.Skip("Skipping E2E tests: k3d not found in PATH (install with: make install-e2e-deps)")
+	}
+
+	// Skip if Docker is not running
+	if err := exec.Command("docker", "info").Run(); err != nil {
+		t.Skip("Skipping E2E tests: Docker is not running")
+	}
+
 	// Track total execution time for SC-001 (<5 minute requirement)
 	suiteStart := time.Now()
 
@@ -114,7 +124,7 @@ func setupE2EEnvironment(t *testing.T) *E2EEnvironment {
 	// 1. Create k3d cluster
 	cluster, err := k3d.CreateCluster(ctx, clusterName, giteaPort)
 	if err != nil {
-		t.Fatalf("Failed to create k3d cluster: %v\n\nHow to fix:\n  1. Ensure Docker is running: docker info\n  2. Check port %d is free: lsof -i :%d\n  3. Clean stale clusters: make clean-e2e\n  4. Check Docker resources: need ~2GB RAM", giteaPort, giteaPort, err)
+		t.Fatalf("Failed to create k3d cluster: %v\n\nHow to fix:\n  1. Ensure Docker is running: docker info\n  2. Check port %d is free: lsof -i :%d\n  3. Clean stale clusters: make clean-e2e\n  4. Check Docker resources: need ~2GB RAM", err, giteaPort, giteaPort)
 	}
 
 	// Wait for cluster to be ready
