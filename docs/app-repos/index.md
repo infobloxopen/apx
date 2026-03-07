@@ -91,26 +91,20 @@ Standard app repo layout for schema authoring:
 ## Configuration Files
 
 ### apx.yaml
-Maps local paths to canonical repo destinations and configures canonical import paths:
+APX configuration for the app repository:
 
 ```yaml
-apis:
-  - kind: proto
-    path: internal/apis/proto/payments/ledger/v1
-    canonical: proto/payments/ledger/v1
-  - kind: proto  
-    path: internal/apis/proto/payments/ledger/v2
-    canonical: proto/payments/ledger/v2
-
-codegen:
-  out: internal/gen
-  languages: [go, python, java]
-  options:
-    go:
-      canonical_imports: true      # generates with canonical import paths
-      workspace_overlay: true     # manages go.work overlays
-    python:
-      package_name: myapp_apis
+version: 1
+org: <org>
+repo: <app-repo>
+module_roots:
+  - internal/apis/proto
+language_targets:
+  go:
+    enabled: true
+publishing:
+  tag_format: "{subdir}/v{version}"
+  ci_only: true
 ```
 
 ### buf.work.yaml

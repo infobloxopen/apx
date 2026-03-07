@@ -11,10 +11,10 @@ Common questions about APX usage, configuration, and best practices.
 **A**: No. v2 lives in a separate Go module (`.../v2` with its own `go.mod`). v1 imports never see v2 unless explicitly referenced. This follows Go's semantic import versioning.
 
 ### Q: Can APX discover APIs across the organization?
-**A**: Yes. `apx search <keywords>` queries the catalog (generated in the canonical repo). You can also browse available tags and versions with `apx list apis`.
+**A**: Yes. `apx search <query>` queries the catalog (generated in the canonical repo). Use a single keyword: `apx search payments`.
 
 ### Q: Can APX update dependencies automatically?
-**A**: Yes. `apx update <api>` gets the latest patch/minor within the current major version. `apx upgrade <api>@<version>` targets a specific major version upgrade.
+**A**: `apx update` and `apx upgrade` are **planned** for a future release. For now, re-add the dependency at the new version: `apx add proto/payments/ledger/v1@v1.3.0`.
 
 ### Q: How does APX publish APIs?
 **A**: APX uses git subtree to publish APIs, preserving complete commit history, authorship, and context in the canonical repository.
@@ -28,7 +28,7 @@ Common questions about APX usage, configuration, and best practices.
 **A**: Only CI can create tags. Tag patterns like `proto/**/v*` are protected via GitHub branch protection rules. This ensures all releases go through validation and approval processes.
 
 ### Q: How do we handle breaking changes?
-**A**: APX detects breaking changes automatically using format-specific tools (buf, oasdiff, etc.). Breaking changes require major version bumps. `apx version suggest` will recommend the appropriate version based on detected changes.
+**A**: APX detects breaking changes automatically using format-specific tools (buf, oasdiff, etc.). Breaking changes require major version bumps. `apx semver suggest --against=<ref>` will recommend the appropriate version based on detected changes.
 
 ## Versioning & Compatibility
 
@@ -66,27 +66,27 @@ Common questions about APX usage, configuration, and best practices.
 4. Never commit the `internal/gen/` directory
 
 ### Q: Can we author multiple schema formats in one app repo?
-**A**: Yes. Configure multiple APIs in `apx.yaml`:
+**A**: Yes. List each format root in `module_roots`:
 ```yaml
-apis:
-  - kind: proto
-    path: internal/apis/proto/payments/v1
-    canonical: proto/payments/v1
-  - kind: openapi  
-    path: internal/apis/openapi/gateway/v1
-    canonical: openapi/gateway/v1
+version: 1
+org: mycompany
+repo: myapp
+module_roots:
+  - internal/apis/proto
+  - internal/apis/openapi
 ```
+Each entry is a directory tree that `apx` traverses for schema files.
 
 ## CI/CD & Automation
 
 ### Q: How do we integrate APX with existing CI pipelines?
 **A**: Add APX validation to your existing workflows:
 ```yaml
-- run: apx fetch --ci      # download tools
-- run: apx lint           # validate schemas  
-- run: apx breaking       # check compatibility
-- run: apx policy check   # enforce governance
+- run: apx fetch                           # download tools
+- run: apx lint                            # validate schemas
+- run: apx breaking --against=origin/main  # check compatibility
 ```
+`apx policy check` and `apx lint --verbose` are available for extended governance.
 
 ### Q: What happens if app CI fails after tagging?
 **A**: The tag exists but no PR is created to the canonical repo. You can:
@@ -142,12 +142,11 @@ apx publish \
 - Allowing custom tool registries
 
 ### Q: How do we handle API deprecation?
-**A**: 
+**A**: APX supports a deprecation workflow:
 1. Mark APIs as deprecated in schema comments
 2. Update catalog metadata
 3. Set sunset timelines in documentation
-4. Use `apx list dependents` to find consumers
-5. Coordinate migration with dependent teams
+4. Coordinate migration with dependent teams
 
 ## Performance & Optimization
 
@@ -189,9 +188,9 @@ apx config validate         # check configuration
 ### Q: What if dependencies can't be resolved?
 **A**: 
 1. Check canonical repo accessibility
-2. Verify version exists: `apx show <api>`
+2. Verify version exists in the canonical repo
 3. Clear cache: `rm -rf ~/.cache/apx/`
-4. Re-fetch tools: `apx fetch --force`
+4. Re-fetch tools: `apx fetch`
 
 ---
 

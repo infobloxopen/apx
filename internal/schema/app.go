@@ -11,13 +11,15 @@ import (
 type AppScaffolder struct {
 	modulePath string
 	org        string
+	repo       string
 }
 
 // NewAppScaffolder creates a new app scaffolder
-func NewAppScaffolder(modulePath, org string) *AppScaffolder {
+func NewAppScaffolder(modulePath, org, repo string) *AppScaffolder {
 	return &AppScaffolder{
 		modulePath: modulePath,
 		org:        org,
+		repo:       repo,
 	}
 }
 
@@ -28,6 +30,9 @@ func (s *AppScaffolder) Generate(baseDir string) error {
 	}
 	if s.org == "" {
 		return fmt.Errorf("organization is required")
+	}
+	if s.repo == "" {
+		return fmt.Errorf("repository name is required")
 	}
 
 	// Create module directory
@@ -90,16 +95,30 @@ func detectFormatFromPath(path string) string {
 }
 
 func (s *AppScaffolder) generateApxYaml(baseDir, format string) error {
-	moduleName := extractModuleName(s.modulePath, format)
+	moduleRoot := extractFormatRoot(s.modulePath, format)
 
-	content := fmt.Sprintf(`kind: %s
-module: %s
+	content := fmt.Sprintf(`version: 1
 org: %s
-version: v1
-`, format, moduleName, s.org)
+repo: %s
+module_roots:
+  - %s
+`, s.org, s.repo, moduleRoot)
 
 	apxYamlPath := filepath.Join(baseDir, "apx.yaml")
 	return os.WriteFile(apxYamlPath, []byte(content), 0644)
+}
+
+// extractFormatRoot returns the path up to and including the format directory
+// e.g. "internal/apis/proto/payments/ledger/v1" with format "proto" -> "internal/apis/proto"
+func extractFormatRoot(path, format string) string {
+	path = filepath.ToSlash(path)
+	parts := strings.Split(path, "/")
+	for i, part := range parts {
+		if part == format {
+			return strings.Join(parts[:i+1], "/")
+		}
+	}
+	return path
 }
 
 func extractModuleName(path, format string) string {

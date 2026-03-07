@@ -1,16 +1,10 @@
 # API Dependencies Management
 
-APX provides powerful tools for discovering, adding, and managing API dependencies across your organization. All dependency management is based on the canonical repository as the source of truth.
+APX provides powerful tools for discovering, adding, and managing API dependencies across your organization.
 
-```{toctree}
-:maxdepth: 2
-
-discovery
-adding-dependencies
-code-generation
-updates-and-upgrades
-versioning-strategy
-```
+:::{note}
+Full per-topic guides are in progress. See sub-pages once available.
+:::
 
 ## Overview
 
@@ -57,26 +51,25 @@ Dependency management workflow:
 
 ### Discovery Commands
 ```bash
-# Search APIs by keywords
-apx search payments ledger
+# Search APIs by keyword (single argument)
+apx search payments
+```
 
-# List all available APIs
-apx list apis
-
-# Show API details and versions
-apx show proto/payments/ledger/v1
+```{admonition} Planned — not yet available
+:class: note
+`apx list apis` and `apx show` are planned for a future release.
 ```
 
 ### Dependency Management
 ```bash
 # Add specific version
 apx add proto/payments/ledger/v1@v1.2.3
+```
 
-# Update to latest compatible
-apx update proto/payments/ledger/v1
-
-# Upgrade to new major version
-apx upgrade proto/payments/ledger/v2@v2.0.0
+```{admonition} Planned — not yet available
+:class: note
+`apx update` and `apx upgrade` are planned for a future release.
+To pin a newer version, re-add the dependency: `apx add proto/payments/ledger/v1@v1.3.0`
 ```
 
 ### Code Generation
@@ -97,23 +90,21 @@ APX uses `apx.lock` to ensure reproducible builds:
 ```yaml
 # apx.lock
 version: 1
+toolchains:
+  buf:
+    version: v1.28.1
+    checksum: "sha256:abc123..."
 dependencies:
-  - api: proto/payments/ledger/v1
-    version: v1.2.3
-    resolved_commit: abc1234
-    generators:
-      - go
-      - python
-  - api: proto/users/v1  
-    version: v1.0.5
-    resolved_commit: def5678
-    generators:
-      - go
-
-toolchain:
-  buf: v1.28.1
-  protoc: v24.4
-  protoc-gen-go: v1.31.0
+  proto/payments/ledger/v1:
+    repo: github.com/myorg/apis
+    ref: proto/payments/ledger/v1.2.3
+    modules:
+      - proto/payments/ledger
+  proto/users/v1:
+    repo: github.com/myorg/apis
+    ref: proto/users/v1.0.5
+    modules:
+      - proto/users
 ```
 
 ## Generation Output Structure

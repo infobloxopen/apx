@@ -30,7 +30,7 @@ git clone https://github.com/<org>/apis.git
 cd apis
 
 # Create the canonical structure
-apx init canonical --org=<org>
+apx init canonical --org=<org> --repo=apis
 ```
 
 This creates:
@@ -64,7 +64,7 @@ Now set up an app repository where teams author schemas:
 cd /path/to/your-app-repo
 
 # Initialize for authoring (Buf-focused by default)
-apx init app internal/apis/proto/payments/ledger
+apx init app --org=<org> --repo=<app-repo> internal/apis/proto/payments/ledger
 ```
 
 This creates the **app repo structure**:
@@ -88,13 +88,11 @@ This creates the **app repo structure**:
 
 **apx.yaml** (app repo):
 ```yaml
-apis:
-  - kind: proto
-    path: internal/apis/proto/payments/ledger/v1
-    canonical: proto/payments/ledger/v1
-codegen:
-  out: internal/gen
-  languages: [go, python, java]
+version: 1
+org: <org>
+repo: <app-repo>
+module_roots:
+  - internal/apis/proto
 ```
 
 **buf.work.yaml** (app repo):
@@ -171,7 +169,7 @@ apx fetch
 apx lint         # buf lint + other format linters
 
 # Check for breaking changes (if you have a baseline)
-apx breaking     # buf breaking / oasdiff / avro compat
+apx breaking --against=HEAD^  # buf breaking / oasdiff / avro compat
 
 # Generate code with canonical import paths (never committed)
 apx gen go       # writes to internal/gen/go/<api>@<ver>/ with canonical imports
@@ -283,7 +281,7 @@ When ready to publish your schema:
 
 ### 1. Validate Locally
 ```bash
-apx lint && apx breaking && apx version suggest
+apx lint && apx breaking --against=HEAD^ && apx semver suggest --against=HEAD^
 ```
 
 ### 2. Tag in App Repo
@@ -315,7 +313,7 @@ Other teams can now discover and use your published API with seamless local-to-p
 
 ### Discover APIs
 ```bash
-apx search payments ledger   # fuzzy search the catalog
+apx search payments   # search the catalog
 ```
 
 ### Add Dependencies
@@ -373,14 +371,11 @@ func (s *PaymentService) ProcessPayment(ctx context.Context, userID, amount stri
 **During development, Go resolves these imports via go.work overlay to local generated stubs.**
 
 ### Update Dependencies
-```bash
-# Update to latest compatible (patch/minor within current major)
-apx update proto/payments/ledger/v1
-apx gen go && apx sync  # regenerate with new version and update overlays
 
-# Upgrade to new major version
-apx upgrade proto/payments/ledger/v2@v2.0.0
-apx gen go && apx sync  # canonical import path changes to .../v2
+```{admonition} Planned — not yet available
+:class: note
+`apx update` and `apx upgrade` are on the roadmap.
+For now, re-add the dependency at the new version: `apx add proto/payments/ledger/v1@v1.3.0`
 ```
 
 ### Switch to Published Module (No Import Changes!)
@@ -440,8 +435,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - run: apx fetch --ci
-      - run: apx lint && apx breaking
+      - run: apx fetch
+      - run: apx lint && apx breaking --against=HEAD^
       - run: apx publish --module-path=internal/apis/${GITHUB_REF_NAME%/v*} \
                --canonical-repo=github.com/<org>/apis
 ```
@@ -460,19 +455,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: apx fetch --ci
-      - run: apx lint && apx breaking
+      - run: apx fetch
+      - run: apx lint && apx breaking --against=origin/main
 
-  tag_and_publish:
-    if: github.ref == 'refs/heads/main'
-    needs: [validate]
-    runs-on: ubuntu-latest
-    permissions: { contents: write, packages: write }
-    steps:
-      - uses: actions/checkout@v4
-      - run: apx version verify
-      - run: apx tag subdir proto/payments/ledger v1.2.3
-      - run: apx packages publish
+  # NOTE: tag creation and package publishing are Planned features
+  # tracked for a future release.
 ```
 
 ## Troubleshooting
@@ -494,7 +481,7 @@ jobs:
 APX automatically detects non-interactive environments (CI, etc.). Use explicit flags:
 
 ```bash
-apx init --non-interactive proto com.example.service.v1
+apx init app --org=myorg --repo=myapp --non-interactive internal/apis/proto/payments/ledger
 ```
 
 ## What's Next?

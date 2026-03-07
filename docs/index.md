@@ -194,7 +194,7 @@ apx gen go
 **Automated Checks** (CI-enforced):
 - Format-specific linting and breaking change detection
 - Policy enforcement (ban service/ORM annotations)
-- SemVer validation with `apx version suggest`
+- SemVer guidance with `apx semver suggest`
 - Protected tag patterns (only CI can create tags)
 
 **Human Gates**:

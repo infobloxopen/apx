@@ -1,17 +1,10 @@
 # Publishing Workflow
 
-APX implements a **tag-in-app → PR-to-canonical** publishing workflow that preserves team autonomy while ensuring governance and consistency. Generated code uses canonical import paths throughout the development lifecycle, enabling seamless transitions from local overlays to published modules.
+APX implements a **tag-in-app → PR-to-canonical** publishing workflow that preserves team autonomy while ensuring governance and consistency.
 
-```{toctree}
-:maxdepth: 2
-
-overview
-validation
-tagging-strategy
-publish-command
-canonical-pr
-release-guardrails
-```
+:::{note}
+Full per-step guides are in progress. See sub-pages once available.
+:::
 
 ## Overview
 
@@ -24,8 +17,8 @@ The publishing workflow connects app repo development to canonical repo releases
 ^^^
 ```bash
 apx lint
-apx breaking  
-apx version suggest
+apx breaking --against=HEAD^
+apx semver suggest --against=HEAD^
 ```
 :::
 
@@ -135,8 +128,8 @@ Every publish goes through comprehensive validation:
 # Validate locally
 apx fetch                    # ensure latest toolchain
 apx lint                     # check schema quality
-apx breaking                 # verify compatibility
-apx version suggest          # get recommended version bump
+apx breaking --against=HEAD^ # verify compatibility
+apx semver suggest --against=HEAD^ # get recommended version bump
 
 # Expected output:
 # Suggested version: v1.2.3 (PATCH - backwards compatible bug fixes)
@@ -234,8 +227,4 @@ For urgent fixes:
 
 ## Next Steps
 
-1. [Set up validation in your app repo](validation.md)
-2. [Learn tagging best practices](tagging-strategy.md)
-3. [Configure the publish command](publish-command.md)
-4. [Understand canonical PR process](canonical-pr.md)
-5. [Review release guardrails](release-guardrails.md)
+1. Review the [full CLI reference](../cli-reference/index.md) for all publishing flags

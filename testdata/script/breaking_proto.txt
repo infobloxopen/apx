@@ -11,7 +11,7 @@ exec git config user.name 'Test User'
 exec git config user.email 'test@example.com'
 
 # Create first commit
-exec apx init app --org=testorg --non-interactive internal/apis/proto/test/v1
+exec apx init app --org=testorg --repo=myapp --non-interactive internal/apis/proto/test/v1
 exec git add .
 exec git commit -m 'Initial version'
 

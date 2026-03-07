@@ -9,7 +9,7 @@ exec git config user.name 'Test User'
 exec git config user.email 'test@example.com'
 
 # Initialize app with proto module
-exec apx init app --org=myorg --non-interactive internal/apis/proto/payments/ledger/v1
+exec apx init app --org=myorg --repo=app-repo --non-interactive internal/apis/proto/payments/ledger/v1
 
 # Verify the module structure was created
 exists internal/apis/proto/payments/ledger/v1/ledger.proto

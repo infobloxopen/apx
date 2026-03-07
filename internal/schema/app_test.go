@@ -11,30 +11,42 @@ func TestAppScaffold(t *testing.T) {
 		name       string
 		modulePath string
 		org        string
+		repo       string
 		wantErr    bool
 	}{
 		{
 			name:       "valid proto module path",
 			modulePath: "internal/apis/proto/payments/ledger/v1",
 			org:        "myorg",
+			repo:       "myrepo",
 			wantErr:    false,
 		},
 		{
 			name:       "valid openapi module path",
 			modulePath: "internal/apis/openapi/inventory/v2",
 			org:        "testorg",
+			repo:       "myrepo",
 			wantErr:    false,
 		},
 		{
 			name:       "empty module path",
 			modulePath: "",
 			org:        "myorg",
+			repo:       "myrepo",
 			wantErr:    true,
 		},
 		{
 			name:       "empty org",
 			modulePath: "internal/apis/proto/test/v1",
 			org:        "",
+			repo:       "myrepo",
+			wantErr:    true,
+		},
+		{
+			name:       "empty repo",
+			modulePath: "internal/apis/proto/test/v1",
+			org:        "myorg",
+			repo:       "",
 			wantErr:    true,
 		},
 	}
@@ -43,7 +55,7 @@ func TestAppScaffold(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 
-			scaffolder := NewAppScaffolder(tt.modulePath, tt.org)
+			scaffolder := NewAppScaffolder(tt.modulePath, tt.org, tt.repo)
 			err := scaffolder.Generate(tmpDir)
 
 			if (err != nil) != tt.wantErr {
@@ -80,7 +92,7 @@ func TestAppScaffoldProtoStructure(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	modulePath := "internal/apis/proto/payments/ledger/v1"
-	scaffolder := NewAppScaffolder(modulePath, "myorg")
+	scaffolder := NewAppScaffolder(modulePath, "myorg", "myrepo")
 
 	if err := scaffolder.Generate(tmpDir); err != nil {
 		t.Fatalf("Generate() failed: %v", err)
@@ -103,9 +115,11 @@ func TestAppScaffoldProtoStructure(t *testing.T) {
 	}
 
 	expectedConfig := []string{
-		"kind: proto",
-		"module: payments.ledger.v1",
+		"version: 1",
 		"org: myorg",
+		"repo: myrepo",
+		"module_roots:",
+		"  - internal/apis/proto",
 	}
 
 	for _, expected := range expectedConfig {
@@ -119,7 +133,7 @@ func TestAppScaffoldOpenAPIStructure(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	modulePath := "internal/apis/openapi/inventory/v2"
-	scaffolder := NewAppScaffolder(modulePath, "testorg")
+	scaffolder := NewAppScaffolder(modulePath, "testorg", "myrepo")
 
 	if err := scaffolder.Generate(tmpDir); err != nil {
 		t.Fatalf("Generate() failed: %v", err)
@@ -142,9 +156,11 @@ func TestAppScaffoldOpenAPIStructure(t *testing.T) {
 	}
 
 	expectedConfig := []string{
-		"kind: openapi",
-		"module: inventory/v2",
+		"version: 1",
 		"org: testorg",
+		"repo: myrepo",
+		"module_roots:",
+		"  - internal/apis/openapi",
 	}
 
 	for _, expected := range expectedConfig {

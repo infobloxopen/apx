@@ -67,13 +67,13 @@ apis/
 cd /path/to/your-app
 
 # Initialize app structure
-apx init app internal/apis/proto/payments/ledger
+apx init app --org=<org> --repo=<app-repo> internal/apis/proto/payments/ledger
 
 # Lint your schema
 apx lint internal/apis/proto/payments/ledger
 
 # Check for breaking changes
-apx breaking internal/apis/proto/payments/ledger
+apx breaking --against=HEAD^ internal/apis/proto/payments/ledger
 
 # Publish to canonical repo
 apx publish --module-path=internal/apis/proto/payments/ledger

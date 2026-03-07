@@ -6,7 +6,7 @@ mkdir proto-test
 cd proto-test
 
 # Initialize app repo with proto
-exec apx init app --org=testorg --non-interactive internal/apis/proto/test/v1
+exec apx init app --org=testorg --repo=myapp --non-interactive internal/apis/proto/test/v1
 
 # Verify the proto file exists
 exists internal/apis/proto/test/v1/test.proto

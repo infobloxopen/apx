@@ -43,11 +43,11 @@ Initialize the organization-wide API repository:
 # Full interactive setup
 apx init canonical
 
-# With organization specified
-apx init canonical --org mycompany
+# With organization and repo specified
+apx init canonical --org=mycompany --repo=apis
 
-# Non-interactive with full path
-apx init canonical --non-interactive github.com/mycompany/apis
+# Non-interactive with all flags
+apx init canonical --org=mycompany --repo=apis --non-interactive
 ```
 
 This creates the canonical structure:
@@ -69,13 +69,12 @@ Initialize schema authoring in an app repository:
 # Full interactive - detects best practices
 apx init app
 
-# Specify path interactively  
+# Specify path interactively
 apx init app internal/apis/proto/payments/ledger
 
 # Non-interactive with full configuration
-apx init app --non-interactive \
-  --canonical=github.com/mycompany/apis \
-  internal/apis/proto/payments/ledger/v1
+apx init app --org=mycompany --repo=myapp --non-interactive \
+  internal/apis/proto/payments/ledger
 ```
 
 ### Schema Type Detection
@@ -188,15 +187,15 @@ Override detected defaults and skip prompts with flags:
 ### Canonical Repository Flags
 
 - `--org VALUE`: Organization name for canonical repo
-- `--formats VALUE`: Comma-separated schema formats (proto,openapi,avro)
+- `--repo VALUE`: Repository name
+- `--skip-git`: Skip git initialization
 - `--non-interactive`: Use all defaults without prompts
 
 ### App Repository Flags
 
-- `--canonical-repo VALUE`: Target canonical repository URL
-- `--canonical-path VALUE`: Destination path in canonical repo
-- `--languages VALUE`: Target languages for code generation
-- `--non-interactive`: Skip all prompts
+- `--org VALUE`: Organization name
+- `--repo VALUE`: Repository name for the app
+- `--non-interactive`: Skip all prompts (requires `--org` and `--repo`)
 
 ### Examples
 
@@ -424,8 +423,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - run: apx fetch --ci
-      - run: apx lint && apx breaking
+      - run: apx fetch
+      - run: apx lint && apx breaking --against=origin/main
       - run: apx publish --module-path=internal/apis/${GITHUB_REF_NAME%/v*} \
                --canonical-repo=github.com/mycompany/apis
 ```
@@ -445,7 +444,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: apx fetch --ci && apx lint && apx breaking
+      - run: apx fetch && apx lint && apx breaking --against=origin/main
 
   release:
     if: github.ref == 'refs/heads/main'
@@ -454,7 +453,7 @@ jobs:
     permissions: { contents: write }
     steps:
       - uses: actions/checkout@v4
-      - run: apx version verify && apx tag subdir && apx packages publish
+      - run: apx lint && apx breaking --against=origin/main
 ```
 
 ### Team Onboarding Script

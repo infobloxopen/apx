@@ -1,72 +1,39 @@
 # Installation
 
-APX can be installed via Homebrew, Scoop, a shell one-liner, pre-built binaries, or from source.
+APX can be installed from pre-built binaries (GitHub Releases), Homebrew, or from source.
 
-## Homebrew (macOS — Recommended)
+:::{admonition} Alpha Release
+:class: note
+APX is currently in **alpha** (`v0.1.0-alpha`). The Homebrew formula and other package manager entries are not yet stable-released. We recommend installing from GitHub Releases or from source for the alpha period.
+:::
 
-```bash
-brew install --cask infobloxopen/tap/apx
-```
+## GitHub Releases (Recommended for Alpha)
 
-Shell completions for bash, zsh, and fish are installed automatically.
-
-## Scoop (Windows)
-
-```powershell
-scoop bucket add infobloxopen https://github.com/infobloxopen/scoop-bucket
-scoop install infobloxopen/apx
-```
-
-## Shell Installer (macOS/Linux)
+Download the latest binary for your platform from the [GitHub Releases page](https://github.com/infobloxopen/apx/releases).
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/infobloxopen/apx/main/install.sh | bash
-```
-
-The installer downloads the latest release, verifies its SHA-256 checksum, and installs to `~/.local/bin` by default. Customise with environment variables:
-
-```bash
-# Pin a specific version
-curl -fsSL https://raw.githubusercontent.com/infobloxopen/apx/main/install.sh | VERSION=1.2.3 bash
-
-# Change install directory
-curl -fsSL https://raw.githubusercontent.com/infobloxopen/apx/main/install.sh | INSTALL_DIR=/usr/local/bin bash
-```
-
-## Download from GitHub Releases
-
-Pre-built binaries are available for major platforms:
-
-```bash
-# Download from GitHub Releases and place on PATH
-curl -L https://github.com/infobloxopen/apx/releases/latest/download/apx_$(uname -s)_$(uname -m).tar.gz | tar -xz
-chmod +x apx && mv apx /usr/local/bin/apx
-```
-
-### Platform-specific Downloads
-
-#### macOS
-
-```bash
-# Intel
-curl -L https://github.com/infobloxopen/apx/releases/latest/download/apx_darwin_amd64.tar.gz | tar -xz
+# macOS (Apple Silicon)
+curl -L https://github.com/infobloxopen/apx/releases/latest/download/apx_Darwin_arm64.tar.gz | tar -xz
 chmod +x apx && mv apx /usr/local/bin/
 
-# Apple Silicon
-curl -L https://github.com/infobloxopen/apx/releases/latest/download/apx_darwin_arm64.tar.gz | tar -xz
+# macOS (Intel)
+curl -L https://github.com/infobloxopen/apx/releases/latest/download/apx_Darwin_amd64.tar.gz | tar -xz
 chmod +x apx && mv apx /usr/local/bin/
+
+# Linux (x86_64)
+curl -L https://github.com/infobloxopen/apx/releases/latest/download/apx_Linux_x86_64.tar.gz | tar -xz
+chmod +x apx && sudo mv apx /usr/local/bin/
+
+# Linux (ARM64)
+curl -L https://github.com/infobloxopen/apx/releases/latest/download/apx_Linux_arm64.tar.gz | tar -xz
+chmod +x apx && sudo mv apx /usr/local/bin/
 ```
 
-#### Linux
+## Homebrew (macOS — Stable Releases Only)
 
-```bash
-# x86_64
-curl -L https://github.com/infobloxopen/apx/releases/latest/download/apx_linux_amd64.tar.gz | tar -xz
-chmod +x apx && sudo mv apx /usr/local/bin/
-
-# ARM64
-curl -L https://github.com/infobloxopen/apx/releases/latest/download/apx_linux_arm64.tar.gz | tar -xz
-chmod +x apx && sudo mv apx /usr/local/bin/
+```{admonition} Planned — stable tap pending
+:class: note
+The Homebrew tap will be enabled when APX reaches a stable release.
 ```
 
 ## Build from Source

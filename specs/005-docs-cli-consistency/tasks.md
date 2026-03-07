@@ -15,7 +15,7 @@
 
 **Purpose**: No new project setup needed — this feature modifies an existing codebase. This phase handles prerequisite verification.
 
-- [ ] T001 Verify branch 005-docs-cli-consistency is checked out and all tests pass via `go test ./...`
+- [X] T001 Verify branch 005-docs-cli-consistency is checked out and all tests pass via `go test ./...`
 
 ---
 
@@ -25,28 +25,28 @@
 
 **⚠️ CRITICAL**: Docs cannot be written to match CLI behavior until these code fixes land.
 
-- [ ] T002 Fix `apx init app` config generation to produce valid Config-compatible YAML in internal/schema/app.go
+- [X] T002 Fix `apx init app` config generation to produce valid Config-compatible YAML in internal/schema/app.go
   - Change `generateApxYaml()` to output `version: 1` (int, not `v1` string)
   - Add `repo` field (required by `validateConfig`)
   - Replace `kind`/`module` fields with `module_roots` (matches Config struct)
   - Ensure `AppScaffolder` has access to `repo` value (may need constructor change)
-- [ ] T003 Fix search example bug in existing doc parity test in cmd/apx/commands/doc_parity_test.go
+- [X] T003 Fix search example bug in existing doc parity test in cmd/apx/commands/doc_parity_test.go
   - Change `{"search", []string{"apx", "search", "payments", "ledger"}}` to `{"search", []string{"apx", "search", "payments"}}` (MaximumNArgs(1))
-- [ ] T004 Add comprehensive command existence parity test in cmd/apx/commands/doc_parity_test.go
+- [X] T004 Add comprehensive command existence parity test in cmd/apx/commands/doc_parity_test.go
   - `TestDocParity_AllCommandsExist`: loop over all 14 commands + 4 subcommands + completion, verify `root.Find()` succeeds
   - Per Contract 1 in contracts/doc-parity-test-contract.md
-- [ ] T005 [P] Add comprehensive flag existence parity test in cmd/apx/commands/doc_parity_test.go
+- [X] T005 [P] Add comprehensive flag existence parity test in cmd/apx/commands/doc_parity_test.go
   - `TestDocParity_AllFlagsExist`: loop over every command→flag mapping from data-model.md per-command flags table
   - Per Contract 2 in contracts/doc-parity-test-contract.md
-- [ ] T006 [P] Add required flag enforcement parity test in cmd/apx/commands/doc_parity_test.go
+- [X] T006 [P] Add required flag enforcement parity test in cmd/apx/commands/doc_parity_test.go
   - `TestDocParity_RequiredFlags`: verify `breaking` without `--against` fails, `semver suggest` without `--against` fails
   - Per Contract 3 in contracts/doc-parity-test-contract.md
-- [ ] T007 Add config roundtrip parity test in cmd/apx/commands/doc_parity_test.go
+- [X] T007 Add config roundtrip parity test in cmd/apx/commands/doc_parity_test.go
   - `TestDocParity_ConfigRoundtrip`: run `init canonical` → load generated apx.yaml with `config.Load()` → assert no error
   - Run `init app` → load generated apx.yaml → assert no error (depends on T002 fix)
   - Validate `apx.example.yaml` loads without error
   - Per Contract 5 in contracts/doc-parity-test-contract.md
-- [ ] T008 Run `go test ./cmd/apx/commands/ -run TestDocParity -v` and confirm all parity tests pass
+- [X] T008 Run `go test ./cmd/apx/commands/ -run TestDocParity -v` and confirm all parity tests pass
 
 **Checkpoint**: All code fixes landed, all parity tests green. Documentation can now be written to match the fixed CLI behavior.
 
@@ -60,7 +60,7 @@
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Rewrite docs/getting-started/quickstart.md to match actual CLI
+- [X] T009 [US1] Rewrite docs/getting-started/quickstart.md to match actual CLI
   - Replace `apx version suggest` → `apx semver suggest`
   - Replace `apx search payments ledger` → `apx search payments` (MaximumNArgs(1))
   - Add `--against` flag to all `apx breaking` examples
@@ -68,10 +68,10 @@
   - Fix `apx.yaml` examples to match Config struct (version: 1, org, repo, module_roots)
   - Fix `apx init` usage to show `apx init <kind> <modulePath>` (MaximumNArgs(2)) or interactive (0 args)
   - Remove any references to non-existent flags or commands
-- [ ] T010 [P] [US1] Fix docs/getting-started/installation.md to match current installation methods
+- [X] T010 [P] [US1] Fix docs/getting-started/installation.md to match current installation methods
   - Verify brew install command matches current tap/cask setup
   - Verify binary download instructions are current
-- [ ] T011 [P] [US1] Fix docs/getting-started/interactive-init.md to match current interactive flow
+- [X] T011 [P] [US1] Fix docs/getting-started/interactive-init.md to match current interactive flow
   - Remove any urfave/cli or survey references
   - Update to reflect charmbracelet/huh-based interactive prompts
   - Fix command examples to match actual init flags (--non-interactive, --org, --repo, --languages)
@@ -88,14 +88,14 @@
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Rewrite docs/cli-reference/index.md from scratch using data-model.md command tree
+- [X] T012 [US2] Rewrite docs/cli-reference/index.md from scratch using data-model.md command tree
   - Document all 14 commands + subcommands with Use, Short, flags table, examples
   - Include global persistent flags section (--quiet, --verbose, --json, --no-color, --config)
   - Mark required flags (--against) clearly
   - Add canonical exit-code table (0=success, 1=general error, 6=validation failure)
   - Document environment variables: APX_CONFIG (implemented), APX_VERBOSE/APX_USE_CONTAINER/APX_CACHE_DIR (mark as Planned)
   - Remove the toctree referencing non-existent sub-pages (core-commands, dependency-commands, etc.) — all content goes in index.md
-- [ ] T013 [P] [US2] Update README.md to match actual CLI commands and flags
+- [X] T013 [P] [US2] Update README.md to match actual CLI commands and flags
   - Fix all command name references (version suggest → semver suggest)
   - Fix all flag references (add --against where required)
   - Fix all examples to use correct argument counts
@@ -113,12 +113,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T014 [US3] Update all apx.yaml examples in docs/ to match Config struct schema
+- [X] T014 [US3] Update all apx.yaml examples in docs/ to match Config struct schema
   - Every `apx.yaml` code block must use `version: 1` (int), include `org`, `repo`
   - Remove `kind`/`module` fields from examples (not in Config struct)
   - Add `module_roots`, `language_targets`, `policy`, `publishing`, `tools`, `execution` as appropriate
   - Files to check: docs/getting-started/quickstart.md, docs/cli-reference/index.md, docs/app-repos/index.md, docs/canonical-repo/index.md
-- [ ] T015 [P] [US3] Verify apx.example.yaml passes config validate — no changes expected but confirm with test in T007
+- [X] T015 [P] [US3] Verify apx.example.yaml passes config validate — no changes expected but confirm with test in T007
 
 **Checkpoint**: Every config example in docs, when pasted into apx.yaml, passes `apx config validate`.
 
@@ -132,18 +132,18 @@
 
 ### Implementation for User Story 4
 
-- [ ] T016 [US4] Rewrite docs/publishing/index.md to use only valid commands and flags
+- [X] T016 [US4] Rewrite docs/publishing/index.md to use only valid commands and flags
   - Replace `apx fetch --ci` → `apx fetch --verify` (or `--output`)
   - Replace `apx tag subdir` → mark as Planned or remove
   - Replace `apx packages publish` → mark as Planned or remove
   - Replace `apx version verify` → mark as Planned or remove
   - Fix all CI template YAML blocks to use valid commands
   - Use `{admonition} Planned — not yet available` blocks for roadmap commands
-- [ ] T017 [P] [US4] Fix docs/app-repos/index.md workflow examples
+- [X] T017 [P] [US4] Fix docs/app-repos/index.md workflow examples
   - Fix command names and flags to match actual CLI
   - Fix CI integration examples
   - Mark planned commands with admonition blocks
-- [ ] T018 [P] [US4] Fix docs/canonical-repo/index.md and docs/canonical-repo/structure.md
+- [X] T018 [P] [US4] Fix docs/canonical-repo/index.md and docs/canonical-repo/structure.md
   - Fix catalog format examples to match catalog/catalog.yaml schema from data-model.md
   - Fix any command references
 
@@ -159,7 +159,7 @@
 
 ### Implementation for User Story 5
 
-- [ ] T019 [US5] Rewrite docs/dependencies/index.md to match actual lockfile schema and commands
+- [X] T019 [US5] Rewrite docs/dependencies/index.md to match actual lockfile schema and commands
   - Fix lockfile format: show map-based Dependencies (not flat list), with Repo/Ref/Modules fields
   - Mark `apx update`, `apx upgrade`, `apx list`, `apx show` as Planned using `{admonition}` blocks
   - Fix `apx search` examples to use MaximumNArgs(1) — single query arg
@@ -180,35 +180,35 @@
 
 The following toctree entries reference non-existent files (29 total). Create stub pages for each.
 
-- [ ] T020 [P] [US6] Create stub pages for docs/canonical-repo/ broken toctree refs
+- [X] T020 [P] [US6] Create stub pages for docs/canonical-repo/ broken toctree refs
   - docs/canonical-repo/setup.md — stub: "Setting up a canonical repository (coming soon)"
   - docs/canonical-repo/ci-templates.md — stub: "CI templates for canonical repos (coming soon)"
   - docs/canonical-repo/protection.md — stub: "Branch and tag protection (coming soon)"
-- [ ] T021 [P] [US6] Create stub pages for docs/app-repos/ broken toctree refs
+- [X] T021 [P] [US6] Create stub pages for docs/app-repos/ broken toctree refs
   - docs/app-repos/layout.md — stub
   - docs/app-repos/local-development.md — stub
   - docs/app-repos/publishing-workflow.md — stub
   - docs/app-repos/ci-integration.md — stub
-- [ ] T022 [P] [US6] Create stub pages for docs/dependencies/ broken toctree refs
+- [X] T022 [P] [US6] Create stub pages for docs/dependencies/ broken toctree refs
   - docs/dependencies/discovery.md — stub
   - docs/dependencies/adding-dependencies.md — stub
   - docs/dependencies/code-generation.md — stub
   - docs/dependencies/updates-and-upgrades.md — stub
   - docs/dependencies/versioning-strategy.md — stub
-- [ ] T023 [P] [US6] Create stub pages for docs/publishing/ broken toctree refs
+- [X] T023 [P] [US6] Create stub pages for docs/publishing/ broken toctree refs
   - docs/publishing/overview.md — stub
   - docs/publishing/validation.md — stub
   - docs/publishing/tagging-strategy.md — stub
   - docs/publishing/publish-command.md — stub
   - docs/publishing/canonical-pr.md — stub
   - docs/publishing/release-guardrails.md — stub
-- [ ] T024 [P] [US6] Create stub pages for docs/troubleshooting/ broken toctree refs
+- [X] T024 [P] [US6] Create stub pages for docs/troubleshooting/ broken toctree refs
   - docs/troubleshooting/common-errors.md — stub
   - docs/troubleshooting/buf-issues.md — stub
   - docs/troubleshooting/versioning-problems.md — stub
   - docs/troubleshooting/publishing-failures.md — stub
   - docs/troubleshooting/code-generation.md — stub
-- [ ] T025 [P] [US6] Create stub pages for docs/cli-reference/ broken toctree refs
+- [X] T025 [P] [US6] Create stub pages for docs/cli-reference/ broken toctree refs
   - docs/cli-reference/core-commands.md — stub
   - docs/cli-reference/dependency-commands.md — stub
   - docs/cli-reference/publishing-commands.md — stub
@@ -224,14 +224,14 @@ The following toctree entries reference non-existent files (29 total). Create st
 
 **Purpose**: Clean up stale references, final validation across all stories.
 
-- [ ] T026 [P] Remove all urfave/cli and survey references from user-facing docs
+- [X] T026 [P] Remove all urfave/cli and survey references from user-facing docs
   - Search: `grep -rn "urfave\|survey\|cli/v2" docs/ README.md INTERACTIVE_INIT.md`
   - Remove or replace every match
-- [ ] T027 [P] Fix INTERACTIVE_INIT.md — remove stale framework references, update to reflect huh-based prompts
-- [ ] T028 [P] Fix docs/troubleshooting/faq.md — update all command references to match actual CLI
-- [ ] T029 Run full test suite: `go test ./...` — confirm all tests pass including parity tests
-- [ ] T030 Run Sphinx build: `sphinx-build -W -b html docs docs/_build` — confirm zero warnings
-- [ ] T031 Manual walkthrough: follow quickstart.md end-to-end against compiled binary, confirm SC-001
+- [X] T027 [P] Fix INTERACTIVE_INIT.md — remove stale framework references, update to reflect huh-based prompts
+- [X] T028 [P] Fix docs/troubleshooting/faq.md — update all command references to match actual CLI
+- [X] T029 Run full test suite: `go test ./...` — confirm all tests pass including parity tests
+- [X] T030 Run Sphinx build: `sphinx-build -W -b html docs docs/_build` — confirm zero warnings
+- [X] T031 Manual walkthrough: follow quickstart.md end-to-end against compiled binary, confirm SC-001
 
 ---
 

@@ -6,7 +6,7 @@
 mkdir app
 cd app
 exec git init
-exec apx init app --org=testorg --non-interactive internal/apis/proto/services/users
+exec apx init app --org=testorg --repo=myapp --non-interactive internal/apis/proto/services/users
 exec apx add proto/payments/ledger/v1@v1.2.3
 exec apx add openapi/customer/accounts/v2@v2.0.0
 

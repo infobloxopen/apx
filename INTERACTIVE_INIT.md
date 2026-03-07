@@ -1,6 +1,6 @@
 # APX Interactive Initialization
 
-The `apx init` command now supports both interactive and non-interactive modes for setting up new schema modules with smart defaults and customizable configuration.
+The `apx init` command supports both interactive and non-interactive modes for setting up new API repositories with smart defaults.
 
 ## Features
 
@@ -17,184 +17,113 @@ APX automatically detects project context and suggests intelligent defaults:
 
 ### 🎯 Interactive Mode (Default)
 
-When run without `--non-interactive`, APX guides you through configuration. You can run it with or without arguments:
+When run without `--non-interactive`, APX guides you through configuration:
 
 ```bash
-# Full interactive mode - prompts for everything
-apx init
+# Initialize a canonical repo interactively
+apx init canonical
 
-# Interactive with pre-specified schema type and module
-apx init proto my.service.v1
+# Initialize an app module interactively
+apx init app internal/apis/proto
 
-# Output:
-🚀 Welcome to APX initialization!
-Let's set up your configuration with some questions...
+# Example interactive session for apx init canonical:
+? Organization name (mycompany):
+? Repository name (apis):
 
-? What type of schema do you want to create? proto
-? Module path/name: (my.service.v1)
-
-📋 Schema Configuration:
-   Type: proto
-   Module: my.service.v1
-
-? Organization name: (infobloxopen) 
-? Repository name: (apx) 
-? Target languages (select all that apply): [go, python, java]
-
-Configuration complete! 🎉
+✓ Created buf.yaml
+✓ Created catalog.yaml
+✓ Initialized git repository
 ```
 
 ### ⚡ Non-Interactive Mode
 
-For automation or when you want to use defaults. **Note: Non-interactive mode requires both schema type and module path arguments.**
+For automation and CI/CD. Provide all required flags explicitly:
 
 ```bash
-# Use all defaults (requires both arguments)
-apx init --non-interactive proto my.service.v1
+# Initialize canonical repo non-interactively
+apx init canonical --org mycompany --repo apis --non-interactive
 
-# Override specific defaults
-apx init --non-interactive \
-  --org "mycompany" \
-  --repo "awesome-apis" \
-  --languages "go,python,java" \
-  proto my.service.v1
-
-# ❌ This will fail - requires both arguments in non-interactive mode
-apx init --non-interactive
+# Initialize app repo non-interactively
+apx init app --org mycompany --repo myapp --non-interactive internal/apis/proto
 ```
 
 ## Command Options
 
-| Flag | Description | Example |
-|------|-------------|---------|
-| `--non-interactive` | Skip interactive prompts | `--non-interactive` |
-| `--org VALUE` | Set organization name | `--org "acme-corp"` |
-| `--repo VALUE` | Set repository name | `--repo "my-apis"` |
-| `--languages VALUE` | Set target languages (comma-separated) | `--languages "go,python,java"` |
+**`apx init canonical`**
+
+| Flag | Description |
+|------|-------------|
+| `--org VALUE` | GitHub organization name |
+| `--repo VALUE` | Repository name (default: `apis`) |
+| `--skip-git` | Skip `git init` |
+| `--non-interactive` | Disable interactive prompts |
+
+**`apx init app`**
+
+| Flag | Description |
+|------|-------------|
+| `--org VALUE` | GitHub organization name |
+| `--repo VALUE` | App repository name |
+| `--non-interactive` | Disable interactive prompts |
 
 ## Examples
 
-### Example 1: Full Interactive Mode
+### Example 1: Interactive canonical repo setup
 
 ```bash
-# No arguments - completely interactive
-apx init
-
-# Will prompt for:
-# 1. Schema type (proto, openapi, avro, jsonschema, parquet)  
-# 2. Module path/name (with smart defaults based on schema type)
-# 3. Organization name (auto-detected from directory)
-# 4. Repository name (auto-detected from directory)
-# 5. Target languages (auto-detected from project files)
+# In a fresh directory
+apx init canonical
+# Prompts for: org, repo name
 ```
 
-### Example 2: Smart Defaults in GitHub Repository
+### Example 2: Non-interactive canonical repo (CI/CD)
 
 ```bash
-# In /Users/dev/go/src/github.com/infobloxopen/my-apis/
-apx init --non-interactive proto user.v1
-
-# Generates apx.yaml with:
-# org: infobloxopen
-# repo: my-apis
-# languages: [go] (detected from go.mod)
+apx init canonical --org mycompany --repo apis --non-interactive
 ```
 
-### Example 2: Multi-Language Project
+### Example 3: Interactive app module setup
 
 ```bash
-# Custom configuration for multiple languages
-apx init --non-interactive \
-  --org "tech-startup" \
-  --repo "platform-apis" \
-  --languages "go,python,java" \
-  proto platform.users.v1
+# In your app repo
+apx init app internal/apis/proto
+# Prompts for: org, repo
 ```
 
-### Example 3: Different Schema Types
+### Example 4: Non-interactive app module setup
 
 ```bash
-# Interactive mode - will prompt for schema type
-apx init
-
-# Non-interactive with specific schema types
-apx init --non-interactive openapi my-rest-api
-apx init --non-interactive jsonschema my-data-schema  
-apx init --non-interactive avro my-event-schema
-
-# Partial interactive - specify schema, prompted for module path and config
-apx init proto
-# Will prompt for module path and configuration
+apx init app --org mycompany --repo myapp --non-interactive internal/apis/proto
 ```
 
 ## Generated Configuration
 
-The generated `apx.yaml` includes:
+`apx init app` creates `apx.yaml` in the repo root:
 
-- ✅ **Custom org/repo names** (from flags or smart detection)
-- ✅ **Language-specific configurations** with appropriate tools and plugins
-- ✅ **Sensible policy defaults** for each schema type
-- ✅ **Modern tool versions** (buf, spectral, etc.)
-- ✅ **Best practice settings** for CI/CD and publishing
-
-### Go Configuration
 ```yaml
-language_targets:
-  go:
-    enabled: true
-    plugins:
-      - name: protoc-gen-go
-        version: v1.64.0
-      - name: protoc-gen-go-grpc
-        version: v1.5.0
+version: 1
+org: mycompany
+repo: myapp
+module_roots:
+  - internal/apis/proto
 ```
 
-### Python Configuration
-```yaml
-  python:
-    enabled: true
-    tool: grpcio-tools
-    version: 1.64.0
-```
-
-### Java Configuration
-```yaml
-  java:
-    enabled: true
-    plugins:
-      - name: protoc-gen-grpc-java
-        version: 1.68.1
-```
+`apx init canonical` creates `buf.yaml`, `catalog.yaml`, `CODEOWNERS`, and CI workflow templates.
 
 ## Advanced Usage
 
 ### Usage Patterns
 
-APX init supports several usage patterns:
-
 ```bash
-# 🎯 Full interactive (recommended for first-time users)
-apx init
+# Interactive canonical repo setup
+apx init canonical
 
-# 🚀 Quick interactive with schema type pre-selected  
-apx init proto
+# Interactive app module setup
+apx init app internal/apis/proto
 
-# ⚡ Non-interactive automation (requires both arguments)
-apx init --non-interactive proto my.service.v1
-
-# 🔧 Non-interactive with custom settings
-apx init --non-interactive --org "company" --repo "apis" proto service.v1
-```
-
-### Flag Order Matters
-Due to urfave/cli parsing, flags must come before arguments:
-
-```bash
-# ✅ Correct
-apx init --non-interactive --org "company" proto service.v1
-
-# ❌ Incorrect  
-apx init proto service.v1 --non-interactive --org "company"
+# Non-interactive with all flags
+apx init canonical --org mycompany --repo apis --non-interactive
+apx init app --org mycompany --repo myapp --non-interactive internal/apis/proto
 ```
 
 ### Interactive Environment Detection
@@ -204,19 +133,19 @@ Interactive mode is automatically disabled in:
 
 You can force non-interactive mode with `--non-interactive`.
 
-## Default Module Path Suggestions
+## Module Path Conventions
 
-When running in full interactive mode (`apx init`), APX suggests sensible defaults based on the schema type:
+The `<module-path>` argument to `apx init app` should point to the root of your schema tree within the app repo:
 
-| Schema Type | Default Module Path | Use Case |
-|-------------|-------------------|----------|
-| `proto` | `com.example.service.v1` | gRPC services, protobuf APIs |
-| `openapi` | `my-api` | REST APIs, HTTP services |
-| `avro` | `com.example.events` | Event streaming, data pipelines |
-| `jsonschema` | `com.example.schema` | Data validation, configuration |
-| `parquet` | `com.example.data` | Data analytics, columnar storage |
+| Schema Format | Typical Module Path |
+|---|---|
+| Protocol Buffers | `internal/apis/proto` |
+| OpenAPI | `internal/apis/openapi` |
+| Avro | `internal/apis/avro` |
+| JSON Schema | `internal/apis/jsonschema` |
+| Parquet | `internal/apis/parquet` |
 
-These defaults can be customized during the interactive prompts or overridden with command-line arguments.
+APX discovers schema files by walking the directory tree starting at this path.
 
 ## Integration with Existing Workflows
 

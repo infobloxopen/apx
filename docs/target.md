@@ -303,7 +303,7 @@ directories:
 
 ### 3) Add CI (validate + release)
 - **Validate PRs** touching `proto/**`, `openapi/**`, `avro/**`, `jsonschema/**`, `parquet/**` with `apx lint`, `apx breaking`, `apx policy check`.
-- **On merge** of PR created by `apx publish`, run `apx version verify`, create **subdirectory tag**, and publish optional artifacts (Maven/wheel/OCI). See [CI Templates](#ci-templates).
+- **On merge** of PR created by `apx publish`, CI validates content. Tag-based releases are automated.
 
 ---
 
@@ -385,14 +385,14 @@ apx gen java     # → internal/gen/java/<api>@<ver>/...
 
 ### Update to latest compatible
 ```bash
-# Patch/minor within current major
-apx update proto/payments/ledger/v1   # chooses latest v1.x.y and updates apx.lock
-apx gen go && apx sync                # regenerate stubs and update go.work overlays
+# Re-add the dependency at the new version (update/upgrade commands are Planned)
+apx add proto/payments/ledger/v1@v1.3.0  # pin new version
+apx gen go && apx sync                    # regenerate stubs and update go.work overlays
 ```
 
 ### Upgrade to a new major
 ```bash
-apx upgrade proto/payments/ledger/v2@v2.0.0
+apx add proto/payments/ledger/v2@v2.0.0
 apx gen go && apx sync
 # Update imports from .../ledger → .../ledger/v2 where applicable
 # go.work automatically resolves new canonical paths to local stubs
@@ -412,7 +412,7 @@ go get github.com/<org>/apis/proto/payments/ledger@v1.2.3   # get real module
 
 1) **Validate locally**
 ```bash
-apx lint && apx breaking && apx version suggest
+apx lint && apx breaking --against=HEAD^ && apx semver suggest --against=HEAD^
 ```
 
 2) **Tag in the app repo** (subdir-style tag)
@@ -436,7 +436,7 @@ apx publish \
 
 5) **Canonical CI on PR merge**
 - Re-runs checks.
-- Verifies SemVer (`apx version verify`).
+- Verifies semver compatibility.
 - Creates the **subdirectory tag** (`proto/payments/ledger/v1.2.3`).
 - Publishes optional language packages.
 
@@ -451,7 +451,7 @@ apx publish \
 - **JSON Schema**: schema diff; forbid tightenings without major.
 - **Parquet**: custom checker—additive **nullable** columns only.
 - **Policy**: ban service/ORM annotations (e.g., any `(gorm.*)`) and unapproved generators.
-- **SemVer**: `apx version suggest` (PR must match or CI fails).
+- **SemVer**: `apx semver suggest --against=<ref>` (recommendation for tag selection).
 - **Only CI can tag**: protected tag patterns.
 
 **Human gates**
@@ -503,40 +503,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - run: apx fetch --ci
-      - run: apx lint && apx breaking && apx policy check
+      - run: apx fetch
+      - run: apx lint && apx breaking --against=origin/main && apx policy check
       - run: apx publish \
                --module-path=internal/apis/${GITHUB_REF_NAME%/v*} \
                --canonical-repo=github.com/<org>/apis
 ```
 
-### Canonical repo — validate & release
+### Canonical repo — validate on PR
 ```yaml
-name: Validate + Release API Modules
+name: Validate API Modules
 on:
   pull_request:
     paths: ['proto/**', 'openapi/**', 'avro/**', 'jsonschema/**', 'parquet/**']
-  push:
-    branches: [ main ]
-
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: apx fetch --ci
-      - run: apx lint && apx breaking && apx policy check
-
-  tag_and_publish:
-    if: github.ref == 'refs/heads/main'
-    needs: [validate]
-    runs-on: ubuntu-latest
-    permissions: { contents: write, packages: write }
-    steps:
-      - uses: actions/checkout@v4
-      - run: apx version verify
-      - run: apx tag subdir proto/payments/ledger v1.2.3  # inferred in real workflow
-      - run: apx packages publish
+      - run: apx fetch
+      - run: apx lint && apx breaking --against=origin/main && apx policy check
 ```
 
 ---
@@ -552,7 +538,7 @@ A: No. v2 lives in a separate module (`.../v2` with its own `go.mod`). v1 import
 A: Yes. `apx search <keywords>` queries the catalog (generated in the canonical repo). You can also browse tags.
 
 **Q: Can apx update dependencies?**  
-A: Yes. `apx update <api>` gets the latest patch/minor within the current major; `apx upgrade` targets a specific major.
+A: Re-add the dependency at the new version: `apx add proto/payments/ledger/v1@v1.3.0`. Automatic `apx update` / `apx upgrade` commands are planned for a future release.
 
 **Q: How does APX publish APIs?**  
 A: APX uses git subtree to preserve commit history when publishing APIs to the canonical repository.
@@ -565,7 +551,7 @@ A: `apx policy check` fails on `(gorm.*)` and unapproved generators, both in app
 ## Troubleshooting
 - **Buf complaints about versioning**: ensure proto package ends with `vN` and files are under `.../vN/`.
 - **Go mod path errors**: in v1, module path has **no `/v1`**; in v2+, module path **must** end with `/v2`.
-- **Publish blocked for SemVer**: run `apx version suggest` and update your tag to match (`MAJOR/MINOR/PATCH`).
+- **Publish blocked for SemVer**: run `apx semver suggest --against=HEAD^` and update your tag to match (`MAJOR/MINOR/PATCH`).
 - **Generated code committed**: remove from VCS and add `/internal/gen/` to `.gitignore`; re-run `apx gen` in CI.
 
 ---
@@ -576,12 +562,11 @@ A: `apx policy check` fails on `(gorm.*)` and unapproved generators, both in app
 - `apx breaking` — format-specific breaking checks.
 - `apx policy check` — enforce banned options/plugins (e.g., `gorm`).
 - `apx search <q>` — discover available APIs.
-- `apx add <api>@<ver>` — add dependency; pin in `apx.lock`.
-- `apx update <api>` / `apx upgrade <api>@<ver>` — bump dependencies.
+- `apx add <api>@<ver>` — add or update dependency; pin in `apx.lock`.
 - `apx gen <lang>` — generate stubs with canonical import paths into `internal/gen/<lang>/<api>@<ver>/`.
 - `apx sync` — update `go.work` overlays to map canonical paths to local generated stubs.
 - `apx unlink <api>` — remove `go.work` overlay for an API (switch to published module).
 - `apx publish --module-path=... --canonical-repo=...` — open PR to canonical repo using git subtree.
-- `apx version suggest|set|verify` — compute/validate required SemVer.
-- `apx tag subdir <path> <version>` — create a subdirectory tag (CI only).
+- `apx semver suggest --against=<ref>` — compute recommended SemVer bump based on detected changes.
+- *(Planned)* `apx update <api>` / `apx upgrade <api>@<ver>` — bump dependencies automatically.
 

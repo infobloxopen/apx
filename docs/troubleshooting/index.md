@@ -100,8 +100,8 @@ module github.com/myorg/apis/proto/payments/ledger/v1
 
 **Publish blocked for SemVer**:
 ```bash
-# Run version suggestion and update tag
-apx version suggest
+# Run version suggestion to see recommended bump
+apx semver suggest --against=HEAD^
 # Update your tag to match (MAJOR/MINOR/PATCH)
 ```
 
@@ -162,9 +162,6 @@ buf ls-files
 apx publish --dry-run \
   --module-path=internal/apis/proto/domain/service/v1 \
   --canonical-repo=github.com/myorg/apis
-
-# Check tag format
-apx version verify
 ```
 
 ## Recovery Procedures
@@ -243,7 +240,7 @@ ERROR version verification failed:
 ```yaml
 # Ensure apx fetch runs in CI
 steps:
-  - run: apx fetch --ci  # downloads to well-known location
+  - run: apx fetch  # downloads tools
   - run: apx lint
 ```
 

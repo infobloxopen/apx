@@ -58,6 +58,7 @@ func newInitAppCmd() *cobra.Command {
 		RunE:  initAppAction,
 	}
 	cmd.Flags().String("org", "", "Organization name")
+	cmd.Flags().String("repo", "", "Repository name")
 	cmd.Flags().Bool("non-interactive", false, "Disable interactive prompts and require all flags")
 	return cmd
 }
@@ -204,43 +205,57 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 	modulePath := args[0]
 
 	org, _ := cmd.Flags().GetString("org")
+	repo, _ := cmd.Flags().GetString("repo")
 	nonInteractive, _ := cmd.Flags().GetBool("non-interactive")
 
 	// Also check parent flags
 	if org == "" {
 		org, _ = cmd.Parent().Flags().GetString("org")
 	}
+	if repo == "" {
+		repo, _ = cmd.Parent().Flags().GetString("repo")
+	}
 	if !nonInteractive {
 		ni, _ := cmd.Parent().Flags().GetBool("non-interactive")
 		nonInteractive = ni
 	}
 
-	if nonInteractive && org == "" {
-		return fmt.Errorf("--org is required in non-interactive mode")
+	if nonInteractive && (org == "" || repo == "") {
+		return fmt.Errorf("--org and --repo are required in non-interactive mode")
 	}
 
-	if org == "" {
+	if org == "" || repo == "" {
 		defaults, err := detector.GetSmartDefaults()
 		if err != nil {
 			ui.Warning("Could not detect project defaults: %v", err)
 			defaults = &detector.ProjectDefaults{
-				Org: "your-org-name",
+				Org:  "your-org-name",
+				Repo: "your-app-repo",
 			}
 		}
 
 		ui.Info("\U0001f680 Initializing application repository with schema module!")
 		ui.Info("")
 
-		if err := interactive.PromptForString("Organization name:", defaults.Org, &org); err != nil {
-			return fmt.Errorf("failed to get organization name: %w", err)
+		if org == "" {
+			if err := interactive.PromptForString("Organization name:", defaults.Org, &org); err != nil {
+				return fmt.Errorf("failed to get organization name: %w", err)
+			}
+		}
+
+		if repo == "" {
+			if err := interactive.PromptForString("Repository name:", defaults.Repo, &repo); err != nil {
+				return fmt.Errorf("failed to get repository name: %w", err)
+			}
 		}
 	}
 
 	ui.Info("Initializing application repository...")
 	ui.Info("Module path: %s", modulePath)
 	ui.Info("Organization: %s", org)
+	ui.Info("Repository: %s", repo)
 
-	scaffolder := schema.NewAppScaffolder(modulePath, org)
+	scaffolder := schema.NewAppScaffolder(modulePath, org, repo)
 	if err := scaffolder.Generate("."); err != nil {
 		return fmt.Errorf("failed to generate app structure: %w", err)
 	}
