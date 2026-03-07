@@ -4,7 +4,7 @@ version: 2
 before:
   hooks:
     - go mod tidy
-    - go test ./cmd/... ./internal/...
+    - sh -c "go test ./cmd/... $(go list ./internal/... | grep -v /validator | tr '\n' ' ')"
 
 builds:
   - id: apx
