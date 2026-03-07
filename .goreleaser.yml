@@ -59,7 +59,7 @@ changelog:
       - Merge pull request
       - Merge branch
 
-brews:
+homebrew_casks:
   - name: apx
     repository:
       owner: infobloxopen
@@ -67,14 +67,17 @@ brews:
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: https://github.com/infobloxopen/apx
     description: "API Publishing eXperience CLI"
-    license: Apache-2.0
-    install: |
-      bin.install "apx"
-      (bash_completion/"apx").write `#{bin}/apx completion bash`
-      (fish_completion/"apx.fish").write `#{bin}/apx completion fish`
-      (zsh_completion/"_apx").write `#{bin}/apx completion zsh`
-    test: |
-      system "#{bin}/apx", "--version"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/apx"]
+          end
+    caveats: |
+      The binary is not signed by Apple. On first run macOS may show a
+      security warning. The post-install hook attempts to clear the
+      quarantine flag automatically. If you still see the warning, run:
+        xattr -dr com.apple.quarantine $(brew --caskroom)/apx
 
 scoops:
   - name: apx
@@ -104,44 +107,24 @@ nfpms:
         dst: /etc/apx/apx.example.yaml
         type: config|noreplace
 
-dockers:
-  - image_templates:
-      - "ghcr.io/infobloxopen/apx:{{ .Version }}-amd64"
-      - "ghcr.io/infobloxopen/apx:latest-amd64"
+dockers_v2:
+  - images:
+      - "ghcr.io/infobloxopen/apx"
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .IsNightly }}latest{{ end }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
     dockerfile: Dockerfile.goreleaser
-    use: buildx
     extra_files:
       - apx.example.yaml
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-  - image_templates:
-      - "ghcr.io/infobloxopen/apx:{{ .Version }}-arm64"
-      - "ghcr.io/infobloxopen/apx:latest-arm64"
-    dockerfile: Dockerfile.goreleaser
-    use: buildx
-    extra_files:
-      - apx.example.yaml
-    build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-    goarch: arm64
-
-docker_manifests:
-  - name_template: "ghcr.io/infobloxopen/apx:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/infobloxopen/apx:{{ .Version }}-amd64"
-      - "ghcr.io/infobloxopen/apx:{{ .Version }}-arm64"
-  - name_template: "ghcr.io/infobloxopen/apx:latest"
-    image_templates:
-      - "ghcr.io/infobloxopen/apx:latest-amd64"
-      - "ghcr.io/infobloxopen/apx:latest-arm64"
+    labels:
+      "org.opencontainers.image.created": "{{.Date}}"
+      "org.opencontainers.image.title": "{{.ProjectName}}"
+      "org.opencontainers.image.revision": "{{.FullCommit}}"
+      "org.opencontainers.image.version": "{{.Version}}"
+      "org.opencontainers.image.source": "{{.GitURL}}"
 
 release:
   github:

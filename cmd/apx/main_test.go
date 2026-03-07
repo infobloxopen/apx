@@ -1,56 +1,47 @@
 package main
 
 import (
-	"context"
+	"bytes"
 	"fmt"
 	"os"
 	"testing"
 
-	"github.com/infobloxopen/apx/internal/testhelpers"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewApp(t *testing.T) {
 	app := NewApp()
 	require.NotNil(t, app)
-	require.Equal(t, "apx", app.Name)
-	require.Equal(t, "API Publishing eXperience CLI", app.Usage)
+	require.Equal(t, "apx", app.Use)
+	require.Equal(t, "API Publishing eXperience CLI", app.Short)
 }
 
 func TestHelpCommand(t *testing.T) {
-	// Setup test output
-	output := testhelpers.NewTestOutput()
-	output.Setup()
-	defer output.Restore()
-
 	app := NewApp()
-	err := app.RunContext(context.Background(), []string{"apx", "help"})
+	buf := new(bytes.Buffer)
+	app.SetOut(buf)
+	app.SetErr(buf)
+	app.SetArgs([]string{"help"})
+	err := app.Execute()
 	require.NoError(t, err)
 
-	// Restore to flush all output before reading
-	output.Restore()
-
-	stdout := output.StdoutString()
-	require.Contains(t, stdout, "API Publishing eXperience CLI")
-	require.Contains(t, stdout, "USAGE:")
-	require.Contains(t, stdout, "COMMANDS:")
+	stdout := buf.String()
+	require.Contains(t, stdout, "API schemas across organizations")
+	require.Contains(t, stdout, "Usage:")
+	require.Contains(t, stdout, "Available Commands:")
 }
 
 func TestVersionFlag(t *testing.T) {
-	// Setup test output
-	output := testhelpers.NewTestOutput()
-	output.Setup()
-	defer output.Restore()
-
 	app := NewApp()
-	err := app.RunContext(context.Background(), []string{"apx", "--version"})
+	buf := new(bytes.Buffer)
+	app.SetOut(buf)
+	app.SetErr(buf)
+	app.SetArgs([]string{"--version"})
+	err := app.Execute()
 	require.NoError(t, err)
 
-	// Restore to flush all output before reading
-	output.Restore()
-
-	stdout := output.StdoutString()
-	require.Contains(t, stdout, "dev") // default version
+	stdout := buf.String()
+	require.Contains(t, stdout, "dev")
 }
 
 func TestConfigInitCommand(t *testing.T) {
@@ -60,16 +51,12 @@ func TestConfigInitCommand(t *testing.T) {
 	os.Chdir(tmpDir)
 	defer os.Chdir(oldDir)
 
-	// Setup test output
-	output := testhelpers.NewTestOutput()
-	output.Setup()
-	defer output.Restore()
-
 	app := NewApp()
-	err := app.RunContext(context.Background(), []string{"apx", "config", "init"})
-
-	// Restore to flush all output before reading
-	output.Restore()
+	buf := new(bytes.Buffer)
+	app.SetOut(buf)
+	app.SetErr(buf)
+	app.SetArgs([]string{"config", "init"})
+	err := app.Execute()
 
 	// This should succeed and create apx.yaml
 	require.NoError(t, err)
@@ -106,20 +93,30 @@ func TestExitCode(t *testing.T) {
 }
 
 func TestGlobalFlags(t *testing.T) {
-	// Test that help output is captured (both quiet and verbose modes show CLI help)
-	output := testhelpers.NewTestOutput()
-	output.Setup()
-	defer output.Restore()
-
 	app := NewApp()
-	err := app.RunContext(context.Background(), []string{"apx", "--verbose", "help"})
+	buf := new(bytes.Buffer)
+	app.SetOut(buf)
+	app.SetErr(buf)
+	app.SetArgs([]string{"--verbose", "help"})
+	err := app.Execute()
 	require.NoError(t, err)
 
-	// Restore to flush all output
-	output.Restore()
+	stdout := buf.String()
+	require.Contains(t, stdout, "Usage:")
+	require.Contains(t, stdout, "API schemas across organizations")
+}
 
-	// Should have normal output containing help
-	stdout := output.StdoutString()
-	require.Contains(t, stdout, "USAGE:")
-	require.Contains(t, stdout, "API Publishing eXperience CLI")
+func TestCompletionCommand(t *testing.T) {
+	app := NewApp()
+	buf := new(bytes.Buffer)
+	app.SetOut(buf)
+	app.SetErr(buf)
+
+	// Cobra auto-generates a completion command
+	app.SetArgs([]string{"completion", "bash"})
+	err := app.Execute()
+	require.NoError(t, err)
+
+	stdout := buf.String()
+	require.Contains(t, stdout, "bash completion")
 }

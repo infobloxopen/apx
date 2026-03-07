@@ -7,114 +7,77 @@ import (
 	"github.com/infobloxopen/apx/internal/interactive"
 	"github.com/infobloxopen/apx/internal/schema"
 	"github.com/infobloxopen/apx/internal/ui"
-	"github.com/urfave/cli/v2"
+	"github.com/spf13/cobra"
 )
 
-// InitCommand returns the init command
-func InitCommand() *cli.Command {
-	return &cli.Command{
-		Name:  "init",
-		Usage: "Initialize a new schema module or canonical repository",
-		Description: "Create a new schema module with the specified kind and path, or initialize a canonical API repository.\n\n" +
-			"SUBCOMMANDS:\n" +
-			"  canonical - Initialize a canonical API repository structure\n" +
-			"  app - Initialize an application repository with schema module\n\n" +
-			"MODULE INIT:\n" +
-			"  Supported kinds: proto, openapi, avro, jsonschema, parquet\n" +
-			"  The command will interactively guide you through setup unless --non-interactive is used.\n" +
-			"  If no arguments are provided, you'll be prompted to select the schema type and module path.",
-		ArgsUsage: "[canonical|app|kind] [modulePath]",
-		Subcommands: []*cli.Command{
-			{
-				Name:      "canonical",
-				Usage:     "Initialize canonical API repository structure",
-				ArgsUsage: " ",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:     "org",
-						Usage:    "organization name",
-						Required: false, // Made optional to support interactive mode
-					},
-					&cli.StringFlag{
-						Name:     "repo",
-						Usage:    "repository name",
-						Required: false, // Made optional to support interactive mode
-					},
-					&cli.BoolFlag{
-						Name:  "skip-git",
-						Usage: "skip git initialization",
-					},
-					&cli.BoolFlag{
-						Name:  "non-interactive",
-						Usage: "disable interactive prompts and require all flags",
-					},
-				},
-				Action: initCanonicalAction,
-			},
-			{
-				Name:      "app",
-				Usage:     "Initialize application repository with schema module",
-				ArgsUsage: "<modulePath>",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:     "org",
-						Usage:    "organization name",
-						Required: false,
-					},
-					&cli.BoolFlag{
-						Name:  "non-interactive",
-						Usage: "disable interactive prompts and require all flags",
-					},
-				},
-				Action: initAppAction,
-			},
-		},
-		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:  "non-interactive",
-				Usage: "disable interactive prompts and use defaults",
-			},
-			&cli.StringFlag{
-				Name:     "org",
-				Usage:    "organization name (auto-detected from git remote if available)",
-				Required: false,
-			},
-			&cli.StringFlag{
-				Name:     "repo",
-				Usage:    "repository name (auto-detected from current directory if available)",
-				Required: false,
-			},
-			&cli.StringSliceFlag{
-				Name:  "languages",
-				Usage: "target languages (auto-detected from project files if available)",
-				Value: cli.NewStringSlice("go"), // default to go
-			},
-		},
-		Action: initAction,
+func newInitCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "init [kind] [modulePath]",
+		Short: "Initialize a new schema module or canonical repository",
+		Long: `Create a new schema module with the specified kind and path, or initialize a canonical API repository.
+
+SUBCOMMANDS:
+  canonical - Initialize a canonical API repository structure
+  app       - Initialize an application repository with schema module
+
+MODULE INIT:
+  Supported kinds: proto, openapi, avro, jsonschema, parquet
+  The command will interactively guide you through setup unless --non-interactive is used.
+  If no arguments are provided, you'll be prompted to select the schema type and module path.`,
+		Args: cobra.MaximumNArgs(2),
+		RunE: initAction,
 	}
+	cmd.Flags().Bool("non-interactive", false, "Disable interactive prompts and use defaults")
+	cmd.Flags().String("org", "", "Organization name (auto-detected from git remote if available)")
+	cmd.Flags().String("repo", "", "Repository name (auto-detected from current directory if available)")
+	cmd.Flags().StringSlice("languages", []string{"go"}, "Target languages (auto-detected from project files if available)")
+
+	cmd.AddCommand(newInitCanonicalCmd())
+	cmd.AddCommand(newInitAppCmd())
+	return cmd
 }
 
-// InitDefaults is no longer needed - moved to detector.ProjectDefaults
+func newInitCanonicalCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "canonical",
+		Short: "Initialize canonical API repository structure",
+		RunE:  initCanonicalAction,
+	}
+	cmd.Flags().String("org", "", "Organization name")
+	cmd.Flags().String("repo", "", "Repository name")
+	cmd.Flags().Bool("skip-git", false, "Skip git initialization")
+	cmd.Flags().Bool("non-interactive", false, "Disable interactive prompts and require all flags")
+	return cmd
+}
 
-func initAction(c *cli.Context) error {
+func newInitAppCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "app <modulePath>",
+		Short: "Initialize application repository with schema module",
+		Args:  cobra.ExactArgs(1),
+		RunE:  initAppAction,
+	}
+	cmd.Flags().String("org", "", "Organization name")
+	cmd.Flags().Bool("non-interactive", false, "Disable interactive prompts and require all flags")
+	return cmd
+}
+
+func initAction(cmd *cobra.Command, args []string) error {
 	var kind, modulePath string
 
-	// Handle different argument scenarios
-	switch c.NArg() {
+	switch len(args) {
 	case 0:
-		// No arguments - will be prompted in interactive mode or error in non-interactive
-		if c.Bool("non-interactive") {
+		nonInteractive, _ := cmd.Flags().GetBool("non-interactive")
+		if nonInteractive {
 			return fmt.Errorf("kind and modulePath are required in non-interactive mode")
 		}
 	case 2:
-		// Traditional usage with both arguments
-		kind = c.Args().Get(0)
-		modulePath = c.Args().Get(1)
+		kind = args[0]
+		modulePath = args[1]
 	default:
 		return fmt.Errorf("init requires either 0 arguments (interactive) or 2 arguments: <kind> <modulePath>")
 	}
 
-	// Get smart defaults
 	defaults, err := detector.GetSmartDefaults()
 	if err != nil {
 		ui.Warning("Could not detect project defaults: %v", err)
@@ -125,32 +88,28 @@ func initAction(c *cli.Context) error {
 		}
 	}
 
-	// Override with command-line flags if provided
-	if orgFlag := c.String("org"); orgFlag != "" {
+	if orgFlag, _ := cmd.Flags().GetString("org"); orgFlag != "" {
 		defaults.Org = orgFlag
 	}
-	if repoFlag := c.String("repo"); repoFlag != "" {
+	if repoFlag, _ := cmd.Flags().GetString("repo"); repoFlag != "" {
 		defaults.Repo = repoFlag
 	}
-	if languages := c.StringSlice("languages"); len(languages) > 0 {
+	if languages, _ := cmd.Flags().GetStringSlice("languages"); len(languages) > 0 {
 		defaults.Languages = languages
 	}
 
-	// Interactive mode unless --non-interactive is set
-	if !c.Bool("non-interactive") && detector.IsInteractive() {
-		var err error
+	nonInteractive, _ := cmd.Flags().GetBool("non-interactive")
+	if !nonInteractive && detector.IsInteractive() {
 		kind, modulePath, err = interactive.RunSetup(defaults, kind, modulePath)
 		if err != nil {
 			return fmt.Errorf("interactive setup failed: %w", err)
 		}
 	}
 
-	// Validate that we have the required arguments
 	if kind == "" || modulePath == "" {
 		return fmt.Errorf("kind and modulePath are required")
 	}
 
-	// Create the module with the configured defaults
 	initializer := schema.NewInitializer()
 	opts := schema.InitOptions{
 		Kind:       kind,
@@ -160,38 +119,29 @@ func initAction(c *cli.Context) error {
 	return initializer.Initialize(opts)
 }
 
-// The init command implementation is now properly separated:
-// - CLI logic stays in this file (clean and focused)
-// - Business logic moved to internal/schema package
-// - Interactive setup moved to internal/interactive package
-// - Project detection moved to internal/detector package
+func initCanonicalAction(cmd *cobra.Command, args []string) error {
+	org, _ := cmd.Flags().GetString("org")
+	repo, _ := cmd.Flags().GetString("repo")
+	skipGit, _ := cmd.Flags().GetBool("skip-git")
+	nonInteractive, _ := cmd.Flags().GetBool("non-interactive")
 
-// initCanonicalAction initializes a canonical API repository
-func initCanonicalAction(c *cli.Context) error {
-	// Check both local and parent context for flags (supports parent flag inheritance)
-	org := c.String("org")
-	if org == "" && len(c.Lineage()) > 1 && c.Lineage()[1] != nil {
-		org = c.Lineage()[1].String("org")
+	// Also check parent flags
+	if org == "" {
+		org, _ = cmd.Parent().Flags().GetString("org")
+	}
+	if repo == "" {
+		repo, _ = cmd.Parent().Flags().GetString("repo")
+	}
+	if !nonInteractive {
+		ni, _ := cmd.Parent().Flags().GetBool("non-interactive")
+		nonInteractive = ni
 	}
 
-	repo := c.String("repo")
-	if repo == "" && len(c.Lineage()) > 1 && c.Lineage()[1] != nil {
-		repo = c.Lineage()[1].String("repo")
-	}
-
-	skipGit := c.Bool("skip-git")
-
-	nonInteractive := c.Bool("non-interactive")
-	if !nonInteractive && len(c.Lineage()) > 1 && c.Lineage()[1] != nil {
-		nonInteractive = c.Lineage()[1].Bool("non-interactive")
-	} // If in non-interactive mode, both org and repo are required
 	if nonInteractive && (org == "" || repo == "") {
 		return fmt.Errorf("--org and --repo are required in non-interactive mode")
 	}
 
-	// Interactive mode: prompt for missing values
 	if !nonInteractive {
-		// Get smart defaults
 		defaults, err := detector.GetSmartDefaults()
 		if err != nil {
 			ui.Warning("Could not detect project defaults: %v", err)
@@ -201,17 +151,15 @@ func initCanonicalAction(c *cli.Context) error {
 			}
 		}
 
-		ui.Info("🚀 Initializing canonical API repository!")
+		ui.Info("\U0001f680 Initializing canonical API repository!")
 		ui.Info("")
 
-		// Prompt for org if not provided
 		if org == "" {
 			if err := interactive.PromptForString("Organization name:", defaults.Org, &org); err != nil {
 				return fmt.Errorf("failed to get organization name: %w", err)
 			}
 		}
 
-		// Prompt for repo if not provided
 		if repo == "" {
 			if err := interactive.PromptForString("Repository name:", defaults.Repo, &repo); err != nil {
 				return fmt.Errorf("failed to get repository name: %w", err)
@@ -224,17 +172,16 @@ func initCanonicalAction(c *cli.Context) error {
 	ui.Info("Repository: %s", repo)
 	ui.Info("")
 
-	// Create scaffolder and generate structure
 	scaffolder := schema.NewCanonicalScaffolder(org, repo)
 	if err := scaffolder.Generate("."); err != nil {
 		return fmt.Errorf("failed to generate canonical structure: %w", err)
 	}
 
-	ui.Success("✓ Created directory structure")
-	ui.Success("✓ Generated buf.yaml")
-	ui.Success("✓ Generated CODEOWNERS")
-	ui.Success("✓ Generated catalog.yaml")
-	ui.Success("✓ Generated README.md")
+	ui.Success("\u2713 Created directory structure")
+	ui.Success("\u2713 Generated buf.yaml")
+	ui.Success("\u2713 Generated CODEOWNERS")
+	ui.Success("\u2713 Generated catalog.yaml")
+	ui.Success("\u2713 Generated README.md")
 
 	if !skipGit {
 		ui.Info("\nNext steps:")
@@ -249,40 +196,30 @@ func initCanonicalAction(c *cli.Context) error {
 		ui.Info("5. Push: git remote add origin <url> && git push -u origin main")
 	}
 
-	ui.Success("\n✓ Canonical API repository initialized successfully!")
+	ui.Success("\n\u2713 Canonical API repository initialized successfully!")
 	return nil
 }
 
-// initAppAction initializes an application repository with schema module
-func initAppAction(c *cli.Context) error {
-	modulePath := c.Args().First()
+func initAppAction(cmd *cobra.Command, args []string) error {
+	modulePath := args[0]
 
-	// Check both local and parent context for flags (supports parent flag inheritance)
-	org := c.String("org")
-	if org == "" && len(c.Lineage()) > 1 && c.Lineage()[1] != nil {
-		org = c.Lineage()[1].String("org")
+	org, _ := cmd.Flags().GetString("org")
+	nonInteractive, _ := cmd.Flags().GetBool("non-interactive")
+
+	// Also check parent flags
+	if org == "" {
+		org, _ = cmd.Parent().Flags().GetString("org")
+	}
+	if !nonInteractive {
+		ni, _ := cmd.Parent().Flags().GetBool("non-interactive")
+		nonInteractive = ni
 	}
 
-	nonInteractive := c.Bool("non-interactive")
-	if !nonInteractive && len(c.Lineage()) > 1 && c.Lineage()[1] != nil {
-		nonInteractive = c.Lineage()[1].Bool("non-interactive")
-	} // Validate arguments
-	if modulePath == "" {
-		return fmt.Errorf("module path is required (e.g., internal/apis/proto/payments/ledger/v1)")
-	}
-
-	// If in non-interactive mode, org is required
 	if nonInteractive && org == "" {
 		return fmt.Errorf("--org is required in non-interactive mode")
 	}
 
-	// Interactive mode: prompt for missing values
 	if org == "" {
-		if nonInteractive {
-			return fmt.Errorf("--org is required in non-interactive mode")
-		}
-
-		// Get smart defaults
 		defaults, err := detector.GetSmartDefaults()
 		if err != nil {
 			ui.Warning("Could not detect project defaults: %v", err)
@@ -291,7 +228,7 @@ func initAppAction(c *cli.Context) error {
 			}
 		}
 
-		ui.Info("🚀 Initializing application repository with schema module!")
+		ui.Info("\U0001f680 Initializing application repository with schema module!")
 		ui.Info("")
 
 		if err := interactive.PromptForString("Organization name:", defaults.Org, &org); err != nil {
@@ -303,17 +240,16 @@ func initAppAction(c *cli.Context) error {
 	ui.Info("Module path: %s", modulePath)
 	ui.Info("Organization: %s", org)
 
-	// Create scaffolder and generate structure
 	scaffolder := schema.NewAppScaffolder(modulePath, org)
 	if err := scaffolder.Generate("."); err != nil {
 		return fmt.Errorf("failed to generate app structure: %w", err)
 	}
 
-	ui.Success("✓ Created module directory structure")
-	ui.Success("✓ Generated apx.yaml")
-	ui.Success("✓ Generated example schema file")
-	ui.Success("✓ Generated .gitignore")
-	ui.Success("✓ Generated buf.work.yaml")
+	ui.Success("\u2713 Created module directory structure")
+	ui.Success("\u2713 Generated apx.yaml")
+	ui.Success("\u2713 Generated example schema file")
+	ui.Success("\u2713 Generated .gitignore")
+	ui.Success("\u2713 Generated buf.work.yaml")
 
 	ui.Info("\nNext steps:")
 	ui.Info("1. Review and customize the generated schema file")
@@ -321,6 +257,6 @@ func initAppAction(c *cli.Context) error {
 	ui.Info("3. Commit your changes: git add . && git commit")
 	ui.Info("4. Publish to canonical repo: apx publish --module-path=%s", modulePath)
 
-	ui.Success("\n✓ Application repository initialized successfully!")
+	ui.Success("\n\u2713 Application repository initialized successfully!")
 	return nil
 }

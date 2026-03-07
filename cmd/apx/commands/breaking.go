@@ -7,83 +7,60 @@ import (
 
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/infobloxopen/apx/internal/validator"
-	"github.com/urfave/cli/v2"
+	"github.com/spf13/cobra"
 )
 
-// BreakingCommand returns the breaking changes command
-func BreakingCommand() *cli.Command {
-	return &cli.Command{
-		Name:      "breaking",
-		Usage:     "Check for breaking changes in schema files",
-		ArgsUsage: "[path]",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "against",
-				Usage:    "git reference or path to compare against",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:    "format",
-				Aliases: []string{"f"},
-				Usage:   "Schema format (proto, openapi, avro, jsonschema, parquet)",
-			},
-		},
-		Action: breakingAction,
+func newBreakingCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "breaking [path]",
+		Short: "Check for breaking changes in schema files",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  breakingAction,
 	}
+	cmd.Flags().String("against", "", "git reference or path to compare against")
+	_ = cmd.MarkFlagRequired("against")
+	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet)")
+	return cmd
 }
 
-func breakingAction(c *cli.Context) error {
-	// Get path from args or default to current directory
+func breakingAction(cmd *cobra.Command, args []string) error {
 	path := "."
-	if c.Args().Len() > 0 {
-		path = c.Args().First()
+	if len(args) > 0 {
+		path = args[0]
 	}
 
-	// Get the baseline to compare against
-	against := c.String("against")
-	if against == "" {
-		return fmt.Errorf("--against flag is required")
-	}
+	against, _ := cmd.Flags().GetString("against")
 
-	// Resolve absolute paths
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}
 
-	// Check if path exists
 	if _, err := os.Stat(absPath); os.IsNotExist(err) {
 		return fmt.Errorf("path does not exist: %s", absPath)
 	}
 
-	// Create toolchain resolver with default settings
 	resolver := validator.NewToolchainResolver()
-
-	// Create validator
 	v := validator.NewValidator(resolver)
 
-	// Detect or use specified format
 	format := validator.FormatUnknown
-	if formatStr := c.String("format"); formatStr != "" {
+	if formatStr, _ := cmd.Flags().GetString("format"); formatStr != "" {
 		format = validator.SchemaFormat(formatStr)
 	} else {
 		format = validator.DetectFormat(absPath)
 	}
 
-	// Validate format
 	if format == validator.FormatUnknown {
 		return fmt.Errorf("could not detect schema format for: %s\nPlease specify format with --format flag", absPath)
 	}
 
-	// Run breaking change detection
 	ui.Info("Checking %s for breaking changes against: %s", format, against)
 
-	err = v.Breaking(absPath, against, format)
-	if err != nil {
+	if err := v.Breaking(absPath, against, format); err != nil {
 		ui.Error("Breaking changes detected: %v", err)
 		return err
 	}
 
-	ui.Success("✓ No breaking changes detected")
+	ui.Success("\u2713 No breaking changes detected")
 	return nil
 }

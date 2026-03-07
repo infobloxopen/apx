@@ -5,44 +5,36 @@ import (
 
 	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/ui"
-	"github.com/urfave/cli/v2"
+	"github.com/spf13/cobra"
 )
 
-// SearchCommand returns the search command for discovering APIs in the catalog
-func SearchCommand() *cli.Command {
-	return &cli.Command{
-		Name:  "search",
-		Usage: "Search for APIs in the catalog",
-		Description: `Search the canonical repository catalog for available APIs.
+func newSearchCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "search [query]",
+		Short: "Search for APIs in the catalog",
+		Long: `Search the canonical repository catalog for available APIs.
 
 Examples:
   apx search                    # List all APIs
   apx search ledger             # Search for APIs matching "ledger"
   apx search --format=proto     # Search for proto APIs only
   apx search payment --format=proto`,
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "format",
-				Aliases: []string{"f"},
-				Usage:   "Filter by schema format (proto, openapi, avro, jsonschema, parquet)",
-			},
-			&cli.StringFlag{
-				Name:    "catalog",
-				Aliases: []string{"c"},
-				Usage:   "Path to catalog file",
-				Value:   "catalog/catalog.yaml",
-			},
-		},
-		Action: searchAction,
+		Args: cobra.MaximumNArgs(1),
+		RunE: searchAction,
 	}
+	cmd.Flags().StringP("format", "f", "", "Filter by schema format (proto, openapi, avro, jsonschema, parquet)")
+	cmd.Flags().StringP("catalog", "c", "catalog/catalog.yaml", "Path to catalog file")
+	return cmd
 }
 
-func searchAction(c *cli.Context) error {
-	query := c.Args().First()
-	format := c.String("format")
-	catalogPath := c.String("catalog")
+func searchAction(cmd *cobra.Command, args []string) error {
+	query := ""
+	if len(args) > 0 {
+		query = args[0]
+	}
+	format, _ := cmd.Flags().GetString("format")
+	catalogPath, _ := cmd.Flags().GetString("catalog")
 
-	// Load catalog
 	gen := catalog.NewGenerator(catalogPath)
 	modules, err := catalog.SearchModules(gen, query, format)
 	if err != nil {
@@ -55,7 +47,6 @@ func searchAction(c *cli.Context) error {
 		return nil
 	}
 
-	// Display results
 	ui.Info("Found %d API(s):", len(modules))
 	fmt.Println()
 	for _, module := range modules {

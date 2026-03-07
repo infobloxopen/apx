@@ -32,7 +32,7 @@ stderr 'buf'
 
 # Test with missing --against flag (should fail with helpful error)
 ! exec apx breaking internal/apis/proto/test/v1/test.proto
-stderr 'Required flag "against" not set'
+stderr 'required flag.*against.*not set'
 
 # Cleanup
 cd ..

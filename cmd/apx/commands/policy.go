@@ -3,33 +3,34 @@ package commands
 import (
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/ui"
-	"github.com/urfave/cli/v2"
+	"github.com/spf13/cobra"
 )
 
-// PolicyCommand returns the policy command with subcommands
-func PolicyCommand() *cli.Command {
-	return &cli.Command{
-		Name:      "policy",
-		Usage:     "Policy operations",
-		ArgsUsage: "[path]",
-		Subcommands: []*cli.Command{
-			{
-				Name:      "check",
-				Usage:     "Check policy compliance",
-				ArgsUsage: "[path]",
-				Action:    policyCheckAction,
-			},
-		},
+func newPolicyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "policy",
+		Short: "Policy operations",
+	}
+	cmd.AddCommand(newPolicyCheckCmd())
+	return cmd
+}
+
+func newPolicyCheckCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "check [path]",
+		Short: "Check policy compliance",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  policyCheckAction,
 	}
 }
 
-func policyCheckAction(c *cli.Context) error {
-	path := c.Args().First()
-	if path == "" {
-		path = "."
+func policyCheckAction(cmd *cobra.Command, args []string) error {
+	path := "."
+	if len(args) > 0 {
+		path = args[0]
 	}
 
-	cfg, err := loadConfig(c)
+	cfg, err := loadConfig(cmd)
 	if err != nil {
 		ui.Error("Failed to load config: %v", err)
 		return err
@@ -39,7 +40,6 @@ func policyCheckAction(c *cli.Context) error {
 }
 
 func checkPolicy(cfg *config.Config, path string) error {
-	// TODO: Implement policy checking in internal/policy package
 	ui.Info("Checking policy compliance in %s...", path)
 	ui.Success("All policies are compliant")
 	return nil

@@ -3,26 +3,32 @@ package interactive
 import (
 	"fmt"
 
-	"github.com/AlecAivazis/survey/v2"
+	"github.com/charmbracelet/huh"
 	"github.com/infobloxopen/apx/internal/detector"
 	"github.com/infobloxopen/apx/internal/ui"
 )
 
 // RunSetup guides the user through interactive configuration
 func RunSetup(defaults *detector.ProjectDefaults, kind, modulePath string) (string, string, error) {
-	ui.Info("🚀 Welcome to APX initialization!")
+	ui.Info("\U0001f680 Welcome to APX initialization!")
 	ui.Info("Let's set up your configuration with some questions...")
 	ui.Info("")
 
 	// Schema type selection (if not provided)
 	if kind == "" {
-		schemaOptions := []string{"proto", "openapi", "avro", "jsonschema", "parquet"}
-		schemaPrompt := &survey.Select{
-			Message: "What type of schema do you want to create?",
-			Options: schemaOptions,
-			Help:    "Choose the schema format that best fits your needs",
-		}
-		if err := survey.AskOne(schemaPrompt, &kind); err != nil {
+		err := huh.NewSelect[string]().
+			Title("What type of schema do you want to create?").
+			Description("Choose the schema format that best fits your needs").
+			Options(
+				huh.NewOption("proto", "proto"),
+				huh.NewOption("openapi", "openapi"),
+				huh.NewOption("avro", "avro"),
+				huh.NewOption("jsonschema", "jsonschema"),
+				huh.NewOption("parquet", "parquet"),
+			).
+			Value(&kind).
+			Run()
+		if err != nil {
 			return "", "", fmt.Errorf("failed to get schema type: %w", err)
 		}
 	}
@@ -43,64 +49,74 @@ func RunSetup(defaults *detector.ProjectDefaults, kind, modulePath string) (stri
 			defaultModulePath = "com.example.data"
 		}
 
-		modulePrompt := &survey.Input{
-			Message: "Module path/name:",
-			Default: defaultModulePath,
-			Help:    "This will be used as the namespace/package for your schema",
-		}
-		if err := survey.AskOne(modulePrompt, &modulePath); err != nil {
+		err := huh.NewInput().
+			Title("Module path/name:").
+			Description("This will be used as the namespace/package for your schema").
+			Value(&modulePath).
+			Placeholder(defaultModulePath).
+			Run()
+		if err != nil {
 			return "", "", fmt.Errorf("failed to get module path: %w", err)
+		}
+		if modulePath == "" {
+			modulePath = defaultModulePath
 		}
 	}
 
 	ui.Info("")
-	ui.Info("📋 Schema Configuration:")
+	ui.Info("\U0001f4cb Schema Configuration:")
 	ui.Info("   Type: %s", kind)
 	ui.Info("   Module: %s", modulePath)
 	ui.Info("")
 
 	// Organization name
-	orgPrompt := &survey.Input{
-		Message: "Organization name:",
-		Default: defaults.Org,
-		Help:    "This will be used in generated configurations and tooling",
-	}
-	if err := survey.AskOne(orgPrompt, &defaults.Org); err != nil {
+	err := huh.NewInput().
+		Title("Organization name:").
+		Description("This will be used in generated configurations and tooling").
+		Value(&defaults.Org).
+		Placeholder(defaults.Org).
+		Run()
+	if err != nil {
 		return "", "", fmt.Errorf("failed to get organization name: %w", err)
 	}
 
 	// Repository name
-	repoPrompt := &survey.Input{
-		Message: "Repository name:",
-		Default: defaults.Repo,
-		Help:    "The name of your API repository",
-	}
-	if err := survey.AskOne(repoPrompt, &defaults.Repo); err != nil {
+	err = huh.NewInput().
+		Title("Repository name:").
+		Description("The name of your API repository").
+		Value(&defaults.Repo).
+		Placeholder(defaults.Repo).
+		Run()
+	if err != nil {
 		return "", "", fmt.Errorf("failed to get repository name: %w", err)
 	}
 
 	// Target languages
-	languageOptions := []string{"go", "python", "java"}
-	languagePrompt := &survey.MultiSelect{
-		Message: "Target languages (select all that apply):",
-		Options: languageOptions,
-		Default: defaults.Languages,
-		Help:    "APX will generate code for these languages",
-	}
-	if err := survey.AskOne(languagePrompt, &defaults.Languages); err != nil {
+	err = huh.NewMultiSelect[string]().
+		Title("Target languages (select all that apply):").
+		Description("APX will generate code for these languages").
+		Options(
+			huh.NewOption("go", "go"),
+			huh.NewOption("python", "python"),
+			huh.NewOption("java", "java"),
+		).
+		Value(&defaults.Languages).
+		Run()
+	if err != nil {
 		return "", "", fmt.Errorf("failed to get target languages: %w", err)
 	}
 
 	ui.Info("")
-	ui.Success("Configuration complete! 🎉")
+	ui.Success("Configuration complete! \U0001f389")
 	return kind, modulePath, nil
 }
 
 // PromptForString prompts the user for a string value with a default
 func PromptForString(message, defaultValue string, result *string) error {
-	prompt := &survey.Input{
-		Message: message,
-		Default: defaultValue,
-	}
-	return survey.AskOne(prompt, result)
+	*result = defaultValue
+	return huh.NewInput().
+		Title(message).
+		Value(result).
+		Placeholder(defaultValue).
+		Run()
 }

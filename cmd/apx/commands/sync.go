@@ -4,35 +4,26 @@ import (
 	"fmt"
 
 	"github.com/infobloxopen/apx/internal/overlay"
-	"github.com/urfave/cli/v2"
+	"github.com/spf13/cobra"
 )
 
-// SyncCommand implements the apx sync command for overlay management
-func SyncCommand() *cli.Command {
-	return &cli.Command{
-		Name:  "sync",
-		Usage: "Synchronize go.work overlays with canonical imports",
-		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:  "clean",
-				Usage: "Remove all overlays before syncing",
-			},
-			&cli.BoolFlag{
-				Name:  "dry-run",
-				Usage: "Show what would be done without making changes",
-			},
-		},
-		Action: syncAction,
+func newSyncCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "sync",
+		Short: "Synchronize go.work overlays with canonical imports",
+		RunE:  syncAction,
 	}
+	cmd.Flags().Bool("clean", false, "Remove all overlays before syncing")
+	cmd.Flags().Bool("dry-run", false, "Show what would be done without making changes")
+	return cmd
 }
 
-func syncAction(c *cli.Context) error {
-	clean := c.Bool("clean")
-	dryRun := c.Bool("dry-run")
+func syncAction(cmd *cobra.Command, args []string) error {
+	clean, _ := cmd.Flags().GetBool("clean")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	fmt.Printf("Synchronizing go.work overlays...\n")
 
-	// Initialize overlay manager
 	manager := overlay.NewManager(".")
 
 	if clean {
@@ -42,10 +33,9 @@ func syncAction(c *cli.Context) error {
 				return fmt.Errorf("failed to clean overlays: %w", err)
 			}
 		}
-		fmt.Printf("✓ Overlays cleaned\n")
+		fmt.Printf("\u2713 Overlays cleaned\n")
 	}
 
-	// List current overlays
 	overlays, err := manager.ListOverlays()
 	if err != nil {
 		return fmt.Errorf("failed to list overlays: %w", err)
@@ -60,17 +50,16 @@ func syncAction(c *cli.Context) error {
 		}
 	}
 
-	// Sync go.work file
 	if !dryRun {
 		fmt.Printf("Updating go.work...\n")
 		if err := manager.SyncWorkFile(); err != nil {
 			return fmt.Errorf("failed to sync go.work: %w", err)
 		}
-		fmt.Printf("✓ go.work updated\n")
+		fmt.Printf("\u2713 go.work updated\n")
 	} else {
 		fmt.Printf("Would update go.work (dry-run mode)\n")
 	}
 
-	fmt.Printf("✓ Sync complete\n")
+	fmt.Printf("\u2713 Sync complete\n")
 	return nil
 }

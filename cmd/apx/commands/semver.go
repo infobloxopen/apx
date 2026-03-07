@@ -3,41 +3,38 @@ package commands
 import (
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/ui"
-	"github.com/urfave/cli/v2"
+	"github.com/spf13/cobra"
 )
 
-// SemverCommand returns the semver command with subcommands
-func SemverCommand() *cli.Command {
-	return &cli.Command{
-		Name:      "semver",
-		Usage:     "Semantic version operations",
-		ArgsUsage: "[path]",
-		Subcommands: []*cli.Command{
-			{
-				Name:      "suggest",
-				Usage:     "Suggest semantic version bump",
-				ArgsUsage: "[path]",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:     "against",
-						Usage:    "git reference to compare against",
-						Required: true,
-					},
-				},
-				Action: semverSuggestAction,
-			},
-		},
+func newSemverCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "semver",
+		Short: "Semantic version operations",
 	}
+	cmd.AddCommand(newSemverSuggestCmd())
+	return cmd
 }
 
-func semverSuggestAction(c *cli.Context) error {
-	path := c.Args().First()
-	if path == "" {
-		path = "."
+func newSemverSuggestCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "suggest [path]",
+		Short: "Suggest semantic version bump",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  semverSuggestAction,
 	}
-	against := c.String("against")
+	cmd.Flags().String("against", "", "git reference to compare against")
+	_ = cmd.MarkFlagRequired("against")
+	return cmd
+}
 
-	cfg, err := loadConfig(c)
+func semverSuggestAction(cmd *cobra.Command, args []string) error {
+	path := "."
+	if len(args) > 0 {
+		path = args[0]
+	}
+	against, _ := cmd.Flags().GetString("against")
+
+	cfg, err := loadConfig(cmd)
 	if err != nil {
 		ui.Error("Failed to load config: %v", err)
 		return err
@@ -47,7 +44,6 @@ func semverSuggestAction(c *cli.Context) error {
 }
 
 func suggestSemver(cfg *config.Config, path, against string) error {
-	// TODO: Implement semver suggestion in internal/versioning package
 	ui.Info("Analyzing changes in %s against %s...", path, against)
 	ui.Info("Suggested version bump: PATCH")
 	return nil

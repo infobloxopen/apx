@@ -1,28 +1,33 @@
-apx - API Publishing eXperience CLI
+apx is a CLI tool for managing, publishing, and consuming API schemas across organizations.
 
-USAGE:
-   apx [global options] command [command options] [arguments...]
+Usage:
+  apx [command]
 
-VERSION:
-   dev
+Available Commands:
+  add         Add a dependency to apx.yaml and apx.lock
+  breaking    Check for breaking changes in schema files
+  catalog     Catalog operations
+  completion  Generate the autocompletion script for the specified shell
+  config      Configuration operations
+  fetch       Download and cache toolchain dependencies for offline use
+  gen         Generate code
+  help        Help about any command
+  init        Initialize a new schema module or canonical repository
+  lint        Validate schema files for syntax and style issues
+  policy      Policy operations
+  publish     Publish a module to canonical repository
+  search      Search for APIs in the catalog
+  semver      Semantic version operations
+  sync        Synchronize go.work overlays with canonical imports
+  unlink      Remove overlay and switch to published module
 
-COMMANDS:
-   init      Initialize a new schema module
-   lint      Lint schema files
-   breaking  Check for breaking changes
-   semver    Semantic version operations
-   gen       Generate code
-   policy    Policy operations
-   catalog   Catalog operations
-   publish   Publish a module
-   config    Configuration operations
-   help, h   Shows a list of commands or help for one command
+Flags:
+      --config string   config file path (default "apx.yaml")
+  -h, --help            help for apx
+      --json            output in JSON format
+      --no-color        disable colored output
+  -q, --quiet           suppress output
+      --verbose         verbose output
+  -v, --version         version for apx
 
-GLOBAL OPTIONS:
-   --quiet, -q     suppress output (default: false)
-   --verbose       verbose output (default: false)
-   --json          output in JSON format (default: false)
-   --no-color      disable colored output (default: false)
-   --config value  config file path (default: "apx.yaml")
-   --help, -h      show help
-   --version, -v   print the version
+Use "apx [command] --help" for more information about a command.

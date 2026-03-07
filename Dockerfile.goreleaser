@@ -1,5 +1,8 @@
 FROM alpine:latest
 
+# dockers_v2 passes TARGETPLATFORM as a build arg (e.g. linux/amd64)
+ARG TARGETPLATFORM
+
 # Install necessary tools
 RUN apk --no-cache add \
     ca-certificates \
@@ -19,8 +22,8 @@ RUN apk add --no-cache go && \
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest && \
     apk del go
 
-# Copy the pre-built binary from GoReleaser
-COPY apx /usr/local/bin/apx
+# Copy the pre-built binary from GoReleaser (dockers_v2 places binaries under $TARGETPLATFORM/)
+COPY ${TARGETPLATFORM}/apx /usr/local/bin/apx
 
 # Copy configuration examples
 COPY apx.example.yaml /etc/apx/apx.example.yaml

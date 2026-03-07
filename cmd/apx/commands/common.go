@@ -1,12 +1,14 @@
 package commands
 
 import (
-	"github.com/infobloxopen/apx/internal/config"
-	"github.com/urfave/cli/v2"
+"github.com/infobloxopen/apx/internal/config"
+"github.com/spf13/cobra"
 )
 
-// loadConfig loads the configuration file
-func loadConfig(c *cli.Context) (*config.Config, error) {
-	configPath := c.String("config")
+func loadConfig(cmd *cobra.Command) (*config.Config, error) {
+	configPath, _ := cmd.Root().PersistentFlags().GetString("config")
+	if configPath == "" {
+		configPath = "apx.yaml"
+	}
 	return config.Load(configPath)
 }
