@@ -70,8 +70,8 @@ mkdir -p "$INSTALL_DIR"
 
 # Add to PATH if not already there
 if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-    echo -e "${YELLOW}Note: Add $INSTALL_DIR to your PATH${NC}"
-    echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+    export PATH="$INSTALL_DIR:$PATH"
+    echo -e "${YELLOW}Added $INSTALL_DIR to PATH${NC}"
 fi
 
 # Function to install kubectl (must be defined before use)
@@ -115,10 +115,15 @@ else
     exit 1
 fi
 
+# Helper: get kubectl version string (works with all kubectl versions)
+get_kubectl_version() {
+    kubectl version --client 2>/dev/null | head -1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown"
+}
+
 # Install kubectl
 echo -e "\n${GREEN}Installing kubectl...${NC}"
 if command -v kubectl &> /dev/null; then
-    EXISTING_VERSION=$(kubectl version --client --short 2>/dev/null | awk '{print $3}' || kubectl version --client -o json 2>/dev/null | grep -o '"gitVersion":"[^"]*' | cut -d'"' -f4)
+    EXISTING_VERSION=$(get_kubectl_version)
     echo "kubectl is already installed: $EXISTING_VERSION"
     if [[ "$INTERACTIVE" == "true" ]]; then
         read -p "Reinstall kubectl? (y/N): " -n 1 -r
@@ -137,7 +142,7 @@ fi
 
 # Verify kubectl installation
 if command -v kubectl &> /dev/null; then
-    KUBECTL_VERSION=$(kubectl version --client --short 2>/dev/null | awk '{print $3}' || kubectl version --client -o json 2>/dev/null | grep -o '"gitVersion":"[^"]*' | cut -d'"' -f4)
+    KUBECTL_VERSION=$(get_kubectl_version)
     echo -e "${GREEN}✓ kubectl installed: $KUBECTL_VERSION${NC}"
 else
     echo -e "${RED}✗ kubectl installation failed${NC}"
