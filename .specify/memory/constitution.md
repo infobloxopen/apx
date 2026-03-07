@@ -1,5 +1,16 @@
 # APX Constitution
 
+## Project Maturity
+
+APX is in **active pre-stable development**. No stable release has been made yet. Until the first stable release (v1.0.0):
+
+- **Backward compatibility is NOT a concern.** Commands, flags, config formats, lockfile schemas, and internal APIs may change at any time without deprecation notices or migration paths.
+- **Consistency over stability.** When a concept, naming convention, or schema is found to be inconsistent, it is corrected immediately — even if it breaks prior behavior.
+- **The goal is to arrive at a coherent, trustworthy model** — a consistent CLI surface, accurate documentation, and a unified developer experience — before locking down the public contract.
+- **Docs and implementation must converge.** When docs and code disagree, whichever is wrong gets fixed. There is no "legacy behavior" to preserve.
+
+Once a stable release is cut, backward compatibility becomes a first-class concern and breaking changes follow semver conventions.
+
 ## Core Principles
 
 ### I. Documentation-Driven Development (NON-NEGOTIABLE)
