@@ -1,0 +1,45 @@
+# Test apx config validate with the canonical schema validator
+
+# --- Valid file ---
+exec apx config init
+exists apx.yaml
+exec apx config validate
+stdout 'Configuration is valid'
+
+# --- Valid with explicit --config ---
+exec apx --config=apx.yaml config validate
+stdout 'Configuration is valid'
+
+# --- Missing required field (org) ---
+! exec apx --config=bad-missing-org.yaml config validate
+stderr 'org'
+
+# --- Unknown top-level key ---
+! exec apx --config=bad-unknown-key.yaml config validate
+stderr 'foobar'
+
+# --- JSON output ---
+! exec apx --json --config=bad-unknown-key.yaml config validate
+stdout '"valid": false'
+stdout '"field": "foobar"'
+stdout '"kind": "unknown_key"'
+
+# --- Non-existent config ---
+! exec apx --config=nonexistent.yaml config validate
+stderr 'failed to read'
+
+# --- Init + validate round-trip (T029) ---
+# apx.yaml already created above; re-init in a clean state
+rm apx.yaml
+exec apx config init
+exec apx config validate
+stdout 'Configuration is valid'
+
+-- bad-missing-org.yaml --
+version: 1
+repo: my-repo
+-- bad-unknown-key.yaml --
+version: 1
+org: myorg
+repo: myrepo
+foobar: true

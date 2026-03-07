@@ -1,0 +1,26 @@
+# Test apx config migrate
+
+# --- No-op: already at current version ---
+exec apx --config=current.yaml config migrate
+stdout 'already at version'
+
+# --- Future version: unsupported ---
+! exec apx --config=future.yaml config migrate
+stderr 'upgrade'
+
+# --- JSON output for no-op ---
+exec apx --json --config=current.yaml config migrate
+stdout '"migrated": false'
+
+# --- Non-existent config ---
+! exec apx --config=nonexistent.yaml config migrate
+stderr 'failed to read'
+
+-- current.yaml --
+version: 1
+org: myorg
+repo: myrepo
+-- future.yaml --
+version: 999
+org: myorg
+repo: myrepo

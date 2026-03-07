@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/infobloxopen/apx/internal/config"
 )
 
 // AppScaffolder creates application repository structure with schema modules
@@ -97,12 +99,16 @@ func detectFormatFromPath(path string) string {
 func (s *AppScaffolder) generateApxYaml(baseDir, format string) error {
 	moduleRoot := extractFormatRoot(s.modulePath, format)
 
-	content := fmt.Sprintf(`version: 1
-org: %s
-repo: %s
-module_roots:
-  - %s
-`, s.org, s.repo, moduleRoot)
+	// Start from canonical defaults and customize
+	cfg := config.DefaultConfig()
+	cfg.Org = s.org
+	cfg.Repo = s.repo
+	cfg.ModuleRoots = []string{moduleRoot}
+
+	content, err := config.MarshalConfigString(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to generate config: %w", err)
+	}
 
 	apxYamlPath := filepath.Join(baseDir, "apx.yaml")
 	return os.WriteFile(apxYamlPath, []byte(content), 0644)

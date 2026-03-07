@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -99,14 +100,78 @@ type DependencyLock struct {
 	Modules []string `yaml:"modules"`
 }
 
+// ErrorKind classifies the type of a validation error.
+type ErrorKind string
+
+const (
+	ErrMissing      ErrorKind = "missing"
+	ErrInvalidType  ErrorKind = "invalid_type"
+	ErrInvalidValue ErrorKind = "invalid_value"
+	ErrUnknownKey   ErrorKind = "unknown_key"
+	ErrDeprecated   ErrorKind = "deprecated"
+)
+
 // ValidationError represents a configuration validation error
 type ValidationError struct {
-	Field   string
-	Message string
+	Field   string    `json:"field"`
+	Kind    ErrorKind `json:"kind"`
+	Message string    `json:"message"`
+	Line    int       `json:"line,omitempty"`
+	Hint    string    `json:"hint,omitempty"`
 }
 
 func (e *ValidationError) Error() string {
-	return fmt.Sprintf("validation error in field '%s': %s", e.Field, e.Message)
+	if e.Line > 0 {
+		return fmt.Sprintf("line %d: %s", e.Line, e.Message)
+	}
+	return e.Message
+}
+
+// MarshalJSON implements json.Marshaler for ValidationError.
+func (e *ValidationError) MarshalJSON() ([]byte, error) {
+	type alias struct {
+		Field   string    `json:"field"`
+		Kind    ErrorKind `json:"kind"`
+		Message string    `json:"message"`
+		Line    int       `json:"line,omitempty"`
+		Hint    string    `json:"hint,omitempty"`
+	}
+	return json.Marshal(&alias{
+		Field:   e.Field,
+		Kind:    e.Kind,
+		Message: e.Message,
+		Line:    e.Line,
+		Hint:    e.Hint,
+	})
+}
+
+// ValidationResult aggregates the outcome of validating an entire apx.yaml file.
+type ValidationResult struct {
+	Errors   []*ValidationError `json:"errors"`
+	Warnings []*ValidationError `json:"warnings"`
+	Valid    bool               `json:"valid"`
+}
+
+// MarshalJSON implements json.Marshaler for ValidationResult.
+func (r *ValidationResult) MarshalJSON() ([]byte, error) {
+	type alias struct {
+		Valid    bool               `json:"valid"`
+		Errors   []*ValidationError `json:"errors"`
+		Warnings []*ValidationError `json:"warnings"`
+	}
+	errs := r.Errors
+	if errs == nil {
+		errs = []*ValidationError{}
+	}
+	warns := r.Warnings
+	if warns == nil {
+		warns = []*ValidationError{}
+	}
+	return json.Marshal(&alias{
+		Valid:    r.Valid,
+		Errors:   errs,
+		Warnings: warns,
+	})
 }
 
 // IsValidationError checks if an error is a validation error
@@ -133,17 +198,22 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	// Parse YAML
-	var config Config
-	if err := yaml.Unmarshal(data, &config); err != nil {
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
-	// Validate configuration
-	if err := validateConfig(&config); err != nil {
-		return nil, err
+	// Validate against the canonical schema
+	result, err := ValidateFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("configuration validation failed: %w", err)
+	}
+	if !result.Valid {
+		// Return the first error for backward compatibility
+		return nil, result.Errors[0]
 	}
 
-	return &config, nil
+	return &cfg, nil
 }
 
 // Init creates a default configuration file
@@ -155,75 +225,14 @@ func Init() error {
 		return fmt.Errorf("apx.yaml already exists")
 	}
 
-	// Create default configuration
-	defaultConfig := `version: 1
-org: your-org-name
-repo: your-apis-repo
-module_roots:
-  - proto
-  - openapi
-  - avro
-  - jsonschema
-  - parquet
-language_targets:
-  go:
-    enabled: true
-    plugins:
-      - name: protoc-gen-go
-        version: v1.64.0
-      - name: protoc-gen-go-grpc
-        version: v1.5.0
-policy:
-  forbidden_proto_options:
-    - "^gorm\\."
-  allowed_proto_plugins:
-    - protoc-gen-go
-    - protoc-gen-go-grpc
-  openapi:
-    spectral_ruleset: ".spectral.yaml"
-  avro:
-    compatibility: "BACKWARD"
-  jsonschema:
-    breaking_mode: "strict"
-  parquet:
-    allow_additive_nullable_only: true
-publishing:
-  tag_format: "{subdir}/v{version}"
-  ci_only: true
-tools:
-  buf:
-    version: v1.45.0
-  oasdiff:
-    version: v1.9.6
-  spectral:
-    version: v6.11.0
-  avrotool:
-    version: "1.11.3"
-  jsonschemadiff:
-    version: "0.3.0"
-execution:
-  mode: "local"
-  container_image: ""
-`
-
-	return os.WriteFile(configPath, []byte(defaultConfig), 0644)
-}
-
-// validateConfig validates the configuration
-func validateConfig(config *Config) error {
-	if config.Version == 0 {
-		return &ValidationError{Field: "version", Message: "version is required"}
+	// Use canonical DefaultConfig + MarshalConfigString for guaranteed schema compliance
+	cfg := DefaultConfig()
+	content, err := MarshalConfigString(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to generate default config: %w", err)
 	}
 
-	if config.Org == "" {
-		return &ValidationError{Field: "org", Message: "org is required"}
-	}
-
-	if config.Repo == "" {
-		return &ValidationError{Field: "repo", Message: "repo is required"}
-	}
-
-	return nil
+	return os.WriteFile(configPath, []byte(content), 0644)
 }
 
 // GetConfigPath returns the path to the configuration file

@@ -14,4 +14,4 @@ stdout 'Configuration is valid'
 
 # Test with non-existent config
 ! exec apx --config=nonexistent.yaml config validate
-stderr 'Configuration validation failed'
+stderr 'failed to read'

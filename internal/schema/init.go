@@ -3,7 +3,6 @@ package schema
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/detector"
@@ -167,117 +166,55 @@ func (i *Initializer) createConfigWithDefaults(defaults *detector.ProjectDefault
 		return config.Init() // fallback to default config creation
 	}
 
-	// Build language targets based on detected/selected languages
-	languageTargets := make(map[string]interface{})
+	if _, err := os.Stat("apx.yaml"); err == nil {
+		return fmt.Errorf("apx.yaml already exists")
+	}
 
+	// Start from the canonical default config
+	cfg := config.DefaultConfig()
+
+	// Apply detected/selected org and repo
+	cfg.Org = defaults.Org
+	cfg.Repo = defaults.Repo
+
+	// Build language targets based on detected/selected languages
+	targets := make(map[string]config.LanguageTarget)
 	for _, lang := range defaults.Languages {
 		switch lang {
 		case "go":
-			languageTargets["go"] = map[string]interface{}{
-				"enabled": true,
-				"plugins": []map[string]string{
+			targets["go"] = config.LanguageTarget{
+				Enabled: true,
+				Plugins: []map[string]string{
 					{"name": "protoc-gen-go", "version": "v1.64.0"},
 					{"name": "protoc-gen-go-grpc", "version": "v1.5.0"},
 				},
 			}
 		case "python":
-			languageTargets["python"] = map[string]interface{}{
-				"enabled": true,
-				"tool":    "grpcio-tools",
-				"version": "1.64.0",
+			targets["python"] = config.LanguageTarget{
+				Enabled: true,
+				Tool:    "grpcio-tools",
+				Version: "1.64.0",
 			}
 		case "java":
-			languageTargets["java"] = map[string]interface{}{
-				"enabled": true,
-				"plugins": []map[string]string{
+			targets["java"] = config.LanguageTarget{
+				Enabled: true,
+				Plugins: []map[string]string{
 					{"name": "protoc-gen-grpc-java", "version": "1.68.1"},
 				},
 			}
 		}
 	}
-
-	configContent := fmt.Sprintf(`version: 1
-org: %s
-repo: %s
-module_roots:
-  - proto
-  - openapi
-  - avro
-  - jsonschema
-  - parquet
-language_targets:
-%s
-policy:
-  forbidden_proto_options:
-    - "^gorm\\."
-  allowed_proto_plugins:
-    - protoc-gen-go
-    - protoc-gen-go-grpc
-  openapi:
-    spectral_ruleset: ".spectral.yaml"
-  avro:
-    compatibility: "BACKWARD"
-  jsonschema:
-    breaking_mode: "strict"
-  parquet:
-    allow_additive_nullable_only: true
-publishing:
-  tag_format: "{subdir}/v{version}"
-  ci_only: true
-tools:
-  buf:
-    version: v1.45.0
-  oasdiff:
-    version: v1.9.6
-  spectral:
-    version: v6.11.0
-  avrotool:
-    version: "1.11.3"
-  jsonschemadiff:
-    version: "0.3.0"
-execution:
-  mode: "local"
-  container_image: ""
-`, defaults.Org, defaults.Repo, formatLanguageTargets(languageTargets))
-
-	if _, err := os.Stat("apx.yaml"); err == nil {
-		return fmt.Errorf("apx.yaml already exists")
+	if len(targets) > 0 {
+		cfg.LanguageTargets = targets
 	}
 
-	return os.WriteFile("apx.yaml", []byte(configContent), 0644)
-}
-
-// formatLanguageTargets formats the language targets section for YAML
-func formatLanguageTargets(targets map[string]interface{}) string {
-	var result strings.Builder
-
-	for lang, config := range targets {
-		result.WriteString(fmt.Sprintf("  %s:\n", lang))
-
-		if langConfig, ok := config.(map[string]interface{}); ok {
-			if enabled, ok := langConfig["enabled"].(bool); ok {
-				result.WriteString(fmt.Sprintf("    enabled: %t\n", enabled))
-			}
-
-			if tool, ok := langConfig["tool"].(string); ok {
-				result.WriteString(fmt.Sprintf("    tool: %s\n", tool))
-			}
-
-			if version, ok := langConfig["version"].(string); ok {
-				result.WriteString(fmt.Sprintf("    version: %s\n", version))
-			}
-
-			if plugins, ok := langConfig["plugins"].([]map[string]string); ok {
-				result.WriteString("    plugins:\n")
-				for _, plugin := range plugins {
-					result.WriteString(fmt.Sprintf("      - name: %s\n", plugin["name"]))
-					result.WriteString(fmt.Sprintf("        version: %s\n", plugin["version"]))
-				}
-			}
-		}
+	// Serialize using the canonical marshaller
+	content, err := config.MarshalConfigString(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to generate config: %w", err)
 	}
 
-	return result.String()
+	return os.WriteFile("apx.yaml", []byte(content), 0644)
 }
 
 // getSchemaFileName returns the appropriate filename for each schema type

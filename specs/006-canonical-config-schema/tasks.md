@@ -15,10 +15,10 @@
 
 **Purpose**: Define the canonical schema data structures that all subsequent phases depend on
 
-- [ ] T001 Define FieldType enum and FieldDef struct in internal/config/schema.go
-- [ ] T002 Define SchemaVersion, SchemaRegistry, and CurrentVersion constant in internal/config/schema.go
-- [ ] T003 Build complete v1 field-definition tree (all fields from data-model.md field map) in internal/config/schema.go
-- [ ] T004 Implement DefaultConfig() factory function that returns a valid Config with v1 defaults in internal/config/schema.go
+- [X] T001 Define FieldType enum and FieldDef struct in internal/config/schema.go
+- [X] T002 Define SchemaVersion, SchemaRegistry, and CurrentVersion constant in internal/config/schema.go
+- [X] T003 Build complete v1 field-definition tree (all fields from data-model.md field map) in internal/config/schema.go
+- [X] T004 Implement DefaultConfig() factory function that returns a valid Config with v1 defaults in internal/config/schema.go
 
 ---
 
@@ -28,10 +28,10 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Extend ValidationError struct with Kind, Line, and Hint fields in internal/config/config.go
-- [ ] T006 Define ErrorKind enum (Missing, InvalidType, InvalidValue, UnknownKey, Deprecated) in internal/config/config.go
-- [ ] T007 Define ValidationResult struct (Errors, Warnings, Valid) in internal/config/config.go
-- [ ] T008 Add MarshalJSON methods to ValidationError and ValidationResult for --json output in internal/config/config.go
+- [X] T005 Extend ValidationError struct with Kind, Line, and Hint fields in internal/config/config.go
+- [X] T006 Define ErrorKind enum (Missing, InvalidType, InvalidValue, UnknownKey, Deprecated) in internal/config/config.go
+- [X] T007 Define ValidationResult struct (Errors, Warnings, Valid) in internal/config/config.go
+- [X] T008 Add MarshalJSON methods to ValidationError and ValidationResult for --json output in internal/config/config.go
 
 **Checkpoint**: Foundation ready — core types defined; user story implementation can begin
 
@@ -45,20 +45,20 @@
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Implement parseYAMLNode() that reads a file into *yaml.Node with syntax error handling in internal/config/validate.go
-- [ ] T010 [US1] Implement extractVersion() that reads the version field from a yaml.Node tree in internal/config/validate.go
-- [ ] T011 [US1] Implement walkNode() recursive validator that checks required fields, types, and unknown keys against FieldDef tree in internal/config/validate.go
-- [ ] T012 [US1] Implement enum value validation within walkNode for fields with EnumValues in internal/config/validate.go
-- [ ] T013 [US1] Implement pattern validation within walkNode for fields with Pattern (e.g., publishing.tag_format must contain {version}) in internal/config/validate.go
-- [ ] T014 [US1] Implement deprecated-field detection within walkNode that emits warnings (not errors) in internal/config/validate.go
-- [ ] T015 [US1] Implement ValidateFile() public function that orchestrates parse → version lookup → walk → return ValidationResult in internal/config/validate.go
-- [ ] T016 [US1] Add unit tests for ValidateFile: valid minimal file, valid full file, missing required fields in internal/config/validate_test.go
-- [ ] T017 [US1] Add unit tests for ValidateFile: unknown top-level key, unknown nested key, wrong type, invalid enum value in internal/config/validate_test.go
-- [ ] T018 [US1] Add unit tests for ValidateFile: empty file, whitespace-only file, unsupported version, version higher than current in internal/config/validate_test.go
-- [ ] T019 [US1] Add unit tests for ValidateFile: deprecated field emits warning not error, pattern validation on tag_format in internal/config/validate_test.go
-- [ ] T020 [US1] Update newConfigValidateCmd() to call ValidateFile(), render errors/warnings with ui package, support --json output in cmd/apx/commands/config.go
-- [ ] T021 [US1] Add testscript integration test for apx config validate (valid file, missing field, unknown key, --json output) in testdata/script/config-validate.txt
-- [ ] T022 [US1] Validate apx.example.yaml passes ValidateFile in internal/config/validate_test.go
+- [X] T009 [US1] Implement parseYAMLNode() that reads a file into *yaml.Node with syntax error handling in internal/config/validate.go
+- [X] T010 [US1] Implement extractVersion() that reads the version field from a yaml.Node tree in internal/config/validate.go
+- [X] T011 [US1] Implement walkNode() recursive validator that checks required fields, types, and unknown keys against FieldDef tree in internal/config/validate.go
+- [X] T012 [US1] Implement enum value validation within walkNode for fields with EnumValues in internal/config/validate.go
+- [X] T013 [US1] Implement pattern validation within walkNode for fields with Pattern (e.g., publishing.tag_format must contain {version}) in internal/config/validate.go
+- [X] T014 [US1] Implement deprecated-field detection within walkNode that emits warnings (not errors) in internal/config/validate.go
+- [X] T015 [US1] Implement ValidateFile() public function that orchestrates parse → version lookup → walk → return ValidationResult in internal/config/validate.go
+- [X] T016 [US1] Add unit tests for ValidateFile: valid minimal file, valid full file, missing required fields in internal/config/validate_test.go
+- [X] T017 [US1] Add unit tests for ValidateFile: unknown top-level key, unknown nested key, wrong type, invalid enum value in internal/config/validate_test.go
+- [X] T018 [US1] Add unit tests for ValidateFile: empty file, whitespace-only file, unsupported version, version higher than current in internal/config/validate_test.go
+- [X] T019 [US1] Add unit tests for ValidateFile: deprecated field emits warning not error, pattern validation on tag_format in internal/config/validate_test.go
+- [X] T020 [US1] Update newConfigValidateCmd() to call ValidateFile(), render errors/warnings with ui package, support --json output in cmd/apx/commands/config.go
+- [X] T021 [US1] Add testscript integration test for apx config validate (valid file, missing field, unknown key, --json output) in testdata/script/config-validate.txt
+- [X] T022 [US1] Validate apx.example.yaml passes ValidateFile in internal/config/validate_test.go
 
 **Checkpoint**: `apx config validate` is fully functional with strict schema checking, field-path errors, and JSON output
 
@@ -72,13 +72,13 @@
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Implement MarshalConfig() function that serializes a Config struct to YAML bytes in internal/config/config.go
-- [ ] T024 [US2] Refactor config.Init() to use DefaultConfig() + MarshalConfig() instead of inline string template in internal/config/config.go
-- [ ] T025 [P] [US2] Refactor schema.Initializer.createConfigWithDefaults() to use config.DefaultConfig() + customize + config.MarshalConfig() in internal/schema/init.go
-- [ ] T026 [P] [US2] Refactor schema.AppScaffolder.generateApxYaml() to use config.DefaultConfig() + customize + config.MarshalConfig() in internal/schema/app.go
-- [ ] T027 [US2] Add unit test: config.Init() output passes ValidateFile in internal/config/validate_test.go
-- [ ] T028 [P] [US2] Add unit test: DefaultConfig() produces a Config that round-trips through MarshalConfig+Load without error in internal/config/schema_test.go
-- [ ] T029 [US2] Add testscript integration test for apx init canonical + apx config validate in testdata/script/config-validate.txt
+- [X] T023 [US2] Implement MarshalConfig() function that serializes a Config struct to YAML bytes in internal/config/config.go
+- [X] T024 [US2] Refactor config.Init() to use DefaultConfig() + MarshalConfig() instead of inline string template in internal/config/config.go
+- [X] T025 [P] [US2] Refactor schema.Initializer.createConfigWithDefaults() to use config.DefaultConfig() + customize + config.MarshalConfig() in internal/schema/init.go
+- [X] T026 [P] [US2] Refactor schema.AppScaffolder.generateApxYaml() to use config.DefaultConfig() + customize + config.MarshalConfig() in internal/schema/app.go
+- [X] T027 [US2] Add unit test: config.Init() output passes ValidateFile in internal/config/validate_test.go
+- [X] T028 [P] [US2] Add unit test: DefaultConfig() produces a Config that round-trips through MarshalConfig+Load without error in internal/config/schema_test.go
+- [X] T029 [US2] Add testscript integration test for apx init canonical + apx config validate in testdata/script/config-validate.txt
 
 **Checkpoint**: All init code paths emit schema-compliant YAML from the single Config struct
 
@@ -92,16 +92,16 @@
 
 ### Implementation for User Story 3
 
-- [ ] T030 [US3] Define Change struct and MigrationFunc type in internal/config/migrate.go
-- [ ] T031 [US3] Implement backupFile() that copies apx.yaml to apx.yaml.bak (with timestamp fallback) in internal/config/migrate.go
-- [ ] T032 [US3] Implement MigrateFile() that parses yaml.Node, reads version, chains migrations, writes result in internal/config/migrate.go
-- [ ] T033 [US3] Implement no-op detection: if file is already at CurrentVersion, return early with "no migration needed" in internal/config/migrate.go
-- [ ] T034 [US3] Implement unsupported-version detection: if file version > CurrentVersion, return error with upgrade hint in internal/config/migrate.go
-- [ ] T035 [US3] Add unit tests for MigrateFile: already-current file returns no changes in internal/config/migrate_test.go
-- [ ] T036 [US3] Add unit tests for MigrateFile: unsupported version returns error in internal/config/migrate_test.go
-- [ ] T037 [US3] Add unit tests for backupFile: creates .bak, handles existing .bak with timestamp in internal/config/migrate_test.go
-- [ ] T038 [US3] Wire newConfigMigrateCmd() subcommand into config command with --config flag, human and --json output in cmd/apx/commands/config.go
-- [ ] T039 [US3] Add testscript integration test for apx config migrate (no-op case, unsupported version case) in testdata/script/config-migrate.txt
+- [X] T030 [US3] Define Change struct and MigrationFunc type in internal/config/migrate.go
+- [X] T031 [US3] Implement backupFile() that copies apx.yaml to apx.yaml.bak (with timestamp fallback) in internal/config/migrate.go
+- [X] T032 [US3] Implement MigrateFile() that parses yaml.Node, reads version, chains migrations, writes result in internal/config/migrate.go
+- [X] T033 [US3] Implement no-op detection: if file is already at CurrentVersion, return early with "no migration needed" in internal/config/migrate.go
+- [X] T034 [US3] Implement unsupported-version detection: if file version > CurrentVersion, return error with upgrade hint in internal/config/migrate.go
+- [X] T035 [US3] Add unit tests for MigrateFile: already-current file returns no changes in internal/config/migrate_test.go
+- [X] T036 [US3] Add unit tests for MigrateFile: unsupported version returns error in internal/config/migrate_test.go
+- [X] T037 [US3] Add unit tests for backupFile: creates .bak, handles existing .bak with timestamp in internal/config/migrate_test.go
+- [X] T038 [US3] Wire newConfigMigrateCmd() subcommand into config command with --config flag, human and --json output in cmd/apx/commands/config.go
+- [X] T039 [US3] Add testscript integration test for apx config migrate (no-op case, unsupported version case) in testdata/script/config-migrate.txt
 
 **Checkpoint**: `apx config migrate` is functional with backup, change reporting, and edge case handling
 
@@ -115,10 +115,10 @@
 
 ### Implementation for User Story 4
 
-- [ ] T040 [P] [US4] Implement GenerateSchemaDoc() that walks the FieldDef tree and emits a Markdown reference table in internal/config/schema.go
-- [ ] T041 [US4] Add unit test: GenerateSchemaDoc output contains every field from v1 field map in internal/config/schema_test.go
-- [ ] T042 [US4] Write docs/cli-reference/configuration.md using GenerateSchemaDoc output as the field reference section
-- [ ] T043 [US4] Add unit test: every field name in docs/cli-reference/configuration.md exists in the v1 FieldDef tree (parity check) in internal/config/schema_test.go
+- [X] T040 [P] [US4] Implement GenerateSchemaDoc() that walks the FieldDef tree and emits a Markdown reference table in internal/config/schema.go
+- [X] T041 [US4] Add unit test: GenerateSchemaDoc output contains every field from v1 field map in internal/config/schema_test.go
+- [X] T042 [US4] Write docs/cli-reference/configuration.md using GenerateSchemaDoc output as the field reference section
+- [X] T043 [US4] Add unit test: every field name in docs/cli-reference/configuration.md exists in the v1 FieldDef tree (parity check) in internal/config/schema_test.go
 
 **Checkpoint**: Schema reference docs are derived from code and verified to stay in sync
 
@@ -128,11 +128,11 @@
 
 **Purpose**: Final quality, cleanup, and validation
 
-- [ ] T044 [P] Integrate ValidateFile into Load() so all commands reject invalid config early in internal/config/config.go
-- [ ] T045 [P] Remove legacy validateConfig() function (replaced by ValidateFile) in internal/config/config.go
-- [ ] T046 Run quickstart.md validation: execute every command from specs/006-canonical-config-schema/quickstart.md and verify output
-- [ ] T047 [P] Verify apx.example.yaml and cmd/apx/apx.yaml both pass apx config validate
-- [ ] T048 Run full test suite (go test ./... -count=1) and confirm no regressions
+- [X] T044 [P] Integrate ValidateFile into Load() so all commands reject invalid config early in internal/config/config.go
+- [X] T045 [P] Remove legacy validateConfig() function (replaced by ValidateFile) in internal/config/config.go
+- [X] T046 Run quickstart.md validation: execute every command from specs/006-canonical-config-schema/quickstart.md and verify output
+- [X] T047 [P] Verify apx.example.yaml and cmd/apx/apx.yaml both pass apx config validate
+- [X] T048 Run full test suite (go test ./... -count=1) and confirm no regressions
 
 ---
 
