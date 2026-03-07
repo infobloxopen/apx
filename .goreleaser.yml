@@ -4,7 +4,7 @@ version: 2
 before:
   hooks:
     - go mod tidy
-    - go test ./...
+    - go test ./cmd/... ./internal/...
 
 builds:
   - id: apx
@@ -30,13 +30,13 @@ builds:
 
 archives:
   - id: apx
-    builds:
+    ids:
       - apx
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    format: tar.gz
+    formats: tar.gz
     format_overrides:
       - goos: windows
-        format: zip
+        formats: zip
     files:
       - README.md
       - LICENSE
@@ -46,7 +46,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc
@@ -64,6 +64,7 @@ brews:
     repository:
       owner: infobloxopen
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: https://github.com/infobloxopen/apx
     description: "API Publishing eXperience CLI"
     license: Apache-2.0
@@ -74,6 +75,17 @@ brews:
       (zsh_completion/"_apx").write `#{bin}/apx completion zsh`
     test: |
       system "#{bin}/apx", "--version"
+
+scoops:
+  - name: apx
+    repository:
+      owner: infobloxopen
+      name: scoop-bucket
+      token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"
+    homepage: https://github.com/infobloxopen/apx
+    description: "API Publishing eXperience CLI"
+    license: Apache-2.0
+    skip_upload: auto
 
 nfpms:
   - id: apx

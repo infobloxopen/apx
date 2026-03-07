@@ -64,3 +64,6 @@ env/
 
 # Sphinx build output
 docs/_build/
+
+# GoReleaser dist output
+dist/

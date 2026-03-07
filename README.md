@@ -106,6 +106,26 @@ apx unlink proto/payments/ledger/v1
 brew install infobloxopen/tap/apx
 ```
 
+### Scoop (Windows)
+
+```powershell
+scoop bucket add infobloxopen https://github.com/infobloxopen/scoop-bucket
+scoop install infobloxopen/apx
+```
+
+### Shell Installer (macOS/Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/infobloxopen/apx/main/install.sh | bash
+```
+
+Pin a specific version or change the install directory:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/infobloxopen/apx/main/install.sh | VERSION=1.2.3 bash
+curl -fsSL https://raw.githubusercontent.com/infobloxopen/apx/main/install.sh | INSTALL_DIR=/usr/local/bin bash
+```
+
 ### Download Binary
 
 Download the latest release from [GitHub Releases](https://github.com/infobloxopen/apx/releases) for your platform.

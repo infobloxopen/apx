@@ -20,7 +20,7 @@ LDFLAGS += -X main.commit=$(COMMIT)
 LDFLAGS += -X main.date=$(DATE)
 
 # Tools
-GORELEASER_VERSION := v1.21.2
+GORELEASER_VERSION := v2.6.1
 
 .PHONY: help build clean clean-all test test-unit test-integration test-all coverage lint fmt mod-tidy install dev tools check release snapshot docker-build docker-push docker-run docker-clean enforce-principles integration-tests ci-quick
 

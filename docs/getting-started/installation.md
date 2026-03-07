@@ -1,12 +1,36 @@
 # Installation
 
-APX can be installed in several ways. Choose the method that works best for your environment.
+APX can be installed via Homebrew, Scoop, a shell one-liner, pre-built binaries, or from source.
 
-## Homebrew (Recommended)
+## Homebrew (macOS/Linux — Recommended)
 
 ```bash
-# Homebrew (example)
-brew install <org>/tap/apx
+brew install infobloxopen/tap/apx
+```
+
+Shell completions for bash, zsh, and fish are installed automatically.
+
+## Scoop (Windows)
+
+```powershell
+scoop bucket add infobloxopen https://github.com/infobloxopen/scoop-bucket
+scoop install infobloxopen/apx
+```
+
+## Shell Installer (macOS/Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/infobloxopen/apx/main/install.sh | bash
+```
+
+The installer downloads the latest release, verifies its SHA-256 checksum, and installs to `~/.local/bin` by default. Customise with environment variables:
+
+```bash
+# Pin a specific version
+curl -fsSL https://raw.githubusercontent.com/infobloxopen/apx/main/install.sh | VERSION=1.2.3 bash
+
+# Change install directory
+curl -fsSL https://raw.githubusercontent.com/infobloxopen/apx/main/install.sh | INSTALL_DIR=/usr/local/bin bash
 ```
 
 ## Download from GitHub Releases
