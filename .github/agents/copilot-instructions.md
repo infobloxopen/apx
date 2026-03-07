@@ -6,6 +6,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-21
 - Go 1.24 (matches APX project) (003-e2e-integration-suite)
 - Go 1.26.1 (CLI), Bash (install script), YAML (CI/GoReleaser config) + GoReleaser v2 (release automation), GitHub Actions (CI/CD), goreleaser-action@v6 (004-package-installers)
 - N/A — no runtime data; config files only (004-package-installers)
+- Go 1.26.1 + cobra v1.10.2, charmbracelet/huh v0.8.0, gopkg.in/yaml.v3 (005-docs-cli-consistency)
+- Files (`apx.yaml`, `apx-lock.yaml`, `catalog/catalog.yaml`) (005-docs-cli-consistency)
 
 - Go 1.24 + `github.com/urfave/cli/v2` (command wiring), `github.com/AlecAivazis/survey/v2` (interactive prompts), `github.com/infobloxopen/apx/internal/*` packages for business logic, external CLI toolchains (buf, spectral, oasdiff, etc.) (001-align-docs-experience)
 
@@ -25,10 +27,10 @@ tests/
 Go 1.24: Follow standard conventions
 
 ## Recent Changes
+- 005-docs-cli-consistency: Added Go 1.26.1 + cobra v1.10.2, charmbracelet/huh v0.8.0, gopkg.in/yaml.v3
 - 004-package-installers: Added Go 1.26.1 (CLI), Bash (install script), YAML (CI/GoReleaser config) + GoReleaser v2 (release automation), GitHub Actions (CI/CD), goreleaser-action@v6
 - 003-e2e-integration-suite: Added Go 1.24 (matches APX project)
 
-- 001-align-docs-experience: Added Go 1.24 + `github.com/urfave/cli/v2` (command wiring), `github.com/AlecAivazis/survey/v2` (interactive prompts), `github.com/infobloxopen/apx/internal/*` packages for business logic, external CLI toolchains (buf, spectral, oasdiff, etc.)
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
