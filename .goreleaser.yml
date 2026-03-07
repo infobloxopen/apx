@@ -5,6 +5,7 @@ before:
   hooks:
     - go mod tidy
     - sh -c "go test ./cmd/... $(go list ./internal/... | grep -v /validator | tr '\n' ' ')"
+    - sh -c "mkdir -p completions && go run ./cmd/apx completion bash > completions/apx.bash && go run ./cmd/apx completion zsh > completions/apx.zsh && go run ./cmd/apx completion fish > completions/apx.fish"
 
 builds:
   - id: apx
@@ -41,6 +42,7 @@ archives:
       - README.md
       - LICENSE
       - apx.example.yaml
+      - completions/*
 
 checksum:
   name_template: "checksums.txt"
@@ -67,6 +69,10 @@ homebrew_casks:
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: https://github.com/infobloxopen/apx
     description: "API Publishing eXperience CLI"
+    completions:
+      bash: completions/apx.bash
+      zsh: completions/apx.zsh
+      fish: completions/apx.fish
     hooks:
       post:
         install: |
@@ -106,6 +112,12 @@ nfpms:
       - src: apx.example.yaml
         dst: /etc/apx/apx.example.yaml
         type: config|noreplace
+      - src: completions/apx.bash
+        dst: /usr/share/bash-completion/completions/apx
+      - src: completions/apx.zsh
+        dst: /usr/share/zsh/vendor-completions/_apx
+      - src: completions/apx.fish
+        dst: /usr/share/fish/vendor_completions.d/apx.fish
 
 dockers_v2:
   - images:
