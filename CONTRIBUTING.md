@@ -27,7 +27,7 @@ This project adheres to the [Code of Conduct](CODE_OF_CONDUCT.md). By participat
 
 ### Prerequisites
 
-- Go 1.25 or later
+- Go 1.26.1 or later
 - Git
 - Make
 

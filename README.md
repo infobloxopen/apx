@@ -385,7 +385,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.26'
 
       - name: Install APX
         run: go install github.com/infobloxopen/apx/cmd/apx@latest
@@ -409,7 +409,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.26'
 
       - name: Install APX
         run: go install github.com/infobloxopen/apx/cmd/apx@latest

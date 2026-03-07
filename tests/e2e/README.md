@@ -252,7 +252,7 @@ jobs:
       
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.26'
       
       - name: Install k3d
         run: make install-e2e-deps

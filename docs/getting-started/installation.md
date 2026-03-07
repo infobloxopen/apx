@@ -159,7 +159,7 @@ mv apx ~/bin/  # ensure ~/bin is in PATH
 
 ### Go version issues
 
-APX requires Go 1.21+. Check your version:
+APX requires Go 1.26+. Check your version:
 
 ```bash
 go version

@@ -21,7 +21,7 @@ Welcome to APX! This section will help you get up and running quickly with the A
 
 Before you begin, make sure you have:
 
-- **Go 1.21+** (for installation from source)
+- **Go 1.26+** (for installation from source)
 - **Git** (for version control operations)
 - Basic familiarity with command-line tools
 
