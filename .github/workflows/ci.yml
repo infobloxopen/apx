@@ -217,7 +217,7 @@ jobs:
     - name: Install Docker (via colima)
       run: |
         brew install docker colima
-        colima start --cpu 2 --memory 4 --disk 10
+        colima start --cpu 2 --memory 4 --disk 10 --vm-type qemu
     
     - name: Cache E2E tool binaries
       id: cache-e2e-tools
