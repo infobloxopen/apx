@@ -45,7 +45,7 @@ stderr 'buf'
 
 # Step 5: Test missing --against flag (should fail with helpful error)
 ! exec apx breaking internal/apis/proto/test/v1/test.proto
-stderr 'Required flag "against" not set'
+stderr 'required flag.*against.*not set'
 
 # Step 6: Verify git history shows both commits
 exec git log --oneline
