@@ -108,8 +108,10 @@ dockers:
   - image_templates:
       - "ghcr.io/infobloxopen/apx:{{ .Version }}-amd64"
       - "ghcr.io/infobloxopen/apx:latest-amd64"
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.goreleaser
     use: buildx
+    extra_files:
+      - apx.example.yaml
     build_flag_templates:
       - "--platform=linux/amd64"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -119,8 +121,10 @@ dockers:
   - image_templates:
       - "ghcr.io/infobloxopen/apx:{{ .Version }}-arm64"
       - "ghcr.io/infobloxopen/apx:latest-arm64"
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.goreleaser
     use: buildx
+    extra_files:
+      - apx.example.yaml
     build_flag_templates:
       - "--platform=linux/arm64"
       - "--label=org.opencontainers.image.created={{.Date}}"
