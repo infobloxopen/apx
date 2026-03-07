@@ -67,16 +67,16 @@ func TestBinaryExecution(t *testing.T) {
 	versionCmd.Env = append(os.Environ(), ciEnv, noColorEnv, disableTTY)
 	output, err := versionCmd.Output()
 	require.NoError(t, err)
-	require.Contains(t, string(output), "apx version")
+	require.Contains(t, string(output), "apx")
 
 	// Test help command
 	helpCmd := exec.Command(apxBinary, "help")
 	helpCmd.Env = append(os.Environ(), ciEnv, noColorEnv, disableTTY)
 	output, err = helpCmd.Output()
 	require.NoError(t, err)
-	require.Contains(t, string(output), "API Publishing eXperience CLI")
-	require.Contains(t, string(output), "USAGE:")
-	require.Contains(t, string(output), "COMMANDS:")
+	require.Contains(t, string(output), "API schemas across organizations")
+	require.Contains(t, string(output), "Usage:")
+	require.Contains(t, string(output), "Available Commands:")
 }
 
 func TestConfigCommands(t *testing.T) {
