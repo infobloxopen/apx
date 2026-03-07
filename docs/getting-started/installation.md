@@ -2,10 +2,10 @@
 
 APX can be installed via Homebrew, Scoop, a shell one-liner, pre-built binaries, or from source.
 
-## Homebrew (macOS/Linux — Recommended)
+## Homebrew (macOS — Recommended)
 
 ```bash
-brew install infobloxopen/tap/apx
+brew install --cask infobloxopen/tap/apx
 ```
 
 Shell completions for bash, zsh, and fish are installed automatically.
@@ -90,7 +90,7 @@ apx --version
 
 You should see output similar to:
 ```
-apx version 1.0.0 (commit: abc1234)
+apx 1.0.0 (abc1234) 2026-01-15
 ```
 
 ## Toolchain Management

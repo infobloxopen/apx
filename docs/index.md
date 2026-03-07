@@ -127,7 +127,7 @@ View source code, report issues, and contribute to APX.
 
 ```bash
 # Install APX
-brew install <org>/tap/apx
+brew install --cask <org>/tap/apx
 # or download from GitHub Releases
 
 # Verify installation

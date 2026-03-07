@@ -100,10 +100,10 @@ apx unlink proto/payments/ledger/v1
 
 ## Installation
 
-### Homebrew (macOS/Linux)
+### Homebrew (macOS)
 
 ```bash
-brew install infobloxopen/tap/apx
+brew install --cask infobloxopen/tap/apx
 ```
 
 ### Scoop (Windows)

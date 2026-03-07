@@ -247,7 +247,7 @@ func main() {
 ## Install
 ```bash
 # Homebrew (example)
-brew install <org>/tap/apx
+brew install --cask <org>/tap/apx
 
 # Or download from GitHub Releases and place on PATH
 chmod +x apx && mv apx /usr/local/bin/apx
