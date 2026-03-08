@@ -207,6 +207,7 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 	ui.Success("\u2713 Generated CODEOWNERS")
 	ui.Success("\u2713 Generated catalog.yaml")
 	ui.Success("\u2713 Generated README.md")
+	ui.Success("\u2713 Generated apx.yaml")
 	ui.Success("\u2713 Generated .github/workflows/ci.yml")
 	ui.Success("\u2713 Generated .github/workflows/on-merge.yml")
 

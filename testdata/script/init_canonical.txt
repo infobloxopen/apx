@@ -22,6 +22,12 @@ exists buf.work.yaml
 exists CODEOWNERS
 exists catalog/catalog.yaml
 exists README.md
+exists apx.yaml
+
+# Verify apx.yaml content
+grep 'org: testorg' apx.yaml
+grep 'repo: test-apis' apx.yaml
+grep 'version: ' apx.yaml
 
 # Verify buf.yaml content
 grep 'version: v2' buf.yaml

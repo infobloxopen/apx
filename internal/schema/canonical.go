@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/schema/templates"
 )
 
@@ -91,6 +92,21 @@ func (s *CanonicalScaffolder) Generate(targetDir string) error {
 	readmePath := filepath.Join(targetDir, "README.md")
 	if err := os.WriteFile(readmePath, []byte(readmeContent), 0644); err != nil {
 		return fmt.Errorf("failed to write README.md: %w", err)
+	}
+
+	// Generate apx.yaml configuration (skip if already exists)
+	apxYamlPath := filepath.Join(targetDir, "apx.yaml")
+	if _, err := os.Stat(apxYamlPath); os.IsNotExist(err) {
+		cfg := config.DefaultConfig()
+		cfg.Org = s.org
+		cfg.Repo = s.repo
+		content, err := config.MarshalConfigString(cfg)
+		if err != nil {
+			return fmt.Errorf("failed to generate apx.yaml: %w", err)
+		}
+		if err := os.WriteFile(apxYamlPath, []byte(content), 0644); err != nil {
+			return fmt.Errorf("failed to write apx.yaml: %w", err)
+		}
 	}
 
 	// Generate CI workflow

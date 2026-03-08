@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/infobloxopen/apx/internal/config"
+	"github.com/infobloxopen/apx/internal/detector"
 	"github.com/infobloxopen/apx/internal/schema/templates"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/spf13/cobra"
@@ -36,15 +37,26 @@ from the existing workflow files and reads org/repo from apx.yaml.`,
 func workflowsSyncAction(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
+	var org, repo string
+	var moduleRoots []string
+
 	cfg, err := config.Load("")
 	if err != nil {
-		return fmt.Errorf("failed to load apx.yaml: %w\nRun this command from a directory with an apx.yaml file.", err)
+		// No apx.yaml — fall back to git remote detection
+		ui.Info("No apx.yaml found, detecting org/repo from git remote...")
+		defaults, detectErr := detector.GetSmartDefaults()
+		if detectErr == nil {
+			org = defaults.Org
+			repo = defaults.Repo
+		}
+	} else {
+		org = cfg.Org
+		repo = cfg.Repo
+		moduleRoots = cfg.ModuleRoots
 	}
 
-	org := cfg.Org
-	repo := cfg.Repo
 	if org == "" || repo == "" {
-		return fmt.Errorf("apx.yaml must have org and repo set")
+		return fmt.Errorf("could not determine org and repo.\nEither create an apx.yaml (apx init canonical) or ensure a git remote named 'origin' is configured.")
 	}
 
 	workflowDir := filepath.Join(".github", "workflows")
@@ -77,7 +89,7 @@ func workflowsSyncAction(cmd *cobra.Command, args []string) error {
 		}
 	}
 	// Fallback: if module_roots are set, likely an app repo
-	if !isCanonical && !isApp && len(cfg.ModuleRoots) > 0 {
+	if !isCanonical && !isApp && len(moduleRoots) > 0 {
 		isApp = true
 	}
 
