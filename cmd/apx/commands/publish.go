@@ -34,6 +34,7 @@ Examples:
 	cmd.Flags().Bool("dry-run", false, "Show what would be published without actually publishing")
 	cmd.Flags().Bool("strict", false, "Make go_package mismatches an error instead of a warning")
 	cmd.Flags().Bool("skip-gomod", false, "Skip go.mod generation and validation")
+	cmd.Flags().Bool("create-pr", false, "Create pull request")
 	return cmd
 }
 

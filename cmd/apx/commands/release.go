@@ -1052,7 +1052,7 @@ func inferLifecycleFromVersion(version string) string {
 		return "experimental"
 	}
 	if strings.HasPrefix(sv.Prerelease, "beta") || strings.HasPrefix(sv.Prerelease, "rc") {
-		return "beta"
+		return "preview"
 	}
 	return ""
 }
