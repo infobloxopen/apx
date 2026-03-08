@@ -75,6 +75,10 @@ const (
 	// ErrCodeIllegalTransition means a lifecycle transition is not allowed
 	// (e.g. stable → experimental).
 	ErrCodeIllegalTransition PublishErrorCode = "ILLEGAL_TRANSITION"
+
+	// ErrCodePRCreationFailed means the pull request could not be created
+	// on the canonical repo.
+	ErrCodePRCreationFailed PublishErrorCode = "PR_CREATION_FAILED"
 )
 
 // PublishError is a structured error with a machine-readable code,
@@ -124,4 +128,5 @@ var ErrorCodeDescriptions = map[PublishErrorCode]string{
 	ErrCodeBreakingChange:       "Breaking changes require a new API line",
 	ErrCodeVersionLineMismatch:  "Version major does not match API line",
 	ErrCodeIllegalTransition:    "Illegal lifecycle transition",
+	ErrCodePRCreationFailed:     "PR creation on canonical repo failed",
 }

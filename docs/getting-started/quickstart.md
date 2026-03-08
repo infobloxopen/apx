@@ -346,27 +346,31 @@ When ready to publish your schema:
 apx lint && apx breaking --against=HEAD^ && apx semver suggest --against=HEAD^
 ```
 
-### 2. Tag in App Repo
-```bash
-# Example for v1 (subdir-style tag)
-git tag proto/payments/ledger/v1/v1.2.3
-git push --follow-tags
-```
+### 2. Publish via PR (recommended)
 
-### 3. App CI Publishes Automatically
-Your app's CI will run `apx publish` and open a PR to the canonical repo:
+The simplest path for teams: `apx publish --create-pr` copies your module into
+the canonical repo on a feature branch and opens a pull request via the `gh` CLI.
 
 ```bash
-apx publish \
-  --module-path=internal/apis/proto/payments/ledger/v1 \
-  --canonical-repo=github.com/<org>/apis
+# One-time: gh auth login
+apx publish proto/payments/ledger/v1 \
+  --version v1.0.0-beta.1 \
+  --lifecycle preview \
+  --create-pr
 ```
 
-### 4. Canonical Repo CI
+APX will:
+1. Shallow-clone the canonical repo
+2. Copy your module files into `proto/payments/ledger/v1/`
+3. Generate `go.mod` if missing
+4. Push a feature branch `apx/publish/proto-payments-ledger-v1/v1.0.0-beta.1`
+5. Open a PR on the canonical repo
+
+### 3. Canonical Repo CI
 On PR merge, canonical CI:
 - Re-validates schema
 - Verifies SemVer
-- Creates subdirectory tag (`proto/payments/ledger/v1.2.3`)
+- Creates subdirectory tag (`proto/payments/ledger/v1/v1.0.0-beta.1`)
 - Publishes language packages (Maven, wheels, OCI)
 
 ## 6. Consuming APIs with Canonical Import Paths
@@ -499,8 +503,13 @@ jobs:
         with: { fetch-depth: 0 }
       - run: apx fetch
       - run: apx lint && apx breaking --against=HEAD^
-      - run: apx publish --module-path=internal/apis/${GITHUB_REF_NAME%/v*} \
-               --canonical-repo=github.com/<org>/apis
+      # Extract API ID and version from the tag
+      # Tag format: proto/payments/ledger/v1/v1.2.3
+      - run: |
+          TAG="${GITHUB_REF_NAME}"
+          API_ID="${TAG%/v*}"                    # proto/payments/ledger/v1
+          VERSION="${TAG##*/}"                   # v1.2.3
+          apx publish "$API_ID" --version "$VERSION" --create-pr
 ```
 
 ### Canonical Repo CI (Validate & Release)
