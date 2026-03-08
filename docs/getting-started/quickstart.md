@@ -476,13 +476,15 @@ jobs:
 2. Check `buf.gen.yaml` configuration for proto files
 3. Verify output directories have write permissions
 
-### Interactive mode doesn't work
+### Interactive mode in CI / non-TTY environments
 
-APX automatically detects non-interactive environments (CI, etc.). Use explicit flags:
+APX automatically detects non-interactive environments (CI, piped input, etc.) and disables prompts. In those environments, use explicit flags:
 
 ```bash
 apx init app --org=myorg --repo=myapp --non-interactive internal/apis/proto/payments/ledger
 ```
+
+Interactive mode works normally in a terminal with TTY support.
 
 ## What's Next?
 
