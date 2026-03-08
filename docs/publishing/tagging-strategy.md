@@ -60,10 +60,14 @@ Lifecycle state is tracked separately from the version tag:
 | Lifecycle | Description |
 |-----------|-------------|
 | `experimental` | Early exploration, no compatibility guarantees |
-| `beta` | Feature-complete but may change before GA |
+| `preview` | API surface is stabilizing; minor breaking changes still possible |
 | `stable` | Production-ready, backward-compatible within the API line |
 | `deprecated` | Superseded by a newer line, still supported |
 | `sunset` | End-of-life, will be removed |
+
+:::{note}
+`beta` is accepted as a backward-compatible alias for `preview`. New projects should use `preview`.
+:::
 
 ## Inspect Tags
 

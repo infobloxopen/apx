@@ -90,8 +90,171 @@ APX uses a single canonical repository (`github.com/<org>/apis`) as both the sou
 
 Release artifacts and tags belong to this one repo. Local overlays (`go.work`) are a development convenience — they do not represent a distinct public distribution identity.
 
+## Two Publishing Paths
+
+APX provides two ways to get an API into the canonical repository:
+
+### Quick Publish (`apx publish`)
+
+A single fire-and-forget command that validates, pushes, and tags in one step.
+Best for local development and quick iterations.
+
+```bash
+apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+```
+
+See [Publish Command](publish-command.md) for full usage.
+
+### Release Pipeline (`apx release`)
+
+A multi-step workflow with explicit phases, manifest persistence, idempotency
+checks, and immutable audit records.  Best for CI pipelines and production
+releases.
+
+```bash
+# 1. Validate and create a release manifest
+apx release prepare proto/payments/ledger/v1 --version v1.0.0
+
+# 2. Submit as a pull request on the canonical repository
+apx release submit
+
+# 3. Tag, update catalog, emit release record (canonical CI)
+apx release finalize
+```
+
+The release pipeline also supports lifecycle promotions:
+
+```bash
+apx release promote proto/payments/ledger/v1 --to stable --version v1.0.0
+apx release submit
+```
+
+See [Release Commands](../cli-reference/release-commands.md) for full usage.
+
 See [Tagging Strategy](tagging-strategy.md) for details on how tags are constructed.
 
 See [Publish Command](publish-command.md) for CLI usage details.
 
-See [Lifecycle Reference](lifecycle.md) for lifecycle state definitions and policy enforcement.
+See [Release Commands](../cli-reference/release-commands.md) for the multi-step release pipeline.
+
+## Publishing by Lifecycle Stage
+
+Lifecycle and version work together: the lifecycle declares the maturity signal while
+the SemVer prerelease tag encodes the release phase.  APX enforces their consistency
+automatically.
+
+| Lifecycle | Required version tag | Suggested by `apx semver suggest` |
+|-----------|---------------------|------------------------------------|
+| `experimental` | `-alpha.*` | `-alpha.N` |
+| `preview` | `-alpha.*`, `-beta.*`, or `-rc.*` | `-beta.N` |
+| `stable` | *(no prerelease)* | clean semver (e.g. `1.0.0`) |
+| `deprecated` | any | *(caller warned)* |
+| `sunset` | **blocked** | *(releases not allowed)* |
+
+:::{note}
+`beta` is accepted as a backward-compatible alias for `preview`.  New projects should use `preview`.
+:::
+
+### Experimental — early exploration
+
+Publish under `experimental` when the API is still forming.  No compatibility
+guarantee; anything may change.
+
+```bash
+apx publish proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
+
+# Or with the release pipeline
+apx release prepare proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
+apx release submit
+```
+
+For APIs that will break frequently, use a `v0` line instead:
+
+```bash
+apx publish proto/payments/ledger/v0 --version v0.1.0 --lifecycle experimental
+```
+
+### Preview — stabilizing toward GA
+
+Publish under `preview` when the API design is mostly settled but still
+converging.  Consumers can start integrating, but minor breaking changes remain
+possible.
+
+```bash
+# Beta release
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle preview
+
+# Release candidate
+apx publish proto/payments/ledger/v1 --version v1.0.0-rc.1 --lifecycle preview
+```
+
+Note that the `-beta.1` prerelease tag on the version is a SemVer convention —
+the lifecycle is `preview`, not `beta`.
+
+### Stable — production-ready (GA)
+
+Publish under `stable` for general availability.  Full backward compatibility
+within the API line.  Version must not have a prerelease tag.
+
+```bash
+apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+
+# Or promote from preview to stable
+apx release promote proto/payments/ledger/v1 --to stable --version v1.0.0
+apx release submit
+```
+
+### Deprecated — superseded
+
+Mark an API as `deprecated` when a successor exists.  Maintenance continues, but
+no new features.  APX prints a warning on every publish.
+
+```bash
+apx publish proto/payments/ledger/v1 --version v1.2.1 --lifecycle deprecated
+```
+
+### Sunset — end of life
+
+An API in `sunset` blocks all new releases by default.  This signals that
+consumers must migrate.
+
+```bash
+# This will fail:
+apx publish proto/payments/ledger/v1 --version v1.2.2 --lifecycle sunset
+# Error: lifecycle "sunset" blocks new releases; use --force to override
+```
+
+### The full progression
+
+A typical API moves through these stages over its lifetime:
+
+```bash
+# 1. Experimental — early exploration
+apx publish proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
+
+# 2. Preview — stabilizing, beta out to early adopters
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1  --lifecycle preview
+
+# 3. Stable — GA
+apx publish proto/payments/ledger/v1 --version v1.0.0          --lifecycle stable
+
+# 4. Stable updates
+apx publish proto/payments/ledger/v1 --version v1.1.0          --lifecycle stable
+
+# 5. Deprecated — new line exists
+apx release promote proto/payments/ledger/v1 --to deprecated
+
+# 6. Sunset — end of life
+apx release promote proto/payments/ledger/v1 --to sunset
+```
+
+Throughout this entire progression, consumers use the same import path:
+
+```go
+import ledgerv1 "github.com/acme/apis/proto/payments/ledger/v1"
+```
+
+Only the resolved module version changes.
+
+See [Lifecycle Reference](lifecycle.md) for the full lifecycle model, transition
+rules, v0 line policy, and compatibility promise tables.

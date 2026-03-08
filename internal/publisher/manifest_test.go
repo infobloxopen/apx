@@ -151,3 +151,62 @@ func TestFormatManifestReport(t *testing.T) {
 	assert.Contains(t, report, "v1.2.0-beta.1")
 	assert.Contains(t, report, "github.com/acme/apis")
 }
+
+func TestWriteReadManifest_PRMetadata(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, ".apx-release.yaml")
+
+	original := &ReleaseManifest{
+		SchemaVersion:    "1",
+		State:            StateCanonicalPROpen,
+		APIID:            "proto/payments/ledger/v1",
+		Format:           "proto",
+		Domain:           "payments",
+		Name:             "ledger",
+		Line:             "v1",
+		SourceRepo:       "github.com/acme/apis",
+		SourcePath:       "proto/payments/ledger/v1",
+		RequestedVersion: "v1.2.0",
+		CanonicalRepo:    "github.com/acme/apis",
+		CanonicalPath:    "proto/payments/ledger/v1",
+		Tag:              "proto/payments/ledger/v1/v1.2.0",
+		PRNumber:         42,
+		PRURL:            "https://github.com/acme/apis/pull/42",
+		PRBranch:         "apx/release/proto-payments-ledger-v1/v1.2.0",
+	}
+
+	require.NoError(t, WriteManifest(original, path))
+
+	loaded, err := ReadManifest(path)
+	require.NoError(t, err)
+
+	assert.Equal(t, 42, loaded.PRNumber)
+	assert.Equal(t, "https://github.com/acme/apis/pull/42", loaded.PRURL)
+	assert.Equal(t, "apx/release/proto-payments-ledger-v1/v1.2.0", loaded.PRBranch)
+	assert.Equal(t, StateCanonicalPROpen, loaded.State)
+}
+
+func TestFormatManifestReport_WithPRMetadata(t *testing.T) {
+	m := &ReleaseManifest{
+		State:            StateCanonicalPROpen,
+		APIID:            "proto/payments/ledger/v1",
+		Format:           "proto",
+		Domain:           "payments",
+		Name:             "ledger",
+		Line:             "v1",
+		RequestedVersion: "v1.2.0",
+		Tag:              "proto/payments/ledger/v1/v1.2.0",
+		SourceRepo:       "github.com/acme/apis",
+		SourcePath:       "proto/payments/ledger/v1",
+		CanonicalRepo:    "github.com/acme/apis",
+		CanonicalPath:    "proto/payments/ledger/v1",
+		PRNumber:         42,
+		PRURL:            "https://github.com/acme/apis/pull/42",
+		PRBranch:         "apx/release/proto-payments-ledger-v1/v1.2.0",
+	}
+
+	report := FormatManifestReport(m)
+	assert.Contains(t, report, "PR URL:      https://github.com/acme/apis/pull/42")
+	assert.Contains(t, report, "PR number:   42")
+	assert.Contains(t, report, "PR branch:   apx/release/proto-payments-ledger-v1/v1.2.0")
+}

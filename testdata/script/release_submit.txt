@@ -1,0 +1,107 @@
+# Test apx release submit error paths and state guards
+
+# --- T009: submit with missing manifest ---
+! exec apx release submit
+stderr 'no release manifest found'
+stderr 'prepare'
+
+# --- T010: submit with failed manifest state ---
+cp failed-manifest.yaml .apx-release.yaml
+! exec apx release submit
+stderr 'failed state'
+stderr 'something went wrong'
+
+# --- submit with already-published state (no-op) ---
+cp published-manifest.yaml .apx-release.yaml
+exec apx release submit
+stdout 'already published'
+
+# --- submit with canonical-pr-open state reports existing PR ---
+cp pr-open-manifest.yaml .apx-release.yaml
+exec apx release submit
+stdout 'already submitted'
+stdout 'https://github.com/acme/apis/pull/42'
+
+# --- release inspect shows PR metadata ---
+cp pr-open-manifest.yaml .apx-release.yaml
+exec apx release inspect
+stdout 'PR URL:      https://github.com/acme/apis/pull/42'
+stdout 'PR number:   42'
+stdout 'PR branch:   apx/release/proto-payments-ledger-v1/v1.2.0'
+
+# --- dry-run shows branch name without side effects ---
+cp prepared-manifest.yaml .apx-release.yaml
+exec apx release submit --dry-run
+stdout 'Dry-run mode'
+stdout 'apx/release/proto-payments-ledger-v1/v1.2.0'
+stdout 'Would submit release successfully'
+# Verify manifest state is unchanged after dry-run
+exec cat .apx-release.yaml
+stdout 'state: prepared'
+
+-- failed-manifest.yaml --
+schema_version: "1"
+state: failed
+api_id: proto/payments/ledger/v1
+format: proto
+domain: payments
+name: ledger
+line: v1
+source_repo: github.com/acme/apis
+source_path: proto/payments/ledger/v1
+requested_version: v1.2.0
+canonical_repo: github.com/acme/apis
+canonical_path: proto/payments/ledger/v1
+tag: proto/payments/ledger/v1/v1.2.0
+error:
+  code: SUBTREE_FAILED
+  message: something went wrong
+  phase: submit
+
+-- published-manifest.yaml --
+schema_version: "1"
+state: package-published
+api_id: proto/payments/ledger/v1
+format: proto
+domain: payments
+name: ledger
+line: v1
+source_repo: github.com/acme/apis
+source_path: proto/payments/ledger/v1
+requested_version: v1.2.0
+canonical_repo: github.com/acme/apis
+canonical_path: proto/payments/ledger/v1
+tag: proto/payments/ledger/v1/v1.2.0
+
+-- pr-open-manifest.yaml --
+schema_version: "1"
+state: canonical-pr-open
+api_id: proto/payments/ledger/v1
+format: proto
+domain: payments
+name: ledger
+line: v1
+source_repo: github.com/acme/apis
+source_path: proto/payments/ledger/v1
+requested_version: v1.2.0
+canonical_repo: github.com/acme/apis
+canonical_path: proto/payments/ledger/v1
+tag: proto/payments/ledger/v1/v1.2.0
+pr_number: 42
+pr_url: https://github.com/acme/apis/pull/42
+pr_branch: apx/release/proto-payments-ledger-v1/v1.2.0
+
+-- prepared-manifest.yaml --
+schema_version: "1"
+state: prepared
+api_id: proto/payments/ledger/v1
+format: proto
+domain: payments
+name: ledger
+line: v1
+source_repo: github.com/acme/apis
+source_path: proto/payments/ledger/v1
+requested_version: v1.2.0
+canonical_repo: github.com/acme/apis
+canonical_path: proto/payments/ledger/v1
+tag: proto/payments/ledger/v1/v1.2.0

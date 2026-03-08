@@ -34,7 +34,7 @@ Rules:
 
 Lifecycle pre-release mapping:
   - experimental → -alpha.N
-  - beta         → -beta.N
+  - preview      → -beta.N  (beta accepted as alias for preview)
   - stable       → normal semver (no prerelease)
   - deprecated   → allowed with warning
   - sunset       → blocked`,
@@ -44,7 +44,7 @@ Lifecycle pre-release mapping:
 	cmd.Flags().String("against", "", "Git reference or path to compare against (required)")
 	_ = cmd.MarkFlagRequired("against")
 	cmd.Flags().String("api-id", "", "API ID (e.g. proto/payments/ledger/v1)")
-	cmd.Flags().String("lifecycle", "", "Lifecycle state (experimental, beta, stable, deprecated, sunset)")
+	cmd.Flags().String("lifecycle", "", "Lifecycle state (experimental, preview, stable, deprecated, sunset)")
 	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet)")
 	return cmd
 }

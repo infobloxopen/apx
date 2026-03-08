@@ -2,10 +2,6 @@
 
 Complete reference for all APX commands and options.
 
-:::{note}
-Full per-command documentation is in progress. See sub-pages for individual command groups once available.
-:::
-
 ## Command Categories
 
 APX commands are organized into logical categories:
@@ -31,7 +27,8 @@ APX commands are organized into logical categories:
 
 :::{grid-item-card} **Publishing**
 ^^^
-- `apx publish` - Publish to canonical
+- `apx publish` - Publish to canonical (one-shot)
+- `apx release` - Multi-step release pipeline
 - `apx semver suggest` - Suggest version bump
 :::
 
@@ -83,9 +80,20 @@ apx sync         # updates go.work overlays
 apx unlink proto/payments/ledger/v1
 go get github.com/myorg/apis/proto/payments/ledger@v1.2.3
 
-# Publish from app repo
-apx publish --module-path=internal/apis/proto/domain/api/v1 \
-           --canonical-repo=github.com/org/apis
+# Quick publish from app repo
+apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+
+# Production release pipeline (multi-step)
+apx release prepare proto/payments/ledger/v1 --version v1.0.0
+apx release submit
+apx release finalize   # run by canonical CI
+
+# Release history and inspection
+apx release history proto/payments/ledger/v1
+apx release inspect
+
+# Lifecycle promotion
+apx release promote proto/payments/ledger/v1 --to stable --version v1.0.0
 ```
 
 **Application code using canonical imports:**
@@ -237,6 +245,7 @@ apx completion fish > ~/.config/fish/completions/apx.fish
 
 - [Learn core commands](core-commands.md) for project setup
 - [Master dependency commands](dependency-commands.md) for API management  
-- [Understand publishing commands](publishing-commands.md) for releases
+- [Understand publishing commands](publishing-commands.md) for one-shot publishing
+- [Master release commands](release-commands.md) for production release pipelines
 - [Use validation commands](validation-commands.md) for quality assurance
 - [Explore utility commands](utility-commands.md) for daily workflows

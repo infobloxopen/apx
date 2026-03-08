@@ -1,8 +1,15 @@
 # Publishing Commands
 
+APX offers two publishing paths:
+
+- **`apx publish`** — a single fire-and-forget command for quick iterations and local development.
+- **`apx release`** — a [multi-step pipeline](release-commands.md) with validation gates, manifest persistence, and immutable audit records. Use this for CI and production releases.
+
+---
+
 ## `apx publish`
 
-Publish an API module to the canonical repository.
+Publish an API module to the canonical repository in a single step.
 
 ### Identity-Based Publish (Recommended)
 
@@ -16,8 +23,8 @@ Examples:
 # Alpha release
 apx publish proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
 
-# Beta release
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
+# Preview release (beta prerelease tag, preview lifecycle)
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle preview
 
 # GA release
 apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
@@ -40,7 +47,7 @@ apx publish --module-path <path> --canonical-repo <url> --version <semver>
 | Flag | Type | Description |
 |------|------|-------------|
 | `--version` | string | SemVer version to publish (required) |
-| `--lifecycle` | string | Lifecycle state: experimental, beta, stable, deprecated, sunset |
+| `--lifecycle` | string | Lifecycle state: experimental, preview, stable, deprecated, sunset (`beta` accepted as alias for `preview`) |
 | `--canonical-repo` | string | Canonical repo URL (auto-derived from config) |
 | `--module-path` | string | Module path (legacy mode) |
 | `--dry-run` | bool | Preview without publishing |
@@ -63,3 +70,9 @@ proto/payments/ledger/v1/v1.0.0-beta.1
 proto/payments/ledger/v1/v1.0.0
 proto/payments/ledger/v2/v2.0.0
 ```
+
+## Next Steps
+
+For production CI pipelines, see [Release Commands](release-commands.md) — the
+multi-step alternative that adds manifest tracking, idempotency, catalog updates,
+and immutable release records.

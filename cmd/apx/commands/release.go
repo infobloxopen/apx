@@ -338,26 +338,25 @@ func newReleaseSubmitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "submit",
 		Short: "Submit a prepared release to the canonical repo",
-		Long: `Submit pushes the prepared release (from 'apx release prepare') to
-the canonical repository. It reads .apx-release.yaml and either
-pushes via subtree or creates a pull request.
+		Long: `Submit opens a pull request on the canonical repository with the
+prepared release content (from 'apx release prepare'). It reads
+.apx-release.yaml, clones the canonical repo, pushes the snapshot
+to a release branch, and creates a PR.
 
-This operation is idempotent: if the same version with the same
-content has already been published, it will report success without
-changing anything.
+This operation is idempotent: re-running after a partial failure will
+detect existing branches and PRs, recovering gracefully without
+creating duplicates.
 
 Examples:
   apx release submit
-  apx release submit --create-pr`,
+  apx release submit --dry-run`,
 		RunE: releaseSubmitAction,
 	}
-	cmd.Flags().Bool("create-pr", false, "Create a pull request instead of pushing directly")
 	cmd.Flags().Bool("dry-run", false, "Show what would be submitted without actually doing it")
 	return cmd
 }
 
 func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
-	createPR, _ := cmd.Flags().GetBool("create-pr")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	// Read manifest
@@ -369,110 +368,172 @@ func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
 		)
 	}
 
-	// Verify state
-	if manifest.State != publisher.StatePrepared {
-		if manifest.State == publisher.StatePackagePublished {
-			ui.Success("Release already published — nothing to do")
+	// ── State guards ─────────────────────────────────────────────────
+	switch manifest.State {
+	case publisher.StatePrepared:
+		// Expected state — proceed
+	case publisher.StateCanonicalPROpen:
+		// Already submitted — report existing PR and exit
+		if manifest.PRURL != "" {
+			ui.Success("Release already submitted — PR is open")
+			ui.Info("PR:      %s", manifest.PRURL)
+			if manifest.PRBranch != "" {
+				ui.Info("Branch:  %s", manifest.PRBranch)
+			}
 			return nil
 		}
-		if manifest.State == publisher.StateFailed {
-			return publisher.NewPublishError(
-				publisher.ErrCodeValidationFailed,
-				fmt.Sprintf("release is in failed state: %s", manifest.Error.Message),
-			).WithHint("Fix the issue and re-run 'apx release prepare'")
-		}
+		// PR metadata missing — fall through to re-submit
+	case publisher.StatePackagePublished:
+		ui.Success("Release already published — nothing to do")
+		return nil
+	case publisher.StateFailed:
+		return publisher.NewPublishError(
+			publisher.ErrCodeValidationFailed,
+			fmt.Sprintf("release is in failed state: %s", manifest.Error.Message),
+		).WithHint("Fix the issue and re-run 'apx release prepare'")
+	default:
 		return fmt.Errorf("unexpected manifest state %q — expected 'prepared'", manifest.State)
 	}
 
-	repoPath, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	gitDir := filepath.Join(repoPath, ".git")
-	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-		return publisher.NewPublishError(publisher.ErrCodeNotGitRepo, "not in a git repository")
-	}
-
-	// Generate go.mod if needed
-	goModulePath := manifest.GoModule
-	if goModulePath != "" {
-		api := &config.APIIdentity{
-			ID: manifest.APIID, Format: manifest.Format,
-			Domain: manifest.Domain, Name: manifest.Name, Line: manifest.Line,
-		}
-		goModDir := config.DeriveGoModDir(api)
-		goModPath := filepath.Join(repoPath, goModDir, "go.mod")
-
-		if _, readErr := os.ReadFile(goModPath); os.IsNotExist(readErr) {
-			content, genErr := publisher.GenerateGoMod(goModulePath, "1.21")
-			if genErr != nil {
-				manifest.Fail(string(publisher.ErrCodeGoModMismatch), genErr.Error(), "submit")
-				_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-				return fmt.Errorf("generating go.mod: %w", genErr)
-			}
-			if dryRun {
-				ui.Info("Would generate go.mod at %s", goModDir)
-			} else {
-				if mkErr := os.MkdirAll(filepath.Join(repoPath, goModDir), 0o755); mkErr != nil {
-					return fmt.Errorf("creating go.mod directory: %w", mkErr)
-				}
-				if writeErr := os.WriteFile(goModPath, content, 0o644); writeErr != nil {
-					return fmt.Errorf("writing go.mod: %w", writeErr)
-				}
-				ui.Info("Generated go.mod at %s", goModDir)
-			}
-		}
-	}
-
+	// ── Dry-run path ─────────────────────────────────────────────────
 	if dryRun {
+		branch := publisher.ComputeReleaseBranchName(manifest.APIID, manifest.RequestedVersion)
 		ui.Info("Dry-run mode: showing what would be submitted")
 		ui.Info("")
+		ui.Info("Branch:  %s", branch)
+		ui.Info("")
+
+		// List snapshot files
+		snapshotDir := manifest.SourcePath
+		if _, statErr := os.Stat(snapshotDir); statErr == nil {
+			ui.Info("Snapshot files:")
+			_ = filepath.Walk(snapshotDir, func(path string, info os.FileInfo, walkErr error) error {
+				if walkErr != nil || info.IsDir() {
+					return walkErr
+				}
+				rel, _ := filepath.Rel(snapshotDir, path)
+				ui.Info("  %s", rel)
+				return nil
+			})
+			ui.Info("")
+		}
+
+		// Show go.mod preview if applicable
+		if manifest.GoModule != "" {
+			content, genErr := publisher.GenerateGoMod(manifest.GoModule, "1.21")
+			if genErr == nil {
+				ui.Info("go.mod preview:")
+				ui.Info("%s", string(content))
+			}
+		}
+
 		fmt.Print(publisher.FormatManifestReport(manifest))
 		ui.Info("")
 		ui.Success("Would submit release successfully")
 		return nil
 	}
 
-	// Publish via subtree
+	// ── Preflight: gh CLI check ──────────────────────────────────────
+	if err := publisher.CheckGHCLI(); err != nil {
+		return publisher.NewPublishError(
+			publisher.ErrCodePRCreationFailed,
+			"GitHub CLI (gh) is required for release submission",
+		).WithHint("Install gh from https://cli.github.com and run: gh auth login")
+	}
+
+	// ── Submit via PR ────────────────────────────────────────────────
 	ui.Info("Submitting release %s @ %s", manifest.APIID, manifest.RequestedVersion)
 
-	subtreePublisher := publisher.NewSubtreePublisher(repoPath)
-	commitHash, err := subtreePublisher.PublishModule(
-		manifest.SourcePath, manifest.CanonicalRepo, manifest.RequestedVersion,
-	)
+	// Build CI provenance extra for PR body
+	prBodyExtra := buildCIProvenance()
+
+	resp, err := publisher.SubmitReleaseWithPR(manifest, manifest.SourcePath, prBodyExtra)
 	if err != nil {
-		manifest.Fail(string(publisher.ErrCodeSubtreeFailed), err.Error(), "submit")
+		manifest.Fail(string(publisher.ErrCodePRCreationFailed), err.Error(), "submit")
 		_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
 		return &publisher.PublishError{
-			Code:    publisher.ErrCodeSubtreeFailed,
-			Message: fmt.Sprintf("subtree publish failed: %v", err),
-			Hint:    "Check git status and try 'apx release submit' again",
+			Code:    publisher.ErrCodePRCreationFailed,
+			Message: fmt.Sprintf("release submission failed: %v", err),
+			Hint:    "Check gh auth status and try 'apx release submit' again",
 		}
 	}
 
-	if err := manifest.SetState(publisher.StateSubmitted); err != nil {
+	// ── Record PR metadata in manifest ───────────────────────────────
+	manifest.PRNumber = resp.Number
+	manifest.PRURL = resp.HTMLURL
+	manifest.PRBranch = publisher.ComputeReleaseBranchName(manifest.APIID, manifest.RequestedVersion)
+
+	// Record CI provenance if running in CI
+	if prBodyExtra != "" {
+		if os.Getenv("GITHUB_ACTIONS") == "true" {
+			manifest.CIProvider = "github-actions"
+			serverURL := os.Getenv("GITHUB_SERVER_URL")
+			repo := os.Getenv("GITHUB_REPOSITORY")
+			runID := os.Getenv("GITHUB_RUN_ID")
+			if serverURL != "" && repo != "" && runID != "" {
+				manifest.CIRunURL = fmt.Sprintf("%s/%s/actions/runs/%s", serverURL, repo, runID)
+			}
+		} else if os.Getenv("GITLAB_CI") == "true" {
+			manifest.CIProvider = "gitlab-ci"
+			manifest.CIRunURL = os.Getenv("CI_PIPELINE_URL")
+		} else if os.Getenv("JENKINS_URL") != "" {
+			manifest.CIProvider = "jenkins"
+			manifest.CIRunURL = os.Getenv("BUILD_URL")
+		}
+	}
+
+	if err := manifest.SetState(publisher.StateCanonicalPROpen); err != nil {
 		return err
 	}
-
-	manifest.SourceCommit = commitHash
-	_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-
-	ui.Success("✓ Release submitted successfully")
-	ui.Info("Commit:  %s", commitHash)
-	ui.Info("Tag:     %s", manifest.Tag)
-
-	if createPR {
-		if err := manifest.SetState(publisher.StateCanonicalPROpen); err != nil {
-			return err
-		}
-		_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-		ui.Info("Creating pull request...")
-		return publisher.NewPublishError(publisher.ErrCodePushFailed,
-			"PR creation not yet implemented").WithHint("Push directly or implement PR flow")
+	if writeErr := publisher.WriteManifest(manifest, ".apx-release.yaml"); writeErr != nil {
+		return fmt.Errorf("writing manifest: %w", writeErr)
 	}
 
+	ui.Success("✓ Release submitted successfully")
+	ui.Info("PR:      %s", manifest.PRURL)
+	if manifest.PRNumber != 0 {
+		ui.Info("PR #:    %d", manifest.PRNumber)
+	}
+	ui.Info("Branch:  %s", manifest.PRBranch)
+	ui.Info("Tag:     %s", manifest.Tag)
+
 	return nil
+}
+
+// buildCIProvenance returns extra PR body content with CI provenance
+// information, or an empty string if not running in CI.
+func buildCIProvenance() string {
+	// GitHub Actions
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		serverURL := os.Getenv("GITHUB_SERVER_URL")
+		repo := os.Getenv("GITHUB_REPOSITORY")
+		runID := os.Getenv("GITHUB_RUN_ID")
+		if serverURL != "" && repo != "" && runID != "" {
+			runURL := fmt.Sprintf("%s/%s/actions/runs/%s", serverURL, repo, runID)
+			return fmt.Sprintf("**CI**: github-actions\n**Run**: %s", runURL)
+		}
+		return "**CI**: github-actions"
+	}
+
+	// GitLab CI
+	if os.Getenv("GITLAB_CI") == "true" {
+		pipelineURL := os.Getenv("CI_PIPELINE_URL")
+		if pipelineURL != "" {
+			return fmt.Sprintf("**CI**: gitlab-ci\n**Run**: %s", pipelineURL)
+		}
+		return "**CI**: gitlab-ci"
+	}
+
+	// Jenkins
+	if os.Getenv("JENKINS_URL") != "" {
+		buildURL := os.Getenv("BUILD_URL")
+		if buildURL != "" {
+			return fmt.Sprintf("**CI**: jenkins\n**Run**: %s", buildURL)
+		}
+		return "**CI**: jenkins"
+	}
+
+	return ""
 }
 
 // ---------------------------------------------------------------------------

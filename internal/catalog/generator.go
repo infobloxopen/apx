@@ -439,9 +439,9 @@ func GenerateFromTags(tags []string, org, repo string) *Catalog {
 			case strings.HasPrefix(pre, "-alpha"):
 				m.Lifecycle = "experimental"
 			case strings.HasPrefix(pre, "-beta"):
-				m.Lifecycle = "beta"
+				m.Lifecycle = "preview"
 			case strings.HasPrefix(pre, "-rc"):
-				m.Lifecycle = "beta"
+				m.Lifecycle = "preview"
 			default:
 				m.Lifecycle = "experimental"
 			}

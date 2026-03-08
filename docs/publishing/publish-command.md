@@ -20,10 +20,10 @@ apx publish --module-path <path> --canonical-repo <url> --version <semver>
 apx publish proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
 ```
 
-### Beta release
+### Preview release
 
 ```bash
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle preview
 ```
 
 ### GA release
@@ -55,7 +55,7 @@ apx publish proto/payments/ledger/v1 --version v1.0.0 --dry-run
 | Flag | Description |
 |------|-------------|
 | `--version` | SemVer version to publish (required) |
-| `--lifecycle` | Lifecycle state (experimental, beta, stable, deprecated, sunset) |
+| `--lifecycle` | Lifecycle state (experimental, preview, stable, deprecated, sunset; `beta` accepted as alias for `preview`) |
 | `--canonical-repo` | Canonical repository URL (auto-derived from apx.yaml) |
 | `--module-path` | Module path (legacy; prefer positional api-id) |
 | `--dry-run` | Show what would be published without publishing |

@@ -47,6 +47,15 @@ type ReleaseManifest struct {
 	// Tag
 	Tag string `yaml:"tag" json:"tag"`
 
+	// PR metadata (populated after submit creates a pull request)
+	PRNumber int    `yaml:"pr_number,omitempty" json:"pr_number,omitempty"`
+	PRURL    string `yaml:"pr_url,omitempty" json:"pr_url,omitempty"`
+	PRBranch string `yaml:"pr_branch,omitempty" json:"pr_branch,omitempty"`
+
+	// CI provenance (populated when submit runs in a CI environment)
+	CIProvider string `yaml:"ci_provider,omitempty" json:"ci_provider,omitempty"`
+	CIRunURL   string `yaml:"ci_run_url,omitempty" json:"ci_run_url,omitempty"`
+
 	// Validation results
 	Validation *ValidationResults `yaml:"validation,omitempty" json:"validation,omitempty"`
 
@@ -201,6 +210,21 @@ func FormatManifestReport(m *ReleaseManifest) string {
 	if m.GoModule != "" {
 		lines = append(lines, fmt.Sprintf("Go module:   %s", m.GoModule))
 		lines = append(lines, fmt.Sprintf("Go import:   %s", m.GoImport))
+	}
+	if m.PRURL != "" {
+		lines = append(lines, fmt.Sprintf("PR URL:      %s", m.PRURL))
+		if m.PRNumber != 0 {
+			lines = append(lines, fmt.Sprintf("PR number:   %d", m.PRNumber))
+		}
+		if m.PRBranch != "" {
+			lines = append(lines, fmt.Sprintf("PR branch:   %s", m.PRBranch))
+		}
+	}
+	if m.CIProvider != "" {
+		lines = append(lines, fmt.Sprintf("CI provider: %s", m.CIProvider))
+		if m.CIRunURL != "" {
+			lines = append(lines, fmt.Sprintf("CI run URL:  %s", m.CIRunURL))
+		}
 	}
 	if m.Validation != nil {
 		lines = append(lines, "Validation:")
