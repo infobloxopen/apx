@@ -203,11 +203,7 @@ func EnsureTagProtection(owner, repo string, res *SetupResult) error {
   "conditions": {
     "ref_name": {
       "include": [
-        "refs/tags/proto/**",
-        "refs/tags/openapi/**",
-        "refs/tags/avro/**",
-        "refs/tags/jsonschema/**",
-        "refs/tags/parquet/**"
+        "~ALL"
       ],
       "exclude": []
     }
@@ -218,8 +214,8 @@ func EnsureTagProtection(owner, repo string, res *SetupResult) error {
   ],
   "bypass_actors": [
     {
-      "actor_type": "Integration",
-      "actor_id": 0,
+      "actor_type": "OrganizationAdmin",
+      "actor_id": 1,
       "bypass_mode": "always"
     }
   ]
@@ -230,8 +226,8 @@ func EnsureTagProtection(owner, repo string, res *SetupResult) error {
 	outBytes, err := cmd.CombinedOutput()
 	if err != nil {
 		errMsg := strings.TrimSpace(string(outBytes))
-		if strings.Contains(errMsg, "403") {
-			res.Add("warning", "tag protection ruleset (requires admin access)")
+		if strings.Contains(errMsg, "403") || strings.Contains(errMsg, "422") {
+			res.Add("warning", "tag protection ruleset (create manually in repo Settings → Rules → Rulesets)")
 			return nil
 		}
 		return fmt.Errorf("failed to create tag protection: %s", errMsg)
