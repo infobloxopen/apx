@@ -7,6 +7,7 @@ App repositories are where teams author schemas day-to-day and generate code wit
 
 layout
 local-development
+working-with-forks
 publishing-workflow
 ci-integration
 ```

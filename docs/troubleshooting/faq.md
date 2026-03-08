@@ -51,6 +51,9 @@ Common questions about APX usage, configuration, and best practices.
 
 ## Development Workflow
 
+### Q: Can I use APX on a fork of the canonical repo?
+**A**: Yes, for **consumption and authoring** (lint, breaking, gen, show, inspect). APX auto-detects forks by checking for an `upstream` git remote and uses the upstream org for canonical import paths. However, **publishing from a fork is not supported** — `apx publish` and `apx release tag` require write access to the canonical repo. The recommended pattern is to author on your fork, open a PR to the canonical repo, and let the canonical repo's post-merge CI handle publishing. See [Working with Forks](../app-repos/working-with-forks.md) for details.
+
 ### Q: Why are generated files not committed?
 **A**: Generated code is deterministic based on `apx.lock`. Not committing it:
 - Reduces merge conflicts
