@@ -1,0 +1,35 @@
+feat: canonical repo auto-detection with fork-aware upstream resolution
+
+Rewrites the org/repo detection in `apx init` to parse git remote URLs
+instead of relying on filesystem path heuristics, adds fork-aware upstream
+detection for consumption workflows, and documents the fork workflow.
+
+Changes:
+
+- Parse `git remote get-url origin` for org/repo detection
+  (SSH shorthand, SSH URL, HTTPS, git:// protocols) with regex matching.
+  Falls back to GOPATH-style path inspection when git is unavailable.
+
+- Run auto-detection in both interactive and non-interactive init flows
+  so `--org`/`--repo` flags are only required when detection fails.
+
+- Change default canonical repo name from `your-apis-repo` to `apis`
+  across config, examples, docs, and tests (11 locations).
+
+- Detect fork via `upstream` git remote: when origin and upstream point
+  to different orgs, use the upstream org for all consumption paths
+  (go_package, buf module, dependency resolution). Adds `UpstreamOrg`
+  field to `ProjectDefaults` for downstream visibility.
+
+- Add comprehensive unit tests for URL parsing, fork detection,
+  and smart defaults (22 test cases in detector package).
+
+- Add `docs/app-repos/working-with-forks.md` documenting what works on
+  forks (all consumption/authoring), what doesn't (publish, tag, PR),
+  and the recommended fork→PR→merge→CI-publish workflow.
+
+- Add fork FAQ entry in `docs/troubleshooting/faq.md`.
+
+- Fix duplicate `test-integration` target in Makefile.
+
+- Fix misleading "Interactive mode doesn't work" heading in quickstart.md.
