@@ -212,6 +212,14 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 	// --setup-github: configure GitHub repo settings via gh CLI
 	setupGitHub, _ := cmd.Flags().GetBool("setup-github")
 	if setupGitHub {
+		// Preflight: verify gh is installed, authenticated, and has required scopes.
+		if err := gh.CheckGHAuth(); err != nil {
+			return fmt.Errorf("GitHub setup preflight failed: %w", err)
+		}
+		if err := gh.CheckGHScopes(); err != nil {
+			return fmt.Errorf("GitHub setup preflight failed: %w", err)
+		}
+
 		appID, _ := cmd.Flags().GetString("app-id")
 		pemFile, _ := cmd.Flags().GetString("app-pem-file")
 
@@ -362,6 +370,9 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 	// --setup-github: configure GitHub repo settings via gh CLI
 	setupGitHub, _ := cmd.Flags().GetBool("setup-github")
 	if setupGitHub {
+		if err := gh.CheckGHAuth(); err != nil {
+			return fmt.Errorf("GitHub setup preflight failed: %w", err)
+		}
 		ui.Info("\nConfiguring GitHub repository...")
 		res, err := gh.SetupAppRepo(org, repo)
 		if err != nil {

@@ -78,6 +78,24 @@ func CheckGHAuth() error {
 	return nil
 }
 
+// CheckGHScopes verifies the gh token has the required OAuth scopes for
+// org-level operations. Call this early so users don't hit permission
+// errors midway through setup.
+func CheckGHScopes() error {
+	out, err := GHRun("auth", "status")
+	if err != nil {
+		return fmt.Errorf("gh is not authenticated: %s", out)
+	}
+
+	// gh auth status prints scopes like: Token scopes: 'admin:org', 'repo', ...
+	// Check for admin:org which is needed for org secrets.
+	if !strings.Contains(out, "admin:org") {
+		return fmt.Errorf("gh token is missing the 'admin:org' scope needed for org secrets.\n" +
+			"Run: gh auth refresh -h github.com -s admin:org")
+	}
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // Org secrets
 // ---------------------------------------------------------------------------
@@ -250,6 +268,9 @@ func SetupCanonicalRepo(org, repo, appID, pemPath string) (*SetupResult, error) 
 	res := &SetupResult{}
 
 	if err := CheckGHAuth(); err != nil {
+		return nil, err
+	}
+	if err := CheckGHScopes(); err != nil {
 		return nil, err
 	}
 

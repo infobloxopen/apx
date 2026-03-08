@@ -124,6 +124,35 @@ func TestOrgSecretExists_Error(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// CheckGHScopes tests
+// ---------------------------------------------------------------------------
+
+func TestCheckGHScopes_HasAdminOrg(t *testing.T) {
+	origGHRun := GHRun
+	t.Cleanup(func() { GHRun = origGHRun })
+
+	GHRun = func(args ...string) (string, error) {
+		return "github.com\n  Token: gho_xxx\n  Token scopes: 'admin:org', 'repo', 'read:org'", nil
+	}
+
+	assert.NoError(t, CheckGHScopes())
+}
+
+func TestCheckGHScopes_MissingAdminOrg(t *testing.T) {
+	origGHRun := GHRun
+	t.Cleanup(func() { GHRun = origGHRun })
+
+	GHRun = func(args ...string) (string, error) {
+		return "github.com\n  Token: gho_xxx\n  Token scopes: 'repo', 'read:org'", nil
+	}
+
+	err := CheckGHScopes()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "admin:org")
+	assert.Contains(t, err.Error(), "gh auth refresh")
+}
+
+// ---------------------------------------------------------------------------
 // App ID cache tests
 // ---------------------------------------------------------------------------
 
