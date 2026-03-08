@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -37,11 +38,13 @@ func TestCachePEM_CopiesAndCaches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "fake-pem-data", contents)
 
-	// Verify the cached file exists with 0600
+	// Verify the cached file exists with 0600 (skip on Windows where perms aren't enforced)
 	cachedPath := filepath.Join(cacheDir, "testorg-app.pem")
 	info, err := os.Stat(cachedPath)
 	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	}
 
 	// Second call should use cache (even with empty pemPath)
 	contents2, err := CachePEM("testorg", "")
@@ -171,10 +174,12 @@ func TestCacheAndGetAppID(t *testing.T) {
 	// Read it back
 	assert.Equal(t, "12345", GetCachedAppID("acme"))
 
-	// File has 0600 perms
+	// File has 0600 perms (skip on Windows where perms aren't enforced)
 	info, err := os.Stat(filepath.Join(tmp, "acme-app-id"))
 	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -195,7 +200,9 @@ func TestCachePEMFromContents(t *testing.T) {
 
 	info, err := os.Stat(filepath.Join(tmp, "acme-app.pem"))
 	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	}
 }
 
 // ---------------------------------------------------------------------------
