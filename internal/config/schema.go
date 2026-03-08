@@ -346,6 +346,99 @@ func buildV1Schema() SchemaVersion {
 				},
 			},
 		},
+		"api": {
+			Name:        "api",
+			Type:        TypeStruct,
+			Description: "Canonical API identity",
+			Children: map[string]FieldDef{
+				"id": {
+					Name:        "id",
+					Type:        TypeString,
+					Description: "Full API identifier (format/domain/name/line)",
+					Pattern:     "<format>/<domain>/<name>/<line>",
+				},
+				"format": {
+					Name:        "format",
+					Type:        TypeString,
+					Description: "Schema format",
+					EnumValues:  []string{"proto", "openapi", "avro", "jsonschema", "parquet"},
+				},
+				"domain": {
+					Name:        "domain",
+					Type:        TypeString,
+					Description: "Business domain for the API",
+				},
+				"name": {
+					Name:        "name",
+					Type:        TypeString,
+					Description: "API name within the domain",
+				},
+				"line": {
+					Name:        "line",
+					Type:        TypeString,
+					Description: "API compatibility line (e.g. v1, v2)",
+					Pattern:     "v<major>",
+				},
+				"lifecycle": {
+					Name:        "lifecycle",
+					Type:        TypeString,
+					Description: "Maturity/support state of this API line",
+					EnumValues:  []string{"experimental", "beta", "stable", "deprecated", "sunset"},
+				},
+			},
+		},
+		"source": {
+			Name:        "source",
+			Type:        TypeStruct,
+			Description: "Canonical source repository identity",
+			Children: map[string]FieldDef{
+				"repo": {
+					Name:        "repo",
+					Type:        TypeString,
+					Description: "Canonical source repository (e.g. github.com/acme/apis)",
+				},
+				"path": {
+					Name:        "path",
+					Type:        TypeString,
+					Description: "Path within the canonical repo (derived from api.id)",
+				},
+			},
+		},
+		"releases": {
+			Name:        "releases",
+			Type:        TypeStruct,
+			Description: "Release version tracking",
+			Children: map[string]FieldDef{
+				"current": {
+					Name:        "current",
+					Type:        TypeString,
+					Description: "Current release version (SemVer)",
+					Pattern:     "v<major>.<minor>.<patch>[-prerelease]",
+				},
+			},
+		},
+		"languages": {
+			Name:        "languages",
+			Type:        TypeMap,
+			Description: "Derived language-specific coordinates keyed by language",
+			ItemDef: &FieldDef{
+				Name:        "language_coords",
+				Type:        TypeStruct,
+				Description: "Language-specific module and import paths",
+				Children: map[string]FieldDef{
+					"module": {
+						Name:        "module",
+						Type:        TypeString,
+						Description: "Module/package path for the language",
+					},
+					"import": {
+						Name:        "import",
+						Type:        TypeString,
+						Description: "Import path for the language",
+					},
+				},
+			},
+		},
 	}
 
 	return SchemaVersion{

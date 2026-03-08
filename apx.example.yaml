@@ -7,6 +7,28 @@ module_roots:
   - avro
   - jsonschema
   - parquet
+
+# Canonical API identity (optional — populated per API module)
+# api:
+#   id: proto/payments/ledger/v1
+#   format: proto
+#   domain: payments
+#   name: ledger
+#   line: v1
+#   lifecycle: beta
+#
+# source:
+#   repo: github.com/your-org-name/your-apis-repo
+#   path: proto/payments/ledger/v1
+#
+# releases:
+#   current: v1.0.0-beta.1
+#
+# languages:
+#   go:
+#     module: github.com/your-org-name/your-apis-repo/proto/payments/ledger
+#     import: github.com/your-org-name/your-apis-repo/proto/payments/ledger/v1
+
 language_targets:
   go:
     enabled: true

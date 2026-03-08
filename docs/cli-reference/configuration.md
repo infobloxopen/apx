@@ -82,6 +82,22 @@ version: 1
 | `execution` | struct | no |  |  | Execution environment settings |
 | `execution.mode` | string | no | `local` | local, container | Where tools run |
 | `execution.container_image` | string | no |  |  | Container image when mode=container |
+| `api` | struct | no |  |  | Canonical API identity |
+| `api.id` | string | no |  |  | Full API identifier (format/domain/name/line) |
+| `api.format` | string | no |  | proto, openapi, avro, jsonschema, parquet | Schema format |
+| `api.domain` | string | no |  |  | Business domain for the API |
+| `api.name` | string | no |  |  | API name within the domain |
+| `api.line` | string | no |  |  | API compatibility line (e.g. v1, v2) |
+| `api.lifecycle` | string | no |  | experimental, beta, stable, deprecated, sunset | Maturity/support state of this API line |
+| `source` | struct | no |  |  | Canonical source repository identity |
+| `source.repo` | string | no |  |  | Canonical source repository (e.g. github.com/acme/apis) |
+| `source.path` | string | no |  |  | Path within the canonical repo (derived from api.id) |
+| `releases` | struct | no |  |  | Release version tracking |
+| `releases.current` | string | no |  |  | Current release version (SemVer) |
+| `languages` | map | no |  |  | Derived language-specific coordinates keyed by language |
+| `languages.<key>` | struct |  |  |  | Language-specific module and import paths |
+| `languages.<key>.module` | string | no |  |  | Module/package path for the language |
+| `languages.<key>.import` | string | no |  |  | Import path for the language |
 
 ## Section Details
 
@@ -182,6 +198,88 @@ execution:
 |------|-------------|
 | `local` | Run tools directly on the host machine |
 | `container` | Run tools inside a container (requires `container_image`) |
+
+### `api`
+
+Defines the canonical identity of an API. The API ID uses a four-part format: `<format>/<domain>/<name>/<line>`.
+
+```yaml
+api:
+  id: proto/payments/ledger/v1
+  format: proto
+  domain: payments
+  name: ledger
+  line: v1
+  lifecycle: beta
+```
+
+The `line` field represents the API compatibility line (`v1`, `v2`, etc.). Only breaking changes create a new line. The `lifecycle` field tracks the maturity state independently from the release version.
+
+| Lifecycle | Meaning |
+|-----------|---------|
+| `experimental` | Early exploration, no compatibility guarantees |
+| `beta` | Feature-complete but may change before GA |
+| `stable` | Production-ready, backward-compatible within the API line |
+| `deprecated` | Superseded by a newer line, still supported |
+| `sunset` | End-of-life, will be removed |
+
+### `source`
+
+Identifies where the canonical source lives.
+
+```yaml
+source:
+  repo: github.com/acme/apis
+  path: proto/payments/ledger/v1
+```
+
+The `path` is typically identical to the `api.id` and represents the directory within the canonical repository.
+
+### `releases`
+
+Tracks the current release version for this API line.
+
+```yaml
+releases:
+  current: v1.0.0-beta.1
+```
+
+Release versions follow SemVer. Alpha/beta status is expressed in the version string (e.g. `v1.0.0-alpha.1`, `v1.0.0-beta.1`), not in the import path. This ensures consumers never need to rewrite imports between pre-release and GA.
+
+### `languages`
+
+Derived language-specific coordinates. APX computes these automatically from the API identity and source repository.
+
+```yaml
+languages:
+  go:
+    module: github.com/acme/apis/proto/payments/ledger
+    import: github.com/acme/apis/proto/payments/ledger/v1
+```
+
+**Go module path rules:**
+
+| API Line | Module Path | Import Path |
+|----------|-------------|-------------|
+| `v1` | `<repo>/<format>/<domain>/<name>` (no suffix) | `<repo>/<format>/<domain>/<name>/v1` |
+| `v2+` | `<repo>/<format>/<domain>/<name>/v<N>` | `<repo>/<format>/<domain>/<name>/v<N>` |
+
+This follows Go's major version suffix convention: v1 modules have no suffix, v2+ modules include `/vN` in the module path.
+
+### Identity Inspection
+
+Use `apx inspect` and `apx explain` to query the identity model:
+
+```bash
+# Show full identity for an API
+apx inspect identity proto/payments/ledger/v1
+
+# Show identity for a specific release
+apx inspect release proto/payments/ledger/v1@v1.0.0-beta.1
+
+# Explain Go path derivation rules
+apx explain go-path proto/payments/ledger/v1
+```
 
 ## Example Configuration
 

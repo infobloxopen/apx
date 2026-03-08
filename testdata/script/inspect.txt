@@ -1,0 +1,70 @@
+# Test apx inspect and explain commands
+
+# --- inspect identity (basic) ---
+exec apx inspect identity proto/payments/ledger/v1 --source-repo github.com/acme/apis
+stdout 'API:        proto/payments/ledger/v1'
+stdout 'Format:     proto'
+stdout 'Domain:     payments'
+stdout 'Name:       ledger'
+stdout 'Line:       v1'
+stdout 'Go module:  github.com/acme/apis/proto/payments/ledger'
+stdout 'Go import:  github.com/acme/apis/proto/payments/ledger/v1'
+
+# --- inspect identity with lifecycle ---
+exec apx inspect identity proto/payments/ledger/v1 --source-repo github.com/acme/apis --lifecycle beta
+stdout 'Lifecycle:  beta'
+
+# --- inspect identity v2 ---
+exec apx inspect identity proto/payments/ledger/v2 --source-repo github.com/acme/apis
+stdout 'Go module:  github.com/acme/apis/proto/payments/ledger/v2'
+stdout 'Go import:  github.com/acme/apis/proto/payments/ledger/v2'
+
+# --- inspect identity JSON output ---
+exec apx --json inspect identity proto/payments/ledger/v1 --source-repo github.com/acme/apis
+stdout '"id": "proto/payments/ledger/v1"'
+stdout '"format": "proto"'
+stdout '"module": "github.com/acme/apis/proto/payments/ledger"'
+
+# --- inspect release ---
+exec apx inspect release proto/payments/ledger/v1@v1.0.0-beta.1 --source-repo github.com/acme/apis
+stdout 'API:        proto/payments/ledger/v1'
+stdout 'Release:    v1.0.0-beta.1'
+stdout 'Tag:        proto/payments/ledger/v1/v1.0.0-beta.1'
+stdout 'Lifecycle:  beta'
+
+# --- inspect release GA (no lifecycle inferred) ---
+exec apx inspect release proto/payments/ledger/v1@v1.0.0 --source-repo github.com/acme/apis
+stdout 'Release:    v1.0.0'
+stdout 'Tag:        proto/payments/ledger/v1/v1.0.0'
+
+# --- inspect release JSON ---
+exec apx --json inspect release proto/payments/ledger/v1@v1.0.0-beta.1 --source-repo github.com/acme/apis
+stdout '"tag": "proto/payments/ledger/v1/v1.0.0-beta.1"'
+
+# --- inspect release bad format ---
+! exec apx inspect release proto/payments/ledger/v1
+stderr 'expected format'
+
+# --- inspect identity bad api-id ---
+! exec apx inspect identity proto/payments
+stderr 'invalid API ID'
+
+# --- explain go-path v1 ---
+exec apx explain go-path proto/payments/ledger/v1 --source-repo github.com/acme/apis
+stdout 'github.com/acme/apis/proto/payments/ledger'
+stdout 'github.com/acme/apis/proto/payments/ledger/v1'
+stdout 'no version suffix'
+
+# --- explain go-path v2 ---
+exec apx explain go-path proto/payments/ledger/v2 --source-repo github.com/acme/apis
+stdout 'github.com/acme/apis/proto/payments/ledger/v2'
+stdout '/v2 suffix'
+
+# --- explain go-path JSON ---
+exec apx --json explain go-path proto/payments/ledger/v1 --source-repo github.com/acme/apis
+stdout '"go_module": "github.com/acme/apis/proto/payments/ledger"'
+stdout '"go_import": "github.com/acme/apis/proto/payments/ledger/v1"'
+
+# --- explain go-path bad api-id ---
+! exec apx explain go-path invalid
+stderr 'invalid API ID'

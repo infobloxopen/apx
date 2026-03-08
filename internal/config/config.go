@@ -20,6 +20,37 @@ type Config struct {
 	Publishing      Publishing                `yaml:"publishing"`
 	Tools           Tools                     `yaml:"tools"`
 	Execution       Execution                 `yaml:"execution"`
+	API             *APIIdentity              `yaml:"api,omitempty"`
+	Source          *SourceIdentity           `yaml:"source,omitempty"`
+	Releases        *ReleaseInfo              `yaml:"releases,omitempty"`
+	Languages       map[string]LanguageCoords `yaml:"languages,omitempty"`
+}
+
+// APIIdentity describes the canonical identity of an API.
+type APIIdentity struct {
+	ID        string `yaml:"id" json:"id"`               // e.g. "proto/payments/ledger/v1"
+	Format    string `yaml:"format" json:"format"`       // e.g. "proto", "openapi", "avro"
+	Domain    string `yaml:"domain" json:"domain"`       // e.g. "payments"
+	Name      string `yaml:"name" json:"name"`           // e.g. "ledger"
+	Line      string `yaml:"line" json:"line"`           // e.g. "v1"
+	Lifecycle string `yaml:"lifecycle" json:"lifecycle"` // experimental, beta, stable, deprecated, sunset
+}
+
+// SourceIdentity describes where the canonical source lives.
+type SourceIdentity struct {
+	Repo string `yaml:"repo" json:"repo"` // e.g. "github.com/acme/apis"
+	Path string `yaml:"path" json:"path"` // e.g. "proto/payments/ledger/v1"
+}
+
+// ReleaseInfo tracks the current and latest releases for an API line.
+type ReleaseInfo struct {
+	Current string `yaml:"current" json:"current"` // e.g. "v1.0.0-beta.1"
+}
+
+// LanguageCoords describes language-specific derived coordinates for an API.
+type LanguageCoords struct {
+	Module string `yaml:"module,omitempty" json:"module,omitempty"` // e.g. "github.com/acme/apis/proto/payments/ledger"
+	Import string `yaml:"import,omitempty" json:"import,omitempty"` // e.g. "github.com/acme/apis/proto/payments/ledger/v1"
 }
 
 // LanguageTarget represents configuration for a target language
