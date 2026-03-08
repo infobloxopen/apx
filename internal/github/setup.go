@@ -6,7 +6,6 @@ package github
 import (
 	"encoding/json"
 	"fmt"
-	"html"
 	"net"
 	"net/http"
 	"os"
@@ -395,10 +394,10 @@ func CreateAppViaManifest(org, repo string) (appID string, pemContents string, e
 		fmt.Fprintf(w, `<!DOCTYPE html><html><body>
 <p>Redirecting to GitHub to create the App&#8230;</p>
 <form id="mf" method="post" action="https://github.com/organizations/%s/settings/apps/new">
-<input type="hidden" name="manifest" value='%s'>
+<textarea name="manifest" hidden>%s</textarea>
 </form>
 <script>document.getElementById('mf').submit();</script>
-</body></html>`, org, html.EscapeString(string(manifestJSON)))
+</body></html>`, org, string(manifestJSON))
 	})
 
 	server := &http.Server{Handler: mux}
