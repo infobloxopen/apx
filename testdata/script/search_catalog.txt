@@ -1,6 +1,7 @@
 # Test apx search command
 #
 # This scenario verifies the search command can discover APIs in the catalog
+# including identity-aware fields (domain, api_line, lifecycle)
 
 # Setup: Create a test canonical repo with catalog
 mkdir canonical
@@ -8,38 +9,96 @@ cd canonical
 exec git init
 exec apx init canonical --org=testorg --repo=apis --skip-git --non-interactive
 
-# Overwrite catalog/catalog.yaml with test data (using multiple echo statements)
+# Overwrite catalog/catalog.yaml with identity-enriched test data
 exec sh -c 'echo "version: 1" > catalog/catalog.yaml'
 exec sh -c 'echo "org: testorg" >> catalog/catalog.yaml'
 exec sh -c 'echo "repo: apis" >> catalog/catalog.yaml'
 exec sh -c 'echo "modules:" >> catalog/catalog.yaml'
-exec sh -c 'echo "  - name: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - id: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    name: proto/payments/ledger/v1" >> catalog/catalog.yaml'
 exec sh -c 'echo "    format: proto" >> catalog/catalog.yaml'
+exec sh -c 'echo "    domain: payments" >> catalog/catalog.yaml'
+exec sh -c 'echo "    api_line: v1" >> catalog/catalog.yaml'
 exec sh -c 'echo "    description: Payment ledger API" >> catalog/catalog.yaml'
 exec sh -c 'echo "    version: v1.2.3" >> catalog/catalog.yaml'
+exec sh -c 'echo "    latest_stable: v1.2.3" >> catalog/catalog.yaml'
+exec sh -c 'echo "    lifecycle: stable" >> catalog/catalog.yaml'
 exec sh -c 'echo "    path: proto/payments/ledger/v1" >> catalog/catalog.yaml'
-exec sh -c 'echo "  - name: openapi/customer/accounts/v2" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - id: proto/payments/wallet/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    name: proto/payments/wallet/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    format: proto" >> catalog/catalog.yaml'
+exec sh -c 'echo "    domain: payments" >> catalog/catalog.yaml'
+exec sh -c 'echo "    api_line: v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    description: Digital wallet API" >> catalog/catalog.yaml'
+exec sh -c 'echo "    version: v1.0.0" >> catalog/catalog.yaml'
+exec sh -c 'echo "    lifecycle: beta" >> catalog/catalog.yaml'
+exec sh -c 'echo "    path: proto/payments/wallet/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - id: openapi/customer/accounts/v2" >> catalog/catalog.yaml'
+exec sh -c 'echo "    name: openapi/customer/accounts/v2" >> catalog/catalog.yaml'
 exec sh -c 'echo "    format: openapi" >> catalog/catalog.yaml'
+exec sh -c 'echo "    domain: customer" >> catalog/catalog.yaml'
+exec sh -c 'echo "    api_line: v2" >> catalog/catalog.yaml'
 exec sh -c 'echo "    description: Customer accounts API" >> catalog/catalog.yaml'
 exec sh -c 'echo "    version: v2.0.0" >> catalog/catalog.yaml'
+exec sh -c 'echo "    latest_stable: v2.0.0" >> catalog/catalog.yaml'
+exec sh -c 'echo "    latest_prerelease: v2.1.0-beta.1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    lifecycle: stable" >> catalog/catalog.yaml'
 exec sh -c 'echo "    path: openapi/customer/accounts/v2" >> catalog/catalog.yaml'
 
 # Search all APIs (uses default catalog/catalog.yaml)
 exec apx search
 stdout 'ledger'
+stdout 'wallet'
 stdout 'accounts'
 
 # Search by name
 exec apx search ledger
 stdout 'ledger'
+! stdout 'wallet'
 ! stdout 'accounts'
 
 # Search by format
 exec apx search --format=proto
 stdout 'ledger'
+stdout 'wallet'
+! stdout 'accounts'
+
+# Search by lifecycle
+exec apx search --lifecycle=stable
+stdout 'ledger'
+stdout 'accounts'
+! stdout 'wallet'
+
+exec apx search --lifecycle=beta
+stdout 'wallet'
+! stdout 'ledger'
+! stdout 'accounts'
+
+# Search by domain
+exec apx search --domain=payments
+stdout 'ledger'
+stdout 'wallet'
+! stdout 'accounts'
+
+exec apx search --domain=customer
+stdout 'accounts'
+! stdout 'ledger'
+! stdout 'wallet'
+
+# Search by api-line
+exec apx search --api-line=v2
+stdout 'accounts'
+! stdout 'ledger'
+! stdout 'wallet'
+
+# Combined filters
+exec apx search --format=proto --domain=payments --lifecycle=stable
+stdout 'ledger'
+! stdout 'wallet'
 ! stdout 'accounts'
 
 # Search with no matches
 exec apx search nonexistent
 ! stdout 'ledger'
+! stdout 'wallet'
 ! stdout 'accounts'

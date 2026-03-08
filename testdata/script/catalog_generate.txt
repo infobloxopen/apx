@@ -1,0 +1,58 @@
+# Test apx catalog generate command
+#
+# This scenario verifies that `apx catalog generate` scans git tags
+# matching <format>/<domain>/<name>/<line>/v<semver> and produces
+# a catalog.yaml with correct identity, version, and lifecycle fields.
+
+# Setup: Create a test canonical repo with tags
+mkdir canonical
+cd canonical
+exec git init
+exec git config user.email 'test@test.com'
+exec git config user.name 'Test'
+exec apx init canonical --org=testorg --repo=apis --skip-git --non-interactive
+
+# Create an initial commit so tags work
+exec git add -A
+exec git commit -m 'init'
+
+# Create release tags simulating published APIs
+exec git tag proto/payments/ledger/v1/v1.0.0
+exec git tag proto/payments/ledger/v1/v1.1.0
+exec git tag proto/payments/ledger/v1/v1.2.3
+exec git tag proto/payments/wallet/v1/v1.0.0-beta.1
+exec git tag proto/payments/wallet/v1/v1.0.0-beta.2
+exec git tag openapi/iam/roles/v2/v2.0.0-alpha.1
+exec git tag openapi/iam/roles/v2/v2.0.0-alpha.3
+
+# Run catalog generate
+exec apx catalog generate --org=testorg --repo=apis
+stdout 'Catalog generated'
+stdout '3 APIs discovered'
+
+# Verify catalog file was written
+exists catalog/catalog.yaml
+
+# Verify stable API (ledger) has correct latest version and lifecycle
+exec grep 'id: proto/payments/ledger/v1' catalog/catalog.yaml
+exec grep 'latest_stable: v1.2.3' catalog/catalog.yaml
+exec grep 'lifecycle: stable' catalog/catalog.yaml
+
+# Verify beta API (wallet) has correct lifecycle
+exec grep 'id: proto/payments/wallet/v1' catalog/catalog.yaml
+exec grep 'latest_prerelease: v1.0.0-beta.2' catalog/catalog.yaml
+
+# Verify alpha API (roles) lifecycle is experimental
+exec grep 'id: openapi/iam/roles/v2' catalog/catalog.yaml
+exec grep 'latest_prerelease: v2.0.0-alpha.3' catalog/catalog.yaml
+
+# Generate with custom output path
+exec apx catalog generate --org=testorg --repo=apis -o custom/output.yaml
+stdout 'Catalog generated'
+exists custom/output.yaml
+
+# Generate with JSON output
+exec apx catalog generate --org=testorg --repo=apis --json
+stdout '"Version": 1'
+stdout '"Org": "testorg"'
+stdout '"Modules"'

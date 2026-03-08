@@ -1,0 +1,195 @@
+package commands
+
+import (
+	"encoding/json"
+	"fmt"
+	"path/filepath"
+	"strings"
+
+	"github.com/infobloxopen/apx/internal/catalog"
+	"github.com/infobloxopen/apx/internal/config"
+	"github.com/infobloxopen/apx/internal/ui"
+	"github.com/spf13/cobra"
+)
+
+func newShowCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "show <api-id>",
+		Short: "Show full identity and catalog data for an API",
+		Long: `Display the full identity, derived coordinates, and catalog release data
+for a given API ID.
+
+This merges two data sources:
+  1. Derived fields computed from the API ID (Go module, import path, tag pattern)
+  2. Catalog fields read from catalog.yaml (latest stable/prerelease, lifecycle, owners)
+
+If no catalog is available, only derived fields are shown.
+
+The API ID format is: <format>/<domain>/<name>/<line>
+
+Examples:
+  apx show proto/payments/ledger/v1
+  apx show openapi/billing/invoices/v2
+  apx show --source-repo github.com/acme/apis proto/payments/ledger/v1
+  apx --json show proto/payments/ledger/v1`,
+		Args: cobra.ExactArgs(1),
+		RunE: showAction,
+	}
+
+	cmd.Flags().String("source-repo", "", "Source repository (defaults to github.com/<org>/<repo> from apx.yaml)")
+	cmd.Flags().String("catalog", "", "Path to catalog.yaml (default: catalog/catalog.yaml)")
+
+	return cmd
+}
+
+// showInfo holds everything we know about an API for display or JSON output.
+type showInfo struct {
+	API       *config.APIIdentity              `json:"api"`
+	Source    *config.SourceIdentity           `json:"source"`
+	Release   *showRelease                     `json:"release,omitempty"`
+	Languages map[string]config.LanguageCoords `json:"languages,omitempty"`
+	Catalog   *showCatalog                     `json:"catalog,omitempty"`
+}
+
+type showRelease struct {
+	LatestStable     string `json:"latest_stable,omitempty"`
+	LatestPrerelease string `json:"latest_prerelease,omitempty"`
+	TagPattern       string `json:"tag_pattern"`
+}
+
+type showCatalog struct {
+	Lifecycle string   `json:"lifecycle,omitempty"`
+	Owners    []string `json:"owners,omitempty"`
+	Version   string   `json:"version,omitempty"`
+}
+
+func showAction(cmd *cobra.Command, args []string) error {
+	apiID := args[0]
+
+	sourceRepo, _ := cmd.Flags().GetString("source-repo")
+	catalogPath, _ := cmd.Flags().GetString("catalog")
+
+	// Resolve source repo from config if not specified
+	if sourceRepo == "" {
+		sourceRepo = resolveSourceRepo(cmd)
+	}
+
+	// Resolve catalog path
+	if catalogPath == "" {
+		catalogPath = filepath.Join("catalog", "catalog.yaml")
+	}
+
+	// Build identity from API ID
+	api, err := config.ParseAPIID(apiID)
+	if err != nil {
+		return err
+	}
+
+	source := &config.SourceIdentity{
+		Repo: sourceRepo,
+		Path: config.DeriveSourcePath(apiID),
+	}
+
+	langs, err := config.DeriveLanguageCoords(sourceRepo, api)
+	if err != nil {
+		return err
+	}
+
+	// Build output info
+	info := &showInfo{
+		API:       api,
+		Source:    source,
+		Languages: langs,
+		Release: &showRelease{
+			TagPattern: apiID + "/v*",
+		},
+	}
+
+	// Try to enrich from catalog
+	catalogFound := false
+	gen := catalog.NewGenerator(catalogPath)
+	cat, err := gen.Load()
+	if err == nil && len(cat.Modules) > 0 {
+		for _, m := range cat.Modules {
+			if m.ID == apiID {
+				catalogFound = true
+				info.Release.LatestStable = m.LatestStable
+				info.Release.LatestPrerelease = m.LatestPrerelease
+
+				info.Catalog = &showCatalog{
+					Lifecycle: m.Lifecycle,
+					Owners:    m.Owners,
+					Version:   m.Version,
+				}
+
+				// Enrich API lifecycle from catalog if not set
+				if api.Lifecycle == "" && m.Lifecycle != "" {
+					api.Lifecycle = m.Lifecycle
+				}
+				break
+			}
+		}
+	}
+
+	// JSON output
+	jsonOut, _ := cmd.Root().PersistentFlags().GetBool("json")
+	if jsonOut {
+		data, err := json.MarshalIndent(info, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), string(data))
+		return nil
+	}
+
+	// Text output
+	printShowText(info, catalogFound)
+	return nil
+}
+
+func printShowText(info *showInfo, catalogFound bool) {
+	api := info.API
+	source := info.Source
+
+	ui.Info("API:        %s", api.ID)
+	ui.Info("Format:     %s", api.Format)
+	ui.Info("Domain:     %s", api.Domain)
+	ui.Info("Name:       %s", api.Name)
+	ui.Info("Line:       %s", api.Line)
+
+	if api.Lifecycle != "" {
+		ui.Info("Lifecycle:  %s", api.Lifecycle)
+	}
+
+	if source != nil {
+		ui.Info("Source:     %s/%s", source.Repo, source.Path)
+	}
+
+	// Release info
+	if info.Release != nil {
+		if info.Release.LatestStable != "" {
+			ui.Info("Latest stable:      %s", info.Release.LatestStable)
+		} else {
+			ui.Info("Latest stable:      none")
+		}
+		if info.Release.LatestPrerelease != "" {
+			ui.Info("Latest prerelease:  %s", info.Release.LatestPrerelease)
+		}
+	}
+
+	// Language coordinates
+	if goCoords, ok := info.Languages["go"]; ok {
+		ui.Info("Go module:  %s", goCoords.Module)
+		ui.Info("Go import:  %s", goCoords.Import)
+	}
+
+	// Owners from catalog
+	if info.Catalog != nil && len(info.Catalog.Owners) > 0 {
+		ui.Info("Owners:     %s", strings.Join(info.Catalog.Owners, ", "))
+	}
+
+	if !catalogFound {
+		ui.Info("")
+		ui.Warning("No catalog data found. Run `apx catalog generate` for release data.")
+	}
+}

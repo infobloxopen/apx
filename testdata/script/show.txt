@@ -1,0 +1,120 @@
+# Test apx show command
+#
+# This scenario verifies `apx show <api-id>` displays full identity
+# and catalog data, with graceful degradation when no catalog exists.
+
+# Setup: Create a test canonical repo with an apx.yaml config
+mkdir canonical
+cd canonical
+exec git init
+exec git config user.email 'test@test.com'
+exec git config user.name 'Test'
+exec apx init canonical --org=testorg --repo=apis --skip-git --non-interactive
+
+# Create apx.yaml with org/repo so source-repo can be resolved
+exec sh -c 'echo "version: 1" > apx.yaml'
+exec sh -c 'echo "org: testorg" >> apx.yaml'
+exec sh -c 'echo "repo: apis" >> apx.yaml'
+exec sh -c 'echo "module_roots:" >> apx.yaml'
+exec sh -c 'echo "  - proto" >> apx.yaml'
+exec sh -c 'echo "  - openapi" >> apx.yaml'
+
+# Remove the default catalog so Test 1 starts clean
+exec sh -c 'rm -f catalog/catalog.yaml'
+
+# --------------------------------------------------------
+# Test 1: Show without catalog — derived fields only
+# --------------------------------------------------------
+exec apx show proto/payments/ledger/v1
+stdout 'API:.*proto/payments/ledger/v1'
+stdout 'Format:.*proto'
+stdout 'Domain:.*payments'
+stdout 'Name:.*ledger'
+stdout 'Line:.*v1'
+stdout 'Go module:.*github.com/testorg/apis/proto/payments/ledger'
+stdout 'Go import:.*github.com/testorg/apis/proto/payments/ledger/v1'
+stdout 'Latest stable:.*none'
+stdout 'No catalog data found'
+
+# --------------------------------------------------------
+# Test 2: Show with catalog data
+# --------------------------------------------------------
+
+# Write a catalog with identity-enriched entries
+exec sh -c 'mkdir -p catalog'
+exec sh -c 'echo "version: 1" > catalog/catalog.yaml'
+exec sh -c 'echo "org: testorg" >> catalog/catalog.yaml'
+exec sh -c 'echo "repo: apis" >> catalog/catalog.yaml'
+exec sh -c 'echo "modules:" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - id: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    name: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    format: proto" >> catalog/catalog.yaml'
+exec sh -c 'echo "    domain: payments" >> catalog/catalog.yaml'
+exec sh -c 'echo "    api_line: v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    description: Payment ledger API" >> catalog/catalog.yaml'
+exec sh -c 'echo "    version: v1.2.3" >> catalog/catalog.yaml'
+exec sh -c 'echo "    latest_stable: v1.2.3" >> catalog/catalog.yaml'
+exec sh -c 'echo "    latest_prerelease: v1.3.0-beta.1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    lifecycle: stable" >> catalog/catalog.yaml'
+exec sh -c 'echo "    path: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    owners:" >> catalog/catalog.yaml'
+exec sh -c 'echo "      - \"@platform/payments\"" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - id: openapi/iam/roles/v2" >> catalog/catalog.yaml'
+exec sh -c 'echo "    name: openapi/iam/roles/v2" >> catalog/catalog.yaml'
+exec sh -c 'echo "    format: openapi" >> catalog/catalog.yaml'
+exec sh -c 'echo "    domain: iam" >> catalog/catalog.yaml'
+exec sh -c 'echo "    api_line: v2" >> catalog/catalog.yaml'
+exec sh -c 'echo "    description: IAM roles API" >> catalog/catalog.yaml'
+exec sh -c 'echo "    version: v2.0.0-alpha.3" >> catalog/catalog.yaml'
+exec sh -c 'echo "    latest_prerelease: v2.0.0-alpha.3" >> catalog/catalog.yaml'
+exec sh -c 'echo "    lifecycle: experimental" >> catalog/catalog.yaml'
+exec sh -c 'echo "    path: openapi/iam/roles/v2" >> catalog/catalog.yaml'
+
+# Show stable API with catalog data
+exec apx show proto/payments/ledger/v1
+stdout 'API:.*proto/payments/ledger/v1'
+stdout 'Lifecycle:.*stable'
+stdout 'Latest stable:.*v1.2.3'
+stdout 'Latest prerelease:.*v1.3.0-beta.1'
+stdout 'Owners:.*@platform/payments'
+! stdout 'No catalog data found'
+
+# Show prerelease-only API
+exec apx show openapi/iam/roles/v2
+stdout 'API:.*openapi/iam/roles/v2'
+stdout 'Lifecycle:.*experimental'
+stdout 'Latest stable:.*none'
+stdout 'Latest prerelease:.*v2.0.0-alpha.3'
+
+# --------------------------------------------------------
+# Test 3: Show with v2+ API — verify Go module path includes /v2
+# --------------------------------------------------------
+exec apx show openapi/iam/roles/v2
+stdout 'Go module:.*github.com/testorg/apis/openapi/iam/roles/v2'
+stdout 'Go import:.*github.com/testorg/apis/openapi/iam/roles/v2'
+
+# --------------------------------------------------------
+# Test 4: JSON output
+# --------------------------------------------------------
+exec apx --json show proto/payments/ledger/v1
+stdout '"id": "proto/payments/ledger/v1"'
+stdout '"format": "proto"'
+stdout '"domain": "payments"'
+stdout '"latest_stable": "v1.2.3"'
+stdout '"tag_pattern": "proto/payments/ledger/v1/v\*"'
+
+# --------------------------------------------------------
+# Test 5: Invalid API ID
+# --------------------------------------------------------
+! exec apx show not-an-api-id
+stderr 'invalid API ID'
+
+! exec apx show grpc/payments/ledger/v1
+stderr 'invalid API format'
+
+# --------------------------------------------------------
+# Test 6: Custom source-repo flag
+# --------------------------------------------------------
+exec apx show --source-repo github.com/acme/schemas proto/payments/ledger/v1
+stdout 'Go module:.*github.com/acme/schemas/proto/payments/ledger'
+stdout 'Source:.*github.com/acme/schemas'
