@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/infobloxopen/apx/internal/config"
+	"github.com/infobloxopen/apx/internal/schema/templates"
 )
 
 // AppScaffolder creates application repository structure with schema modules
@@ -70,6 +71,16 @@ func (s *AppScaffolder) Generate(baseDir string) error {
 		if err := s.generateBufWorkYaml(bufWorkPath, s.modulePath); err != nil {
 			return fmt.Errorf("failed to generate buf.work.yaml: %w", err)
 		}
+	}
+
+	// Generate publish workflow
+	workflowDir := filepath.Join(baseDir, ".github", "workflows")
+	if err := os.MkdirAll(workflowDir, 0755); err != nil {
+		return fmt.Errorf("failed to create .github/workflows: %w", err)
+	}
+	publishPath := filepath.Join(workflowDir, "apx-publish.yml")
+	if err := writeIfNotExists(publishPath, templates.GenerateAppPublish(s.org, "apis")); err != nil {
+		return fmt.Errorf("failed to write apx-publish.yml: %w", err)
 	}
 
 	return nil

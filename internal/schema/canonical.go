@@ -39,6 +39,7 @@ func (s *CanonicalScaffolder) Generate(targetDir string) error {
 		"jsonschema",
 		"parquet",
 		"catalog",
+		".github/workflows",
 	}
 
 	for _, dir := range dirs {
@@ -47,8 +48,9 @@ func (s *CanonicalScaffolder) Generate(targetDir string) error {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 
-		// Create .gitkeep file to ensure empty directories are tracked (skip for catalog as it will have catalog.yaml)
-		if dir != "catalog" {
+		// Create .gitkeep file to ensure empty directories are tracked
+		// (skip for catalog as it will have catalog.yaml, and .github/workflows will have workflow files)
+		if dir != "catalog" && dir != ".github/workflows" {
 			gitkeepPath := filepath.Join(dirPath, ".gitkeep")
 			if err := os.WriteFile(gitkeepPath, []byte(""), 0644); err != nil {
 				return fmt.Errorf("failed to create .gitkeep in %s: %w", dir, err)
@@ -91,5 +93,26 @@ func (s *CanonicalScaffolder) Generate(targetDir string) error {
 		return fmt.Errorf("failed to write README.md: %w", err)
 	}
 
+	// Generate CI workflow
+	ciPath := filepath.Join(targetDir, ".github", "workflows", "ci.yml")
+	if err := writeIfNotExists(ciPath, templates.GenerateCanonicalCI()); err != nil {
+		return fmt.Errorf("failed to write ci.yml: %w", err)
+	}
+
+	// Generate on-merge workflow
+	onMergePath := filepath.Join(targetDir, ".github", "workflows", "on-merge.yml")
+	if err := writeIfNotExists(onMergePath, templates.GenerateCanonicalOnMerge(s.org)); err != nil {
+		return fmt.Errorf("failed to write on-merge.yml: %w", err)
+	}
+
 	return nil
+}
+
+// writeIfNotExists writes content to path only if the file does not
+// already exist, making scaffolding idempotent.
+func writeIfNotExists(path, content string) error {
+	if _, err := os.Stat(path); err == nil {
+		return nil // already exists — skip
+	}
+	return os.WriteFile(path, []byte(content), 0644)
 }

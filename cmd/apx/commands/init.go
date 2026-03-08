@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/infobloxopen/apx/internal/detector"
+	gh "github.com/infobloxopen/apx/internal/github"
 	"github.com/infobloxopen/apx/internal/interactive"
 	"github.com/infobloxopen/apx/internal/schema"
 	"github.com/infobloxopen/apx/internal/ui"
@@ -47,6 +48,9 @@ func newInitCanonicalCmd() *cobra.Command {
 	cmd.Flags().String("repo", "", "Repository name")
 	cmd.Flags().Bool("skip-git", false, "Skip git initialization")
 	cmd.Flags().Bool("non-interactive", false, "Disable interactive prompts and require all flags")
+	cmd.Flags().Bool("setup-github", false, "Configure GitHub repo settings (branch/tag protection, org secrets) via gh CLI")
+	cmd.Flags().String("app-id", "", "GitHub App ID for org secrets (used with --setup-github)")
+	cmd.Flags().String("app-pem-file", "", "Path to GitHub App private key PEM file (used with --setup-github)")
 	return cmd
 }
 
@@ -60,6 +64,7 @@ func newInitAppCmd() *cobra.Command {
 	cmd.Flags().String("org", "", "Organization name")
 	cmd.Flags().String("repo", "", "Repository name")
 	cmd.Flags().Bool("non-interactive", false, "Disable interactive prompts and require all flags")
+	cmd.Flags().Bool("setup-github", false, "Configure GitHub repo settings (branch protection) via gh CLI")
 	return cmd
 }
 
@@ -200,8 +205,44 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 	ui.Success("\u2713 Generated CODEOWNERS")
 	ui.Success("\u2713 Generated catalog.yaml")
 	ui.Success("\u2713 Generated README.md")
+	ui.Success("\u2713 Generated .github/workflows/ci.yml")
+	ui.Success("\u2713 Generated .github/workflows/on-merge.yml")
 
-	if !skipGit {
+	// --setup-github: configure GitHub repo settings via gh CLI
+	setupGitHub, _ := cmd.Flags().GetBool("setup-github")
+	if setupGitHub {
+		appID, _ := cmd.Flags().GetString("app-id")
+		pemFile, _ := cmd.Flags().GetString("app-pem-file")
+
+		if appID == "" && !nonInteractive {
+			if err := interactive.PromptForString("GitHub App ID:", "", &appID); err != nil {
+				return fmt.Errorf("failed to get app ID: %w", err)
+			}
+		}
+		if appID == "" {
+			return fmt.Errorf("--app-id is required with --setup-github")
+		}
+
+		// pemFile is optional if there's a cached PEM
+		if pemFile == "" && !nonInteractive {
+			cachePath, _ := gh.PEMCachePath(org)
+			if err := interactive.PromptForString(
+				fmt.Sprintf("Path to App private key PEM (leave empty if cached at %s):", cachePath),
+				"", &pemFile,
+			); err != nil {
+				return fmt.Errorf("failed to get PEM path: %w", err)
+			}
+		}
+
+		ui.Info("\nConfiguring GitHub repository...")
+		res, err := gh.SetupCanonicalRepo(org, repo, appID, pemFile)
+		if err != nil {
+			return fmt.Errorf("GitHub setup failed: %w", err)
+		}
+		res.Print()
+	}
+
+	if !skipGit && !setupGitHub {
 		ui.Info("\nNext steps:")
 		ui.Info("1. Initialize git: git init")
 		ui.Info("2. Add files: git add .")
@@ -212,6 +253,8 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 		ui.Info("   - Require CODEOWNERS review")
 		ui.Info("   - Restrict direct pushes to main")
 		ui.Info("5. Push: git remote add origin <url> && git push -u origin main")
+		ui.Info("")
+		ui.Info("Or re-run with --setup-github to configure automatically via gh CLI.")
 	}
 
 	ui.Success("\n\u2713 Canonical API repository initialized successfully!")
@@ -299,6 +342,18 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 	ui.Success("\u2713 Generated example schema file")
 	ui.Success("\u2713 Generated .gitignore")
 	ui.Success("\u2713 Generated buf.work.yaml")
+	ui.Success("\u2713 Generated .github/workflows/apx-publish.yml")
+
+	// --setup-github: configure GitHub repo settings via gh CLI
+	setupGitHub, _ := cmd.Flags().GetBool("setup-github")
+	if setupGitHub {
+		ui.Info("\nConfiguring GitHub repository...")
+		res, err := gh.SetupAppRepo(org, repo)
+		if err != nil {
+			return fmt.Errorf("GitHub setup failed: %w", err)
+		}
+		res.Print()
+	}
 
 	ui.Info("\nNext steps:")
 	ui.Info("1. Review and customize the generated schema file")
