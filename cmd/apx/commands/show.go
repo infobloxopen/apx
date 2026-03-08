@@ -44,12 +44,12 @@ Examples:
 
 // showInfo holds everything we know about an API for display or JSON output.
 type showInfo struct {
-	API           *config.APIIdentity              `json:"api"`
-	Source        *config.SourceIdentity           `json:"source"`
-	Release       *showRelease                     `json:"release,omitempty"`
-	Languages     map[string]config.LanguageCoords `json:"languages,omitempty"`
-	Catalog       *showCatalog                     `json:"catalog,omitempty"`
-	Lifecycle     *showLifecycle                   `json:"lifecycle,omitempty"`
+	API       *config.APIIdentity              `json:"api"`
+	Source    *config.SourceIdentity           `json:"source"`
+	Release   *showRelease                     `json:"release,omitempty"`
+	Languages map[string]config.LanguageCoords `json:"languages,omitempty"`
+	Catalog   *showCatalog                     `json:"catalog,omitempty"`
+	Lifecycle *showLifecycle                   `json:"lifecycle,omitempty"`
 }
 
 type showRelease struct {
