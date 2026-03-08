@@ -4,9 +4,9 @@
 package github
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	htmpl "html/template"
 	"net"
 	"net/http"
 	"os"
@@ -390,20 +390,21 @@ func CreateAppViaManifest(org, repo string) (appID string, pemContents string, e
 	})
 
 	// / — landing page that auto-submits the manifest form to GitHub.
-	formTmpl := htmpl.Must(htmpl.New("form").Parse(`<!DOCTYPE html><html><body>
-<p>Redirecting to GitHub to create the App&#8230;</p>
-<form id="mf" method="post" action="https://github.com/organizations/{{.Org}}/settings/apps/new">
-<input type="hidden" name="manifest" value="{{.Manifest}}">
-</form>
-<script>document.getElementById('mf').submit();</script>
-</body></html>`))
-
+	// We base64-encode the manifest and decode it in JS to avoid any
+	// HTML escaping issues with the JSON content.
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		b64 := base64.StdEncoding.EncodeToString(manifestJSON)
 		w.Header().Set("Content-Type", "text/html")
-		formTmpl.Execute(w, map[string]string{ //nolint:errcheck
-			"Org":      org,
-			"Manifest": string(manifestJSON),
-		})
+		fmt.Fprintf(w, `<!DOCTYPE html><html><body>
+<p>Redirecting to GitHub to create the App&#8230;</p>
+<form id="mf" method="post" action="https://github.com/organizations/%s/settings/apps/new">
+<input type="hidden" id="manifest" name="manifest" value="">
+</form>
+<script>
+document.getElementById('manifest').value = atob('%s');
+document.getElementById('mf').submit();
+</script>
+</body></html>`, org, b64)
 	})
 
 	server := &http.Server{Handler: mux}
