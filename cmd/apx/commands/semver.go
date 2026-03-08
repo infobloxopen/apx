@@ -86,12 +86,13 @@ func suggestSemver(cfg *config.Config, path, against, apiID, lifecycle, apiForma
 		return fmt.Errorf("path does not exist: %s", absPath)
 	}
 
-	format := validator.FormatUnknown
-	if formatFlag != "" {
+	var format validator.SchemaFormat
+	switch {
+	case formatFlag != "":
 		format = validator.SchemaFormat(formatFlag)
-	} else if apiFormat != "" {
+	case apiFormat != "":
 		format = validator.SchemaFormat(apiFormat)
-	} else {
+	default:
 		format = validator.DetectFormat(absPath)
 	}
 	if format == validator.FormatUnknown {
