@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/infobloxopen/apx/internal/validator"
 	"github.com/spf13/cobra"
@@ -27,6 +28,16 @@ func lintAction(cmd *cobra.Command, args []string) error {
 		path = args[0]
 	}
 
+	// Try to resolve API ID (e.g. proto/payments/ledger/v1) to a path.
+	// Falls back to treating the argument as a filesystem path.
+	var apiFormat string
+	cfg, _ := config.Load("")
+	resolved, resolveErr := config.ResolveAPIPath(path, cfg)
+	if resolveErr == nil {
+		apiFormat = config.ResolveAPIFormat(path)
+		path = resolved
+	}
+
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return fmt.Errorf("failed to resolve path: %w", err)
@@ -42,6 +53,8 @@ func lintAction(cmd *cobra.Command, args []string) error {
 	format := validator.FormatUnknown
 	if formatStr, _ := cmd.Flags().GetString("format"); formatStr != "" {
 		format = validator.SchemaFormat(formatStr)
+	} else if apiFormat != "" {
+		format = validator.SchemaFormat(apiFormat)
 	} else {
 		format = validator.DetectFormat(absPath)
 	}
