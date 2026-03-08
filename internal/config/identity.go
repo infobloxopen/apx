@@ -252,3 +252,14 @@ func DeriveGoModDir(api *APIIdentity) string {
 	}
 	return fmt.Sprintf("%s/v%d", base, major)
 }
+
+// ParseLineFromID extracts the line component from an API ID string.
+// For example: "proto/payments/ledger/v1" → "v1"
+// Returns "v1" as a safe default if parsing fails.
+func ParseLineFromID(apiID string) string {
+	parts := strings.Split(apiID, "/")
+	if len(parts) >= 4 {
+		return parts[3]
+	}
+	return "v1"
+}

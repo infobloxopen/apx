@@ -73,6 +73,54 @@ func LifecycleRequiresWarning(lifecycle string) bool {
 	return lifecycle == "deprecated"
 }
 
+// lifecycleOrder defines the canonical progression of lifecycle states.
+// A lifecycle can only move forward (to a higher index) in this list,
+// never backward.
+var lifecycleOrder = map[string]int{
+	"experimental": 0,
+	"beta":         1,
+	"stable":       2,
+	"deprecated":   3,
+	"sunset":       4,
+}
+
+// ValidateLifecycleTransition checks that moving from one lifecycle state
+// to another is legal. The only legal direction is forward:
+//
+//	experimental → beta → stable → deprecated → sunset
+//
+// Transitions backward (e.g. stable → experimental) are always illegal.
+// Staying at the same state is always legal.
+// An empty "from" is treated as a fresh API (any target is legal).
+func ValidateLifecycleTransition(from, to string) error {
+	if from == "" {
+		// First-time lifecycle assignment — any target is legal.
+		return nil
+	}
+	if from == to {
+		return nil
+	}
+
+	fromIdx, fromOK := lifecycleOrder[from]
+	toIdx, toOK := lifecycleOrder[to]
+	if !fromOK {
+		return fmt.Errorf("unknown source lifecycle %q", from)
+	}
+	if !toOK {
+		return fmt.Errorf("unknown target lifecycle %q", to)
+	}
+
+	if toIdx < fromIdx {
+		return fmt.Errorf(
+			"illegal lifecycle transition %s → %s: lifecycle can only move forward (experimental → beta → stable → deprecated → sunset)",
+			from, to,
+		)
+	}
+
+	// Forward transitions that skip states are allowed (e.g. experimental → stable).
+	return nil
+}
+
 // extractPrerelease extracts the prerelease portion of a semver string.
 // "v1.2.3-beta.1" → "beta.1", "v1.2.3" → ""
 func extractPrerelease(version string) string {

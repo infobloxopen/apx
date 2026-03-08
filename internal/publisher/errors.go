@@ -63,6 +63,18 @@ const (
 
 	// ErrCodePushFailed means the git push to canonical repo failed.
 	ErrCodePushFailed PublishErrorCode = "PUSH_FAILED"
+
+	// ErrCodeBreakingChange means breaking changes were detected on the
+	// current API line. A new major line is required.
+	ErrCodeBreakingChange PublishErrorCode = "BREAKING_CHANGE"
+
+	// ErrCodeVersionLineMismatch means the version's major component does
+	// not match the API line's major version.
+	ErrCodeVersionLineMismatch PublishErrorCode = "VERSION_LINE_MISMATCH"
+
+	// ErrCodeIllegalTransition means a lifecycle transition is not allowed
+	// (e.g. stable → experimental).
+	ErrCodeIllegalTransition PublishErrorCode = "ILLEGAL_TRANSITION"
 )
 
 // PublishError is a structured error with a machine-readable code,
@@ -109,4 +121,7 @@ var ErrorCodeDescriptions = map[PublishErrorCode]string{
 	ErrCodeMissingConfig:        "apx.yaml not found or invalid",
 	ErrCodeSubtreeFailed:        "Git subtree split failed",
 	ErrCodePushFailed:           "Git push to canonical repo failed",
+	ErrCodeBreakingChange:       "Breaking changes require a new API line",
+	ErrCodeVersionLineMismatch:  "Version major does not match API line",
+	ErrCodeIllegalTransition:    "Illegal lifecycle transition",
 }

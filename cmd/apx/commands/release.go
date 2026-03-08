@@ -97,6 +97,28 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 		ui.Warning("Publishing under deprecated lifecycle — consumers should migrate")
 	}
 
+	// Validate version-line compatibility (major version must match API line)
+	if err := config.ValidateVersionLine(version, config.ParseLineFromID(apiID)); err != nil {
+		return &publisher.PublishError{
+			Code:    publisher.ErrCodeVersionLineMismatch,
+			Message: err.Error(),
+			Hint:    "Ensure version major matches the API line (e.g. v1.x.x for /v1)",
+		}
+	}
+
+	// Validate lifecycle transition (if previous lifecycle is known)
+	if lifecycle != "" && !force {
+		if prevLifecycle := resolveCurrentLifecycle(cmd, apiID); prevLifecycle != "" {
+			if err := config.ValidateLifecycleTransition(prevLifecycle, lifecycle); err != nil {
+				return &publisher.PublishError{
+					Code:    publisher.ErrCodeIllegalTransition,
+					Message: err.Error(),
+					Hint:    "Lifecycle can only move forward: experimental → beta → stable → deprecated → sunset",
+				}
+			}
+		}
+	}
+
 	// Resolve source repo
 	sourceRepo := canonicalRepo
 	if sourceRepo == "" {
@@ -514,4 +536,25 @@ func releaseInspectAction(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// resolveCurrentLifecycle attempts to determine the current lifecycle state
+// for an API. It checks:
+// 1. An existing .apx-release.yaml manifest
+// 2. The config's API section
+// Returns empty string if unknown (first-time publish).
+func resolveCurrentLifecycle(cmd *cobra.Command, apiID string) string {
+	// Check existing manifest
+	manifest, err := publisher.ReadManifest(".apx-release.yaml")
+	if err == nil && manifest != nil && manifest.Lifecycle != "" {
+		return manifest.Lifecycle
+	}
+
+	// Check config
+	cfg, err := loadConfig(cmd)
+	if err == nil && cfg != nil && cfg.API != nil && cfg.API.Lifecycle != "" {
+		return cfg.API.Lifecycle
+	}
+
+	return ""
 }

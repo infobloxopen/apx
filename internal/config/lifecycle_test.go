@@ -82,3 +82,50 @@ func TestLifecycleRequiresWarning(t *testing.T) {
 	assert.False(t, LifecycleRequiresWarning("beta"))
 	assert.False(t, LifecycleRequiresWarning("sunset"))
 }
+
+// ---------------------------------------------------------------------------
+// ValidateLifecycleTransition
+// ---------------------------------------------------------------------------
+
+func TestValidateLifecycleTransition_Legal(t *testing.T) {
+	// Forward transitions are legal
+	assert.NoError(t, ValidateLifecycleTransition("experimental", "beta"))
+	assert.NoError(t, ValidateLifecycleTransition("beta", "stable"))
+	assert.NoError(t, ValidateLifecycleTransition("stable", "deprecated"))
+	assert.NoError(t, ValidateLifecycleTransition("deprecated", "sunset"))
+	// Skip transitions are also legal
+	assert.NoError(t, ValidateLifecycleTransition("experimental", "stable"))
+	assert.NoError(t, ValidateLifecycleTransition("beta", "deprecated"))
+	assert.NoError(t, ValidateLifecycleTransition("experimental", "sunset"))
+}
+
+func TestValidateLifecycleTransition_SameState(t *testing.T) {
+	// Staying at the same state is always legal
+	assert.NoError(t, ValidateLifecycleTransition("experimental", "experimental"))
+	assert.NoError(t, ValidateLifecycleTransition("beta", "beta"))
+	assert.NoError(t, ValidateLifecycleTransition("stable", "stable"))
+	assert.NoError(t, ValidateLifecycleTransition("deprecated", "deprecated"))
+	assert.NoError(t, ValidateLifecycleTransition("sunset", "sunset"))
+}
+
+func TestValidateLifecycleTransition_Illegal(t *testing.T) {
+	// Backward transitions are illegal
+	assert.Error(t, ValidateLifecycleTransition("stable", "experimental"))
+	assert.Error(t, ValidateLifecycleTransition("stable", "beta"))
+	assert.Error(t, ValidateLifecycleTransition("beta", "experimental"))
+	assert.Error(t, ValidateLifecycleTransition("deprecated", "stable"))
+	assert.Error(t, ValidateLifecycleTransition("sunset", "deprecated"))
+	assert.Error(t, ValidateLifecycleTransition("sunset", "experimental"))
+}
+
+func TestValidateLifecycleTransition_EmptyFrom(t *testing.T) {
+	// Empty "from" means fresh API — any target is legal
+	assert.NoError(t, ValidateLifecycleTransition("", "experimental"))
+	assert.NoError(t, ValidateLifecycleTransition("", "stable"))
+	assert.NoError(t, ValidateLifecycleTransition("", "sunset"))
+}
+
+func TestValidateLifecycleTransition_UnknownState(t *testing.T) {
+	assert.Error(t, ValidateLifecycleTransition("unknown", "beta"))
+	assert.Error(t, ValidateLifecycleTransition("beta", "unknown"))
+}

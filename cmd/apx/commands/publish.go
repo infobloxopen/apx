@@ -115,6 +115,15 @@ func publishWithIdentity(cmd *cobra.Command, opts publishOpts) error {
 		}
 	}
 
+	// Validate version-line compatibility
+	if err := config.ValidateVersionLine(opts.Version, config.ParseLineFromID(opts.APIID)); err != nil {
+		return &publisher.PublishError{
+			Code:    publisher.ErrCodeVersionLineMismatch,
+			Message: err.Error(),
+			Hint:    "Ensure version major matches the API line (e.g. v1.x.x for /v1)",
+		}
+	}
+
 	// Resolve source repo from flag or config
 	sourceRepo := opts.CanonicalRepo
 	if sourceRepo == "" {

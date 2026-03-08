@@ -86,6 +86,59 @@ func (m *TagManager) TagExists(tag string) (bool, error) {
 	return tags != "", nil
 }
 
+// ListTags returns all tags matching the given pattern (glob).
+// If pattern is empty, all tags are returned.
+func (m *TagManager) ListTags(pattern string) ([]string, error) {
+	args := []string{"tag", "-l"}
+	if pattern != "" {
+		args = append(args, pattern)
+	}
+	cmd := exec.Command("git", args...)
+	cmd.Dir = m.repoPath
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tags: %w\nOutput: %s", err, string(output))
+	}
+
+	raw := strings.TrimSpace(string(output))
+	if raw == "" {
+		return nil, nil
+	}
+	tags := strings.Split(raw, "\n")
+
+	// Trim whitespace from each tag
+	result := make([]string, 0, len(tags))
+	for _, t := range tags {
+		t = strings.TrimSpace(t)
+		if t != "" {
+			result = append(result, t)
+		}
+	}
+	return result, nil
+}
+
+// ListVersionsForAPI lists all tags that match an API ID prefix and extracts
+// the version part. For example, given prefix "proto/payments/ledger/v1",
+// a tag "proto/payments/ledger/v1/v1.2.3" yields "v1.2.3".
+func (m *TagManager) ListVersionsForAPI(apiID string) ([]string, error) {
+	pattern := apiID + "/v*"
+	tags, err := m.ListTags(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	prefix := apiID + "/"
+	var versions []string
+	for _, tag := range tags {
+		if !strings.HasPrefix(tag, prefix) {
+			continue
+		}
+		ver := strings.TrimPrefix(tag, prefix)
+		versions = append(versions, ver)
+	}
+	return versions, nil
+}
+
 // CreateAndPushTag creates and pushes a module tag
 func (m *TagManager) CreateAndPushTag(subdir, version, commitHash string) (string, error) {
 	// Validate version
