@@ -1,6 +1,6 @@
 version: 1
 org: your-org-name
-repo: your-apis-repo
+repo: apis
 module_roots:
   - proto
   - openapi
@@ -18,7 +18,7 @@ module_roots:
 #   lifecycle: beta
 #
 # source:
-#   repo: github.com/your-org-name/your-apis-repo
+#   repo: github.com/your-org-name/apis
 #   path: proto/payments/ledger/v1
 #
 # releases:
@@ -26,8 +26,8 @@ module_roots:
 #
 # languages:
 #   go:
-#     module: github.com/your-org-name/your-apis-repo/proto/payments/ledger
-#     import: github.com/your-org-name/your-apis-repo/proto/payments/ledger/v1
+#     module: github.com/your-org-name/apis/proto/payments/ledger
+#     import: github.com/your-org-name/apis/proto/payments/ledger/v1
 
 language_targets:
   go:

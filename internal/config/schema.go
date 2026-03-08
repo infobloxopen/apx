@@ -455,7 +455,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Version: CurrentSchemaVersion,
 		Org:     "your-org-name",
-		Repo:    "your-apis-repo",
+		Repo:    "apis",
 		ModuleRoots: []string{
 			"proto",
 			"openapi",

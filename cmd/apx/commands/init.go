@@ -84,7 +84,7 @@ func initAction(cmd *cobra.Command, args []string) error {
 		ui.Warning("Could not detect project defaults: %v", err)
 		defaults = &detector.ProjectDefaults{
 			Org:       "your-org-name",
-			Repo:      "your-apis-repo",
+			Repo:      "apis",
 			Languages: []string{"go"},
 		}
 	}
@@ -138,29 +138,46 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 		nonInteractive = ni
 	}
 
-	if nonInteractive && (org == "" || repo == "") {
-		return fmt.Errorf("--org and --repo are required in non-interactive mode")
+	// Auto-detect defaults from git remote / environment
+	defaults, err := detector.GetSmartDefaults()
+	if err != nil {
+		ui.Warning("Could not detect project defaults: %v", err)
+		defaults = &detector.ProjectDefaults{
+			Org:  "your-org-name",
+			Repo: "apis",
+		}
 	}
 
-	if !nonInteractive {
-		defaults, err := detector.GetSmartDefaults()
-		if err != nil {
-			ui.Warning("Could not detect project defaults: %v", err)
-			defaults = &detector.ProjectDefaults{
-				Org:  "your-org-name",
-				Repo: "your-apis-repo",
-			}
-		}
+	// Flag values take precedence over auto-detection
+	if org != "" {
+		defaults.Org = org
+	}
+	if repo != "" {
+		defaults.Repo = repo
+	}
 
+	if nonInteractive {
+		// Use detected/flag values directly
+		org = defaults.Org
+		repo = defaults.Repo
+		if org == "" || org == "your-org-name" {
+			return fmt.Errorf("--org is required in non-interactive mode (could not auto-detect from git remote)")
+		}
+		if repo == "" {
+			return fmt.Errorf("--repo is required in non-interactive mode")
+		}
+	} else {
 		ui.Info("\U0001f680 Initializing canonical API repository!")
 		ui.Info("")
 
+		// Prompt for org if not provided via flag (default pre-filled from detection)
 		if org == "" {
 			if err := interactive.PromptForString("Organization name:", defaults.Org, &org); err != nil {
 				return fmt.Errorf("failed to get organization name: %w", err)
 			}
 		}
 
+		// Prompt for repo if not provided via flag (default pre-filled from detection)
 		if repo == "" {
 			if err := interactive.PromptForString("Repository name:", defaults.Repo, &repo); err != nil {
 				return fmt.Errorf("failed to get repository name: %w", err)
@@ -220,29 +237,46 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 		nonInteractive = ni
 	}
 
-	if nonInteractive && (org == "" || repo == "") {
-		return fmt.Errorf("--org and --repo are required in non-interactive mode")
+	// Auto-detect defaults from git remote / environment
+	defaults, err := detector.GetSmartDefaults()
+	if err != nil {
+		ui.Warning("Could not detect project defaults: %v", err)
+		defaults = &detector.ProjectDefaults{
+			Org:  "your-org-name",
+			Repo: "apis",
+		}
 	}
 
-	if org == "" || repo == "" {
-		defaults, err := detector.GetSmartDefaults()
-		if err != nil {
-			ui.Warning("Could not detect project defaults: %v", err)
-			defaults = &detector.ProjectDefaults{
-				Org:  "your-org-name",
-				Repo: "your-app-repo",
-			}
-		}
+	// Flag values take precedence over auto-detection
+	if org != "" {
+		defaults.Org = org
+	}
+	if repo != "" {
+		defaults.Repo = repo
+	}
 
+	if nonInteractive {
+		// Use detected/flag values directly
+		org = defaults.Org
+		repo = defaults.Repo
+		if org == "" || org == "your-org-name" {
+			return fmt.Errorf("--org is required in non-interactive mode (could not auto-detect from git remote)")
+		}
+		if repo == "" {
+			return fmt.Errorf("--repo is required in non-interactive mode")
+		}
+	} else if org == "" || repo == "" {
 		ui.Info("\U0001f680 Initializing application repository with schema module!")
 		ui.Info("")
 
+		// Prompt for org if not provided via flag (default pre-filled from detection)
 		if org == "" {
 			if err := interactive.PromptForString("Organization name:", defaults.Org, &org); err != nil {
 				return fmt.Errorf("failed to get organization name: %w", err)
 			}
 		}
 
+		// Prompt for repo if not provided via flag (default pre-filled from detection)
 		if repo == "" {
 			if err := interactive.PromptForString("Repository name:", defaults.Repo, &repo); err != nil {
 				return fmt.Errorf("failed to get repository name: %w", err)

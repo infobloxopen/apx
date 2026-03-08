@@ -32,7 +32,7 @@ func TestValidateFile_ValidFullFile(t *testing.T) {
 	// Use a complete config that mirrors apx.example.yaml
 	writeFile(t, p, `version: 1
 org: your-org-name
-repo: your-apis-repo
+repo: apis
 module_roots:
   - proto
   - openapi

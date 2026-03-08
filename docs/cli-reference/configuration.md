@@ -288,7 +288,7 @@ A complete minimal configuration:
 ```yaml
 version: 1
 org: your-org-name
-repo: your-apis-repo
+repo: apis
 
 module_roots:
   - proto

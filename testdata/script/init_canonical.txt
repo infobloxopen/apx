@@ -37,8 +37,8 @@ grep 'repo: test-apis' catalog/catalog.yaml
 # Test with missing org (should fail)
 ! exec apx init canonical --repo=test-apis --non-interactive
 
-# Test with missing repo (should fail)
-! exec apx init canonical --org=testorg --non-interactive
+# Test with only --org (should succeed via auto-detected repo)
+exec apx init canonical --org=testorg --non-interactive
 
 # Cleanup
 cd ..

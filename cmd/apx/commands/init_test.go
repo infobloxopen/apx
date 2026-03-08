@@ -129,10 +129,6 @@ func TestInitCanonical_NonInteractiveMissingFlags(t *testing.T) {
 			args: []string{"init", "canonical", "--repo=test-apis", "--non-interactive"},
 		},
 		{
-			name: "missing repo",
-			args: []string{"init", "canonical", "--org=testorg", "--non-interactive"},
-		},
-		{
 			name: "missing both",
 			args: []string{"init", "canonical", "--non-interactive"},
 		},
@@ -154,5 +150,24 @@ func TestInitCanonical_NonInteractiveMissingFlags(t *testing.T) {
 				t.Errorf("Expected error for %s, but got none", tt.name)
 			}
 		})
+	}
+}
+
+// TestInitCanonical_NonInteractiveAutoDetectRepo verifies that --repo is
+// not required in non-interactive mode when the repo name can be auto-detected
+// from git remote or directory name.
+func TestInitCanonical_NonInteractiveAutoDetectRepo(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cmd := NewRootCmd("test")
+	cmd.SetArgs([]string{"init", "canonical", "--org=testorg", "--non-interactive"})
+
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(tmpDir)
+
+	err := cmd.Execute()
+	if err != nil {
+		t.Errorf("Expected success with auto-detected repo, but got: %v", err)
 	}
 }
