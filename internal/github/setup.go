@@ -180,7 +180,7 @@ func EnsureBranchProtection(owner, repo string, res *SetupResult) error {
 // tag patterns like proto/**/v*.
 func EnsureTagProtection(owner, repo string, res *SetupResult) error {
 	endpoint := fmt.Sprintf("repos/%s/%s/rulesets", owner, repo)
-	out, err := GHRun("api", endpoint, "--silent")
+	out, err := GHRun("api", endpoint)
 
 	if err == nil {
 		var rulesets []struct {
@@ -221,13 +221,17 @@ func EnsureTagProtection(owner, repo string, res *SetupResult) error {
   ]
 }`
 
-	cmd := exec.Command("gh", "api", endpoint, "--method", "POST", "--input", "-", "--silent")
+	cmd := exec.Command("gh", "api", endpoint, "--method", "POST", "--input", "-")
 	cmd.Stdin = strings.NewReader(body)
 	outBytes, err := cmd.CombinedOutput()
 	if err != nil {
 		errMsg := strings.TrimSpace(string(outBytes))
+		if strings.Contains(errMsg, "Name must be unique") {
+			res.Add("skipped", "tag protection ruleset")
+			return nil
+		}
 		if strings.Contains(errMsg, "403") || strings.Contains(errMsg, "422") {
-			res.Add("warning", "tag protection ruleset (create manually in repo Settings → Rules → Rulesets)")
+			res.Add("warning", fmt.Sprintf("tag protection ruleset: %s", errMsg))
 			return nil
 		}
 		return fmt.Errorf("failed to create tag protection: %s", errMsg)
