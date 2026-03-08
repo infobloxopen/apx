@@ -1,3 +1,278 @@
 # CI Templates
 
-*Coming soon — this page is under construction.*
+APX generates GitHub Actions workflow files for both canonical and app repositories. These templates are built into the APX binary and can be regenerated at any time with `apx workflows sync`.
+
+## Overview
+
+| Workflow | Repository type | File | Trigger |
+|----------|----------------|------|---------|
+| **Schema CI** | Canonical | `.github/workflows/ci.yml` | Pull requests to `main` |
+| **On Merge** | Canonical | `.github/workflows/on-merge.yml` | Push to `main` |
+| **Publish** | App | `.github/workflows/apx-publish.yml` | Tag push matching APX patterns |
+
+## Canonical Repository Workflows
+
+Canonical repos receive two workflow files during `apx init canonical --setup-github` or `apx workflows sync`.
+
+### `ci.yml` — Schema Validation on PRs
+
+Runs on every pull request targeting `main`. This is the required status check enforced by branch protection.
+
+```yaml
+name: APX Schema CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install APX
+        uses: infobloxopen/apx@v1
+
+      - name: Lint schemas
+        run: apx lint
+
+      - name: Check for breaking changes
+        run: apx breaking --against origin/main
+```
+
+**What it validates:**
+
+- **`apx lint`** — runs Buf lint (for proto) or format-specific validators on all schemas in the repo
+- **`apx breaking --against origin/main`** — detects backward-incompatible changes against the main branch
+
+:::{note}
+`fetch-depth: 0` is required so that `apx breaking` can compare against `origin/main`.
+:::
+
+The `validate` job name matches the required status check configured by branch protection (see [Protection](protection.md)).
+
+---
+
+### `on-merge.yml` — Catalog Update on Merge
+
+Runs when a PR merges to `main`. Validates schemas, regenerates the catalog, and commits changes.
+
+```yaml
+name: APX On Merge
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tag-and-catalog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APX_APP_ID }}
+          private-key: ${{ secrets.APX_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Install APX
+        uses: infobloxopen/apx@v1
+
+      - name: Validate schemas
+        run: apx lint
+
+      - name: Update catalog
+        run: apx catalog generate
+
+      - name: Commit catalog changes
+        run: |
+          git config user.name "apx-publisher[bot]"
+          git config user.email "apx-publisher[bot]@users.noreply.github.com"
+          if git diff --quiet catalog/; then
+            echo "No catalog changes"
+          else
+            git add catalog/
+            git commit -m "chore: update catalog [skip ci]"
+            git push
+          fi
+```
+
+**What it does:**
+
+1. **Generates a GitHub App token** — uses the APX GitHub App credentials (`APX_APP_ID` and `APX_APP_PRIVATE_KEY` org secrets) to get a token with `contents:write` permission
+2. **Validates schemas** — re-runs lint as a post-merge safety check
+3. **Regenerates the catalog** — `apx catalog generate` scans all modules and git tags to build `catalog/catalog.yaml`
+4. **Commits catalog changes** — if the catalog changed, commits and pushes with `[skip ci]` to avoid infinite loops
+
+:::{important}
+The checkout uses the app token (not the default `GITHUB_TOKEN`) so the push can bypass branch protection and trigger downstream workflows. See [Protection](protection.md) for details on GitHub App setup.
+:::
+
+---
+
+## App Repository Workflow
+
+App repos receive one workflow file during `apx init app` or `apx workflows sync`.
+
+### `apx-publish.yml` — Publish on Tag
+
+Triggered when you push a tag matching the APX naming pattern. Validates the schema and publishes to the canonical repository via PR.
+
+```yaml
+name: APX Publish
+
+on:
+  push:
+    tags:
+      - "proto/**/v[0-9]*"
+      - "openapi/**/v[0-9]*"
+      - "avro/**/v[0-9]*"
+      - "jsonschema/**/v[0-9]*"
+      - "parquet/**/v[0-9]*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APX_APP_ID }}
+          private-key: ${{ secrets.APX_APP_PRIVATE_KEY }}
+          owner: <org>
+          repositories: <canonical-repo>
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install APX
+        uses: infobloxopen/apx@v1
+
+      - name: Parse tag
+        id: tag
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate
+        run: |
+          apx lint
+          apx breaking --against HEAD^ || true
+
+      - name: Publish to canonical repo
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          apx publish \
+            --tag="${{ steps.tag.outputs.tag }}" \
+            --canonical-repo=github.com/<org>/<canonical-repo>
+```
+
+**What it does:**
+
+1. **Matches tag patterns** — triggers on tags like `proto/payments/ledger/v1/v1.0.0` across all supported schema formats
+2. **Generates a cross-repo token** — the GitHub App token is scoped to the canonical repository (`owner` + `repositories` fields) so the workflow can push branches and open PRs there
+3. **Parses the tag** — extracts the full tag string for `apx publish`
+4. **Validates locally** — runs lint and breaking-change checks before publishing
+5. **Publishes via PR** — `apx publish` clones the canonical repo, copies module files to a release branch, and opens a pull request
+
+:::{note}
+The `owner` and `repositories` fields in the token step are filled in by `apx init app` or `apx workflows sync` based on your `apx.yaml` configuration.
+:::
+
+---
+
+## Managing Workflows
+
+### `apx workflows sync`
+
+Regenerate workflow files from the latest APX templates:
+
+```bash
+# Regenerate workflows
+apx workflows sync
+
+# Preview without writing
+apx workflows sync --dry-run
+```
+
+**How detection works:**
+
+1. If `.github/workflows/ci.yml` or `on-merge.yml` exists → canonical repo
+2. If `.github/workflows/apx-publish.yml` exists → app repo
+3. Fallback: if `proto/`, `openapi/`, `avro/`, or `catalog/` directories exist → canonical repo
+4. Fallback: if `module_roots` is set in `apx.yaml` → app repo
+
+The org and repo values are read from `apx.yaml`. If no config file exists, APX falls back to detecting from the `origin` git remote.
+
+### When to Sync
+
+Run `apx workflows sync` after:
+
+- **Upgrading APX** — templates may have been updated
+- **Changing org or repo** — the on-merge and publish workflows embed org/repo names
+- **Adding a canonical repo** — if your app repo also hosts canonical schemas
+
+### After Syncing
+
+```bash
+# Review what changed
+git diff .github/workflows/
+
+# Commit
+git add .github/workflows/ && git commit -m 'chore: sync APX workflows'
+```
+
+---
+
+## Prerequisites
+
+All three workflows require:
+
+| Requirement | Purpose |
+|-------------|---------|
+| **APX GitHub App** | Provides tokens for push/PR operations |
+| **`APX_APP_ID` org secret** | GitHub App ID |
+| **`APX_APP_PRIVATE_KEY` org secret** | GitHub App private key (PEM) |
+
+The app publish workflow additionally requires the GitHub App to be installed on the canonical repository with `contents:write` and `pull_requests:write` permissions.
+
+See [Protection](protection.md) for how to set up the GitHub App and org secrets.
+
+## Customization
+
+The generated workflows are standard GitHub Actions YAML — you can customize them after generation. Common additions:
+
+- **Additional validation steps** (e.g., custom policy checks with `apx policy check`)
+- **Notification steps** (Slack, email on publish)
+- **Language package publication** in the on-merge workflow
+- **Matrix builds** for multi-format repos
+
+:::{warning}
+Running `apx workflows sync` will **overwrite** your customizations. If you've modified the generated workflows, either skip syncing or re-apply your changes after syncing.
+:::
+
+## Next Steps
+
+- [Protection](protection.md) — set up branch protection and the GitHub App
+- [Setup](setup.md) — scaffold a new canonical repository
+- [App Repo CI Integration](../app-repos/ci-integration.md) — CI from the app repo perspective

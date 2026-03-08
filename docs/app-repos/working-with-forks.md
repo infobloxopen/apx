@@ -6,20 +6,20 @@ When contributing to an API repository you don't own, you'll typically work on a
 
 When you run `apx init` (or any command that needs org/repo defaults), APX inspects your git remotes:
 
-1. **`origin`** — your fork (e.g. `git@github.com:dgarcia/apis.git`)
-2. **`upstream`** — the canonical repo (e.g. `git@github.com:Infoblox-CTO/apis.git`)
+1. **`origin`** — your fork (e.g. `git@github.com:your-user/apis.git`)
+2. **`upstream`** — the canonical repo (e.g. `git@github.com:acme-corp/apis.git`)
 
 If both remotes exist and point to **different organizations**, APX assumes you're working on a fork and automatically uses the **upstream org** for all consumption paths. This ensures generated import paths, `go_package` options, and dependency references all point to the canonical repository — not your fork.
 
 ```
 # Your remotes
-origin    → git@github.com:dgarcia/apis.git        (your fork)
-upstream  → git@github.com:Infoblox-CTO/apis.git   (canonical)
+origin    → git@github.com:your-user/apis.git      (your fork)
+upstream  → git@github.com:acme-corp/apis.git       (canonical)
 
 # APX detects:
-#   Org = Infoblox-CTO  (from upstream, not dgarcia)
+#   Org = acme-corp  (from upstream, not your-user)
 #   Repo = apis
-#   UpstreamOrg = Infoblox-CTO
+#   UpstreamOrg = acme-corp
 ```
 
 ### Setting Up Your Fork
