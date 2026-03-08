@@ -9,10 +9,11 @@ branding:
 inputs:
   version:
     description: >
-      APX version to install. Use "latest" (default) for the most recent
-      release, or pin to a specific version like "1.2.3" (no "v" prefix).
+      APX version to install. Use "latest" for the most recent stable
+      release, "edge" for the latest main-branch build, or pin to a
+      specific version like "1.2.3" (no "v" prefix).
     required: false
-    default: "latest"
+    default: "edge"
   token:
     description: >
       GitHub token for downloading release assets. Defaults to the
@@ -43,10 +44,15 @@ runs:
           VERSION=$(curl -fsSL -H "Authorization: token ${GITHUB_TOKEN}" \
             "https://api.github.com/repos/${REPO}/releases/latest" \
             | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
+          TAG="v${VERSION}"
+        elif [[ "${INPUT_VERSION}" == "edge" ]]; then
+          VERSION="edge"
+          TAG="edge"
         else
           VERSION="${INPUT_VERSION#v}"
+          TAG="v${VERSION}"
         fi
-        echo "Installing APX v${VERSION}..."
+        echo "Installing APX ${VERSION}..."
 
         # ── Detect OS / arch ─────────────────────────────────────────────
         OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -59,8 +65,8 @@ runs:
 
         # ── Download + extract ───────────────────────────────────────────
         ARCHIVE="apx_${VERSION}_${OS}_${ARCH}.tar.gz"
-        URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ARCHIVE}"
-        CHECKSUM_URL="https://github.com/${REPO}/releases/download/v${VERSION}/checksums.txt"
+        URL="https://github.com/${REPO}/releases/download/${TAG}/${ARCHIVE}"
+        CHECKSUM_URL="https://github.com/${REPO}/releases/download/${TAG}/checksums.txt"
 
         TMPDIR="$(mktemp -d)"
         trap 'rm -rf "${TMPDIR}"' EXIT

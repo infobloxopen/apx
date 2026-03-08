@@ -1,0 +1,101 @@
+name: Edge Release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "specs/**"
+      - "*.md"
+
+permissions:
+  contents: write
+
+jobs:
+  edge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build binaries
+        run: |
+          set -euo pipefail
+          VERSION="edge"
+          LDFLAGS="-s -w -X main.version=${VERSION} -X main.commit=$(git rev-parse HEAD) -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          mkdir -p dist
+
+          platforms=(
+            "linux/amd64"
+            "linux/arm64"
+            "darwin/amd64"
+            "darwin/arm64"
+          )
+
+          for platform in "${platforms[@]}"; do
+            OS="${platform%/*}"
+            ARCH="${platform#*/}"
+            OUTPUT="dist/apx_edge_${OS}_${ARCH}"
+            echo "Building ${OS}/${ARCH}..."
+            CGO_ENABLED=0 GOOS="${OS}" GOARCH="${ARCH}" \
+              go build -ldflags "${LDFLAGS}" -o "${OUTPUT}/apx" ./cmd/apx
+            tar -czf "dist/apx_edge_${OS}_${ARCH}.tar.gz" \
+              -C "${OUTPUT}" apx
+          done
+
+          # Generate checksums
+          cd dist
+          sha256sum *.tar.gz > checksums.txt
+
+      - name: Update edge tag
+        run: |
+          git tag -f edge
+          git push -f origin edge
+
+      - name: Delete old edge release assets
+        run: |
+          # Delete existing assets so the upload replaces them
+          RELEASE_ID=$(curl -fsSL \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/edge" \
+            2>/dev/null | jq -r '.id // empty')
+          if [[ -n "${RELEASE_ID}" ]]; then
+            curl -fsSL \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/${RELEASE_ID}/assets" \
+              | jq -r '.[].id' | while read -r ASSET_ID; do
+                curl -fsSL -X DELETE \
+                  -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                  "https://api.github.com/repos/${{ github.repository }}/releases/assets/${ASSET_ID}"
+              done
+            echo "Deleted old assets from edge release"
+          fi
+
+      - name: Create/update edge release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: edge
+          name: "Edge (latest main)"
+          body: |
+            Rolling release built from the latest `main` branch commit.
+
+            **Commit:** ${{ github.sha }}
+            **Date:** ${{ github.event.head_commit.timestamp }}
+
+            > ⚠️ This is an unstable pre-release. For production use, pin
+            > to a versioned release like `v1.0.0`.
+          prerelease: true
+          make_latest: false
+          files: |
+            dist/apx_edge_*.tar.gz
+            dist/checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
