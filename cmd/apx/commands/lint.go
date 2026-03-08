@@ -50,7 +50,7 @@ func lintAction(cmd *cobra.Command, args []string) error {
 	resolver := validator.NewToolchainResolver()
 	v := validator.NewValidator(resolver)
 
-	format := validator.FormatUnknown
+	var format validator.SchemaFormat
 	if formatStr, _ := cmd.Flags().GetString("format"); formatStr != "" {
 		format = validator.SchemaFormat(formatStr)
 	} else if apiFormat != "" {
