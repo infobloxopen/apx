@@ -59,9 +59,7 @@ When you run `apx publish`, APX:
 3. Derives language-specific coordinates (Go module/import paths)
 4. Validates `go_package` and module path consistency
 5. Enforces lifecycle policy rules (v0 line restrictions, lifecycle-version compatibility)
-6. Publishes the module — either directly or via pull request:
-   - **Direct push** (default): subtree split + push to `main` on the canonical repo
-   - **PR-based** (`--create-pr`): shallow-clone canonical, copy files to a feature branch, push, and open a PR via the `gh` CLI
+6. Publishes the module via pull request: clones the canonical repo, copies the snapshot to a release branch, pushes, and opens a PR via the `gh` CLI
 7. Records lifecycle, compatibility, and version information
 
 ```bash
@@ -70,9 +68,6 @@ apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle preview
 
 # Publish GA
 apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
-
-# Publish via PR (recommended for teams with branch protection)
-apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable --create-pr
 
 # Publish a rolling preview on v0
 apx publish proto/payments/ledger/v0 --version 0.3.0 --lifecycle experimental

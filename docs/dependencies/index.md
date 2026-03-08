@@ -51,13 +51,20 @@ Dependency management workflow:
 
 ### Discovery Commands
 ```bash
-# Search APIs by keyword (single argument)
+# Search APIs by keyword
 apx search payments
+
+# Filter by format, lifecycle, or domain
+apx search --format=proto --lifecycle=stable
+apx search --domain=payments
+
+# Show full identity and catalog data for an API
+apx show proto/payments/ledger/v1
 ```
 
 ```{admonition} Planned — not yet available
 :class: note
-`apx list apis` and `apx show` are planned for a future release.
+`apx list apis` is planned for a future release.
 ```
 
 ### Dependency Management
