@@ -328,11 +328,10 @@ func PublishModuleWithPR(
 
 	// ── 4. Generate go.mod if requested ──────────────────────────────
 	if goModulePath != "" {
-		goModPath := filepath.Join(destDir, "..", "go.mod")
 		// Normalise: if targetPath ends in /v1, go.mod lives one level up
 		// (at the module root, e.g. proto/payments/ledger/).
 		goModDir := filepath.Dir(destDir)
-		goModPath = filepath.Join(goModDir, "go.mod")
+		goModPath := filepath.Join(goModDir, "go.mod")
 
 		if _, statErr := os.Stat(goModPath); os.IsNotExist(statErr) {
 			content, genErr := GenerateGoMod(goModulePath, "1.21")
