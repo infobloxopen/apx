@@ -217,3 +217,38 @@ func ValidateLifecycle(lifecycle string) error {
 	}
 	return nil
 }
+
+// ValidateGoPackage checks that a go_package value matches the derived import path.
+// The goPackage may include a ";alias" suffix which is stripped before comparison.
+// Returns nil if the paths match, or an error describing the mismatch.
+func ValidateGoPackage(goPackage string, expectedImport string) error {
+	if goPackage == "" {
+		return nil // No go_package set — skip validation
+	}
+
+	// Strip alias suffix (e.g. "path;alias" → "path")
+	importPath := goPackage
+	if idx := strings.Index(importPath, ";"); idx >= 0 {
+		importPath = importPath[:idx]
+	}
+
+	if importPath != expectedImport {
+		return fmt.Errorf("go_package mismatch: got %q, expected %q", importPath, expectedImport)
+	}
+	return nil
+}
+
+// DeriveGoModDir computes the directory (relative to repo root) where go.mod
+// should be placed for the given API identity.
+//
+// Rules:
+//   - For v1: <format>/<domain>/<name>        (module root above the /v1/ package dir)
+//   - For v2+: <format>/<domain>/<name>/v<N>   (module root = package dir, includes major version suffix)
+func DeriveGoModDir(api *APIIdentity) string {
+	base := path.Join(api.Format, api.Domain, api.Name)
+	major, err := LineMajor(api.Line)
+	if err != nil || major <= 1 {
+		return base
+	}
+	return fmt.Sprintf("%s/v%d", base, major)
+}

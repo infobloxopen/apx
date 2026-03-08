@@ -1,9 +1,13 @@
 package validator
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 )
 
 // ProtoValidator handles Protocol Buffer schema validation
@@ -58,4 +62,65 @@ func (v *ProtoValidator) Breaking(path, against string) error {
 	}
 
 	return nil
+}
+
+// goPackageRe matches: option go_package = "path;alias"; or option go_package = "path";
+var goPackageRe = regexp.MustCompile(`^\s*option\s+go_package\s*=\s*"([^"]+)"\s*;`)
+
+// ExtractGoPackage reads a .proto file and extracts the go_package option value.
+// Returns the import path, an optional alias, and any error.
+//
+// Handles the standard forms:
+//
+//	option go_package = "github.com/acme/apis/proto/payments/ledger/v1";
+//	option go_package = "github.com/acme/apis/proto/payments/ledger/v1;ledgerpb";
+func ExtractGoPackage(protoPath string) (importPath string, alias string, err error) {
+	f, err := os.Open(protoPath)
+	if err != nil {
+		return "", "", fmt.Errorf("opening proto file: %w", err)
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Skip comments
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "//") || strings.HasPrefix(trimmed, "/*") {
+			continue
+		}
+
+		m := goPackageRe.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		value := m[1]
+
+		// Split on semicolon for alias: "path;alias"
+		if idx := strings.Index(value, ";"); idx >= 0 {
+			return value[:idx], value[idx+1:], nil
+		}
+		return value, "", nil
+	}
+	if err := scanner.Err(); err != nil {
+		return "", "", fmt.Errorf("reading proto file: %w", err)
+	}
+
+	// No go_package option found — not an error, just empty
+	return "", "", nil
+}
+
+// GlobProtoFiles returns all .proto files under the given directory.
+func GlobProtoFiles(dir string) ([]string, error) {
+	var files []string
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasSuffix(path, ".proto") {
+			files = append(files, path)
+		}
+		return nil
+	})
+	return files, err
 }

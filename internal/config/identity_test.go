@@ -296,3 +296,83 @@ func TestFormatIdentityReportNoLifecycle(t *testing.T) {
 	assert.False(t, strings.Contains(report, "Release:"))
 	assert.False(t, strings.Contains(report, "Go module:"))
 }
+
+func TestValidateGoPackage(t *testing.T) {
+	tests := []struct {
+		name           string
+		goPackage      string
+		expectedImport string
+		wantErr        string
+	}{
+		{
+			name:           "exact match",
+			goPackage:      "github.com/acme/apis/proto/payments/ledger/v1",
+			expectedImport: "github.com/acme/apis/proto/payments/ledger/v1",
+		},
+		{
+			name:           "match with alias stripped",
+			goPackage:      "github.com/acme/apis/proto/payments/ledger/v1;ledgerpb",
+			expectedImport: "github.com/acme/apis/proto/payments/ledger/v1",
+		},
+		{
+			name:           "mismatch",
+			goPackage:      "github.com/wrong/path/v1",
+			expectedImport: "github.com/acme/apis/proto/payments/ledger/v1",
+			wantErr:        "go_package mismatch",
+		},
+		{
+			name:           "mismatch with alias",
+			goPackage:      "github.com/wrong/path/v1;pb",
+			expectedImport: "github.com/acme/apis/proto/payments/ledger/v1",
+			wantErr:        "go_package mismatch",
+		},
+		{
+			name:           "empty go_package skipped",
+			goPackage:      "",
+			expectedImport: "github.com/acme/apis/proto/payments/ledger/v1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateGoPackage(tt.goPackage, tt.expectedImport)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestDeriveGoModDir(t *testing.T) {
+	tests := []struct {
+		name string
+		api  *APIIdentity
+		want string
+	}{
+		{
+			name: "v1 no version suffix",
+			api:  &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "proto/payments/ledger",
+		},
+		{
+			name: "v2 includes version suffix",
+			api:  &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v2"},
+			want: "proto/payments/ledger/v2",
+		},
+		{
+			name: "v3 includes version suffix",
+			api:  &APIIdentity{Format: "openapi", Domain: "billing", Name: "invoices", Line: "v3"},
+			want: "openapi/billing/invoices/v3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DeriveGoModDir(tt.api)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

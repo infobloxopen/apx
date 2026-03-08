@@ -8,6 +8,7 @@ import (
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/publisher"
 	"github.com/infobloxopen/apx/internal/ui"
+	"github.com/infobloxopen/apx/internal/validator"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +33,21 @@ Examples:
 	cmd.Flags().String("lifecycle", "", "Lifecycle state (experimental, beta, stable, deprecated, sunset)")
 	cmd.Flags().Bool("dry-run", false, "Show what would be published without actually publishing")
 	cmd.Flags().Bool("create-pr", false, "Create a pull request instead of pushing directly")
+	cmd.Flags().Bool("strict", false, "Make go_package mismatches an error instead of a warning")
+	cmd.Flags().Bool("skip-gomod", false, "Skip go.mod generation and validation")
 	return cmd
+}
+
+// publishOpts holds all options for the identity-based publish flow.
+type publishOpts struct {
+	APIID         string
+	Version       string
+	Lifecycle     string
+	CanonicalRepo string
+	DryRun        bool
+	CreatePR      bool
+	Strict        bool
+	SkipGomod     bool
 }
 
 func publishAction(cmd *cobra.Command, args []string) error {
@@ -42,6 +57,8 @@ func publishAction(cmd *cobra.Command, args []string) error {
 	lifecycle, _ := cmd.Flags().GetString("lifecycle")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	createPR, _ := cmd.Flags().GetBool("create-pr")
+	strict, _ := cmd.Flags().GetBool("strict")
+	skipGomod, _ := cmd.Flags().GetBool("skip-gomod")
 
 	// Support positional API ID arg
 	var apiID string
@@ -51,7 +68,16 @@ func publishAction(cmd *cobra.Command, args []string) error {
 
 	// If we have an API ID, use the identity model
 	if apiID != "" {
-		return publishWithIdentity(cmd, apiID, version, lifecycle, canonicalRepo, dryRun, createPR)
+		return publishWithIdentity(cmd, publishOpts{
+			APIID:         apiID,
+			Version:       version,
+			Lifecycle:     lifecycle,
+			CanonicalRepo: canonicalRepo,
+			DryRun:        dryRun,
+			CreatePR:      createPR,
+			Strict:        strict,
+			SkipGomod:     skipGomod,
+		})
 	}
 
 	// Legacy publish path: require --module-path and --canonical-repo
@@ -65,20 +91,20 @@ func publishAction(cmd *cobra.Command, args []string) error {
 	return publishLegacy(modulePath, canonicalRepo, version, dryRun, createPR)
 }
 
-func publishWithIdentity(cmd *cobra.Command, apiID, version, lifecycle, canonicalRepo string, dryRun, createPR bool) error {
-	if version == "" {
+func publishWithIdentity(cmd *cobra.Command, opts publishOpts) error {
+	if opts.Version == "" {
 		return fmt.Errorf("--version is required (e.g. v1.0.0-beta.1)")
 	}
 
 	// Validate lifecycle if provided
-	if lifecycle != "" {
-		if err := config.ValidateLifecycle(lifecycle); err != nil {
+	if opts.Lifecycle != "" {
+		if err := config.ValidateLifecycle(opts.Lifecycle); err != nil {
 			return err
 		}
 	}
 
 	// Resolve source repo from flag or config
-	sourceRepo := canonicalRepo
+	sourceRepo := opts.CanonicalRepo
 	if sourceRepo == "" {
 		sourceRepo = resolveSourceRepo(cmd)
 		if sourceRepo == "github.com/<org>/<repo>" {
@@ -86,14 +112,102 @@ func publishWithIdentity(cmd *cobra.Command, apiID, version, lifecycle, canonica
 		}
 	}
 
-	api, source, release, langs, err := config.BuildIdentityBlock(apiID, sourceRepo, lifecycle, version)
+	api, source, release, langs, err := config.BuildIdentityBlock(opts.APIID, sourceRepo, opts.Lifecycle, opts.Version)
 	if err != nil {
 		return err
 	}
 
-	tag := config.DeriveTag(apiID, version)
+	tag := config.DeriveTag(opts.APIID, opts.Version)
 
-	if dryRun {
+	// -------------------------------------------------------------------
+	// Phase 4: go_package validation (proto format only)
+	// -------------------------------------------------------------------
+	if api.Format == "proto" {
+		repoPath, _ := os.Getwd()
+		protoDir := filepath.Join(repoPath, source.Path)
+		if info, statErr := os.Stat(protoDir); statErr == nil && info.IsDir() {
+			protoFiles, globErr := validator.GlobProtoFiles(protoDir)
+			if globErr != nil {
+				ui.Warning("Could not scan for proto files: %v", globErr)
+			}
+			expectedImport := ""
+			if goCoords, ok := langs["go"]; ok {
+				expectedImport = goCoords.Import
+			}
+			if expectedImport != "" {
+				for _, pf := range protoFiles {
+					importPath, _, extractErr := validator.ExtractGoPackage(pf)
+					if extractErr != nil {
+						ui.Warning("Could not extract go_package from %s: %v", pf, extractErr)
+						continue
+					}
+					if importPath == "" {
+						continue // no go_package option — skip
+					}
+					if valErr := config.ValidateGoPackage(importPath, expectedImport); valErr != nil {
+						relPath, _ := filepath.Rel(repoPath, pf)
+						if relPath == "" {
+							relPath = pf
+						}
+						if opts.Strict {
+							return fmt.Errorf("%s: %w", relPath, valErr)
+						}
+						ui.Warning("%s: %v", relPath, valErr)
+					}
+				}
+			}
+		}
+	}
+
+	// -------------------------------------------------------------------
+	// Phase 5: go.mod generation / validation
+	// -------------------------------------------------------------------
+	if !opts.SkipGomod {
+		repoPath, _ := os.Getwd()
+		goModDir := config.DeriveGoModDir(api)
+		goModPath := filepath.Join(repoPath, goModDir, "go.mod")
+
+		goModulePath := ""
+		if goCoords, ok := langs["go"]; ok {
+			goModulePath = goCoords.Module
+		}
+
+		if goModulePath != "" {
+			if existing, readErr := os.ReadFile(goModPath); readErr == nil {
+				// go.mod exists — validate module directive
+				existingMod, parseErr := publisher.ParseGoModModule(existing)
+				if parseErr != nil {
+					return fmt.Errorf("invalid go.mod at %s: %w", goModDir, parseErr)
+				}
+				if existingMod != goModulePath {
+					return fmt.Errorf("go.mod module mismatch at %s: got %q, expected %q", goModDir, existingMod, goModulePath)
+				}
+				ui.Info("go.mod validated: %s", goModDir)
+			} else if os.IsNotExist(readErr) {
+				// go.mod missing — generate minimal go.mod
+				content, genErr := publisher.GenerateGoMod(goModulePath, "1.21")
+				if genErr != nil {
+					return fmt.Errorf("generating go.mod: %w", genErr)
+				}
+				if opts.DryRun {
+					ui.Info("Would generate go.mod at %s", goModDir)
+					ui.Info("  module %s", goModulePath)
+				} else {
+					if mkErr := os.MkdirAll(filepath.Join(repoPath, goModDir), 0o755); mkErr != nil {
+						return fmt.Errorf("creating go.mod directory: %w", mkErr)
+					}
+					if writeErr := os.WriteFile(goModPath, content, 0o644); writeErr != nil {
+						return fmt.Errorf("writing go.mod: %w", writeErr)
+					}
+					ui.Info("Generated go.mod at %s", goModDir)
+				}
+			} else {
+				return fmt.Errorf("checking go.mod at %s: %w", goModDir, readErr)
+			}
+		}
+	}
+
+	if opts.DryRun {
 		ui.Info("Dry-run mode: showing what would be published")
 		ui.Info("")
 		report := config.FormatIdentityReport(api, source, release, langs)
@@ -116,10 +230,10 @@ func publishWithIdentity(cmd *cobra.Command, apiID, version, lifecycle, canonica
 
 	subtreePublisher := publisher.NewSubtreePublisher(repoPath)
 
-	ui.Info("Publishing API: %s", apiID)
-	ui.Info("Version: %s", version)
-	if lifecycle != "" {
-		ui.Info("Lifecycle: %s", lifecycle)
+	ui.Info("Publishing API: %s", opts.APIID)
+	ui.Info("Version: %s", opts.Version)
+	if opts.Lifecycle != "" {
+		ui.Info("Lifecycle: %s", opts.Lifecycle)
 	}
 	ui.Info("Source: %s/%s", source.Repo, source.Path)
 	if goCoords, ok := langs["go"]; ok {
@@ -128,7 +242,7 @@ func publishWithIdentity(cmd *cobra.Command, apiID, version, lifecycle, canonica
 	}
 	ui.Info("Tag: %s", tag)
 
-	commitHash, err := subtreePublisher.PublishModule(source.Path, sourceRepo, version)
+	commitHash, err := subtreePublisher.PublishModule(source.Path, sourceRepo, opts.Version)
 	if err != nil {
 		return fmt.Errorf("publish failed: %w", err)
 	}
@@ -137,7 +251,7 @@ func publishWithIdentity(cmd *cobra.Command, apiID, version, lifecycle, canonica
 	ui.Info("Commit: %s", commitHash)
 	ui.Info("Tag: %s", tag)
 
-	if createPR {
+	if opts.CreatePR {
 		ui.Info("Creating pull request...")
 		return fmt.Errorf("PR creation not yet implemented")
 	}
