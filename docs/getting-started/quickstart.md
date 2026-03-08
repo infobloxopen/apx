@@ -110,7 +110,40 @@ org: <org>
 repo: <app-repo>
 module_roots:
   - internal/apis/proto
+
+# ── Identity block ───────────────────────────────────────────
+# Describes *what* API this module represents, where the
+# canonical source lives, the current release, and the
+# language-specific coordinates consumers will import.
+
+api:                                  # canonical API identity
+  id: proto/payments/ledger/v1        # <format>/<domain>/<name>/<line>
+  format: proto
+  domain: payments
+  name: ledger
+  line: v1
+  lifecycle: preview                  # experimental → preview → stable → deprecated → sunset
+
+source:                               # where the canonical copy lives
+  repo: github.com/<org>/apis
+  path: proto/payments/ledger/v1
+
+releases:
+  current: v1.0.0-beta.1             # latest SemVer tag for this line
+
+languages:                            # per-language derived coordinates
+  go:
+    module: github.com/<org>/apis/proto/payments/ledger      # go.mod module path
+    import: github.com/<org>/apis/proto/payments/ledger/v1   # Go import path
 ```
+
+:::{tip}
+You only need to supply the **API ID** (`api.id`), **source repo**, and **lifecycle**.
+APX derives the remaining fields — `format`, `domain`, `name`, `line`,
+`source.path`, and all `languages` coordinates — automatically via
+`apx init app` or `apx identity`.  They are shown here so you can see
+the full coordinate model that the rest of this guide builds on.
+:::
 
 **buf.work.yaml** (app repo):
 ```yaml
@@ -119,6 +152,18 @@ directories:
   - internal/apis/proto/**/v1
   - internal/apis/proto/**/v2
 ```
+
+### How Identity Flows Through the Workflow
+
+The identity fields you see in `apx.yaml` drive every command in this guide:
+
+| Field | Where it shows up |
+|-------|-------------------|
+| `api.id` | Git tag prefix (`proto/payments/ledger/v1/v1.2.3`), overlay directory name, `apx search` results |
+| `api.lifecycle` | SemVer guardrails — `preview` APIs may only publish `0.x` or pre-release versions |
+| `source.repo` + `source.path` | Target for `apx publish` PRs; base path in the canonical repo |
+| `languages.go.module` | `go.mod` synthesised during `apx gen go` and overlay setup |
+| `languages.go.import` | The import path your application code uses — unchanged from local dev through production |
 
 ## 3. Author Your Schema
 
