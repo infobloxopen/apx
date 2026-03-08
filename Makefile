@@ -161,11 +161,6 @@ reset-gitea:
 	@docker volume rm gitea_data 2>/dev/null || true
 	@echo "✓ Gitea reset complete"
 
-## test-integration: Run integration tests with Gitea
-test-integration:
-	@echo "Running integration tests..."
-	@go test -race -v ./tests/integration/...
-
 ## install-e2e-deps: Install E2E test dependencies (k3d, kubectl)
 install-e2e-deps:
 	@echo "Installing E2E test dependencies..."
