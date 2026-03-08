@@ -528,8 +528,9 @@ jobs:
       - run: apx fetch
       - run: apx lint && apx breaking --against=origin/main
 
-  # NOTE: tag creation and package publishing are Planned features
-  # tracked for a future release.
+  # NOTE: For automated tag creation and package publishing,
+  # use `apx release prepare` + `apx release submit` + `apx release finalize`
+  # See the publishing docs for the full release pipeline.
 ```
 
 ## Troubleshooting

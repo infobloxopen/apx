@@ -1,8 +1,8 @@
 # Updates and Upgrades
 
-```{admonition} Planned — not yet available
+```{admonition} Planned
 :class: note
-`apx update` and `apx upgrade` are planned for a future release. This page documents the intended design and the current workaround.
+`apx update` and `apx upgrade` commands are planned for a future release. This page documents the intended design and the current manual workaround.
 ```
 
 ## Current Workaround

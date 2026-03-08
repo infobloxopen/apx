@@ -67,9 +67,6 @@ APX bundles pinned generators and tools via `apx.lock` for reproducible builds:
 ```bash
 # Download pinned toolchain (respects apx.lock)
 apx fetch
-
-# Use container-based execution (alternative)
-apx --use-container <command>
 ```
 
 :::{note}

@@ -51,6 +51,7 @@ apx --json search payments
 | `--lifecycle` | `-l` | Filter by lifecycle (`experimental`, `beta`, `stable`, `deprecated`, `sunset`) |
 | `--domain` | `-d` | Filter by domain (e.g. `payments`, `billing`) |
 | `--api-line` | | Filter by API line (e.g. `v1`, `v2`) |
+| `--origin` | | Filter by origin (`first-party`, `external`, `forked`) |
 | `--catalog` | `-c` | Path to catalog file (default: `catalog/catalog.yaml`) |
 
 ### Output
@@ -142,16 +143,6 @@ Go import:  github.com/acme/apis/proto/payments/ledger/v1
 
 If no catalog data is found, only derived fields are shown and a warning suggests running `apx catalog generate`.
 
----
-
-## Planned Commands
-
-```{admonition} Planned — not yet available
-:class: note
-`apx list apis` is planned for a future release. In the meantime, use `apx search` with no arguments to list all APIs in the catalog.
-```
-
----
 
 ## Workflow
 

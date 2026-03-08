@@ -62,32 +62,26 @@ apx search --domain=payments
 apx show proto/payments/ledger/v1
 ```
 
-```{admonition} Planned — not yet available
-:class: note
-`apx list apis` is planned for a future release.
-```
-
 ### Dependency Management
 ```bash
 # Add specific version
 apx add proto/payments/ledger/v1@v1.2.3
+
+# Update to newer version (re-add at new version)
+apx add proto/payments/ledger/v1@v1.3.0
 ```
 
-```{admonition} Planned — not yet available
+```{admonition} Planned
 :class: note
-`apx update` and `apx upgrade` are planned for a future release.
-To pin a newer version, re-add the dependency: `apx add proto/payments/ledger/v1@v1.3.0`
+`apx update` and `apx upgrade` commands are planned for a future release to automate this workflow.
 ```
 
 ### Code Generation
 ```bash
-# Generate for specific language
+# Generate for specific language (language argument is required)
 apx gen go
 apx gen python  
 apx gen java
-
-# Generate all configured languages
-apx gen
 ```
 
 ## Lock File Management

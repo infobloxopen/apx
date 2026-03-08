@@ -105,11 +105,16 @@ go get github.com/acme-corp/apis/proto/payments/ledger@v1.2.3
 
 ## Updating Dependencies
 
-`apx update` and `apx upgrade` are **planned** for a future release. In the meantime, re-add the dependency at the new version:
+To update a dependency, re-add it at the new version:
 
 ```bash
 apx add proto/payments/ledger/v1@v1.3.0
 apx gen go --clean && apx sync
+```
+
+```{admonition} Planned
+:class: note
+`apx update` and `apx upgrade` commands will automate this workflow in a future release.
 ```
 
 See [Updates and Upgrades](updates-and-upgrades.md) for details.

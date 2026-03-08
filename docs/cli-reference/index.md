@@ -21,8 +21,8 @@ APX commands are organized into logical categories:
 :::{grid-item-card} **Dependencies**
 ^^^
 - `apx search` - Discover APIs
+- `apx show` - View API details
 - `apx add` - Add dependencies
-- `apx update` - Update versions
 :::
 
 :::{grid-item-card} **Publishing**
@@ -43,14 +43,15 @@ APX commands are organized into logical categories:
 ^^^
 - `apx config` - Configuration management
 - `apx fetch` - Download toolchain
-- `apx completion` - Shell completions
+- `apx inspect` / `apx explain` - Identity analysis
 - `apx external` - External API management
 :::
 
 :::{grid-item-card} **Global Options**
 ^^^
-- `--use-container` - Containerized execution
 - `--verbose` - Detailed output
+- `--json` - Machine-readable output
+- `--quiet` / `--no-color` - Output control
 - `--config` - Custom config file
 :::
 
@@ -141,13 +142,11 @@ type Service struct {
 # Search for APIs (single keyword or phrase)
 apx search payments
 
+# View full details for a specific API
+apx show proto/payments/ledger/v1
+
 # Add dependency
 apx add proto/payments/ledger/v1@v1.2.3
-```
-
-```{admonition} Planned — not yet available
-:class: note
-`apx list apis`, `apx show`, `apx update`, `apx upgrade` are planned for a future release.
 ```
 
 ### Version Management
@@ -155,11 +154,6 @@ apx add proto/payments/ledger/v1@v1.2.3
 ```bash
 # Get version suggestion (requires --against)
 apx semver suggest --against=HEAD^
-```
-
-```{admonition} Planned — not yet available
-:class: note
-`apx semver verify`, `apx semver set` and `apx version` commands are planned.
 ```
 
 ## Exit Codes
@@ -179,9 +173,16 @@ export APX_CONFIG=/path/to/custom/apx.yaml
 apx lint  # uses custom config
 ```
 
-```{admonition} Planned — not yet available
+### APX_VERBOSE
+Enable verbose output for all commands:
+```bash
+export APX_VERBOSE=true
+apx lint  # now shows verbose diagnostics
+```
+
+```{admonition} Planned
 :class: note
-`APX_VERBOSE`, `APX_USE_CONTAINER`, and `APX_CACHE_DIR` environment variables are planned for a future release.
+`APX_USE_CONTAINER` and `APX_CACHE_DIR` environment variables are planned for a future release.
 ```
 
 ## Configuration File

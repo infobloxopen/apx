@@ -150,11 +150,10 @@ git push --follow-tags
 App CI runs the publish command:
 
 ```bash
-apx publish \
-  --module-path=internal/apis/proto/payments/ledger/v1 \
-  --canonical-repo=github.com/myorg/apis \
-  --pr-title="Release payments/ledger v1.2.3" \
-  --pr-body="Auto-generated release from app repo"
+apx publish proto/payments/ledger/v1 \
+  --version v1.2.3 \
+  --lifecycle stable \
+  --create-pr
 ```
 
 ### 4. Canonical Repository PR

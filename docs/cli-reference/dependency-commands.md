@@ -20,6 +20,7 @@ Without a query, lists all APIs in the catalog.
 | `--lifecycle` | `-l` | string | `""` | Filter by lifecycle state |
 | `--domain` | `-d` | string | `""` | Filter by domain |
 | `--api-line` | | string | `""` | Filter by API line (v1, v2, etc.) |
+| `--origin` | | string | `""` | Filter by origin (first-party, external, forked) |
 | `--catalog` | `-c` | string | `catalog/catalog.yaml` | Path to catalog file |
 
 ### Examples

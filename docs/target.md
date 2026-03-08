@@ -256,7 +256,7 @@ chmod +x apx && mv apx /usr/local/bin/apx
 apx --version
 ```
 
-> apx bundles pinned generators via `apx.lock` or can run in a container (`--use-container`).
+> apx bundles pinned generators via `apx.lock` for reproducible builds.
 
 ---
 

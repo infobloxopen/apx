@@ -98,13 +98,7 @@ Each entry is a directory tree that `apx` traverses for schema files.
 3. Push the corrected tag to trigger CI again
 
 ### Q: Can we customize the PR created by `apx publish`?
-**A**: Yes, using flags:
-```bash
-apx publish \
-  --pr-title="Custom title" \
-  --pr-body="Custom description" \
-  --pr-labels="api,breaking-change"
-```
+**A**: Use `apx release prepare` + `apx release submit` for the full PR workflow with customizable release manifests. The `apx publish` convenience command creates a PR with auto-generated metadata. For full control, see the [release pipeline](../publishing/release-commands.md).
 
 ## Schema Formats
 
@@ -161,7 +155,7 @@ apx publish \
 - **Incremental processing** to handle repository scale efficiently
 
 ### Q: Can we run APX in containers for consistency?
-**A**: Yes. Use `--use-container` flag or `APX_USE_CONTAINER=true` environment variable to run all tools in containers. This ensures consistent environments across development and CI.
+**A**: Container-based execution (`--use-container` flag / `APX_USE_CONTAINER` env var) is planned for a future release. Currently, APX manages reproducible builds via pinned toolchain versions in `apx.lock` — use `apx fetch` to download the exact versions.
 
 ### Q: How do we handle network restrictions?
 **A**: APX respects standard proxy settings:

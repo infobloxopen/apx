@@ -51,6 +51,9 @@ apx publish --module-path <path> --canonical-repo <url> --version <semver>
 | `--canonical-repo` | string | Canonical repo URL (auto-derived from config) |
 | `--module-path` | string | Module path (legacy mode) |
 | `--dry-run` | bool | Preview without publishing |
+| `--strict` | bool | Make go_package mismatches an error instead of a warning |
+| `--skip-gomod` | bool | Skip go.mod generation and validation |
+| `--create-pr` | bool | Create pull request |
 
 ### What Happens During Publish
 

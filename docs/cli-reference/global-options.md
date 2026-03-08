@@ -103,6 +103,8 @@ The exit code `6` is returned specifically by `apx config validate` when the con
 | Variable | Equivalent flag | Description |
 |----------|----------------|-------------|
 | `APX_CONFIG` | `--config` | Path to configuration file |
-| `APX_USE_CONTAINER` | `--use-container` | Run tools in containers |
+| `APX_VERBOSE` | `--verbose` | Enable verbose output |
+| `APX_QUIET` | `--quiet` | Suppress non-essential output |
+| `APX_JSON` | `--json` | Format output as JSON |
 | `HTTP_PROXY` / `HTTPS_PROXY` | — | Proxy settings for network operations |
 | `NO_COLOR` | `--no-color` | Disable color output (standard convention) |

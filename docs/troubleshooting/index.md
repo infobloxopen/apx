@@ -169,7 +169,7 @@ apx publish --dry-run \
 ### Corrupted Cache
 ```bash
 # Clear APX cache
-rm -rf ~/.cache/apx/  # or $APX_CACHE_DIR
+rm -rf ~/.cache/apx/
 
 # Re-download tools
 apx fetch
@@ -255,14 +255,10 @@ permissions:
 
 ### Container Environments
 
-**Use container execution**:
-```bash
-# Force container mode
-apx --use-container gen go
-
-# Or set environment variable
-export APX_USE_CONTAINER=true
-apx gen go
+```{admonition} Planned
+:class: note
+Container-based execution (`--use-container` / `APX_USE_CONTAINER`) is planned for a future release.
+Currently, APX manages reproducible builds via pinned toolchain versions in `apx.lock`.
 ```
 
 ### Network Restrictions

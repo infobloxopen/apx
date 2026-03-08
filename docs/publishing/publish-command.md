@@ -61,6 +61,7 @@ apx publish proto/payments/ledger/v1 --version v1.0.0 --dry-run
 | `--dry-run` | Show what would be published without publishing |
 | `--strict` | Make `go_package` mismatches an error instead of a warning |
 | `--skip-gomod` | Skip `go.mod` generation and validation |
+| `--create-pr` | Create a pull request to the canonical repository |
 
 ## What Publish Does
 
