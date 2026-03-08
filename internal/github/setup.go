@@ -351,10 +351,11 @@ func CreateAppViaManifest(org, repo string) (appID string, pemContents string, e
 
 	// Build the App manifest.
 	manifest := map[string]interface{}{
-		"name": fmt.Sprintf("apx-%s-%s", repo, org),
-		"url":  fmt.Sprintf("https://github.com/%s/%s", org, repo),
+		"name":         fmt.Sprintf("apx-%s-%s", repo, org),
+		"url":          fmt.Sprintf("https://github.com/%s/%s", org, repo),
 		"redirect_url": callbackURL,
 		"hook_attributes": map[string]interface{}{
+			"url":    fmt.Sprintf("https://github.com/%s/%s", org, repo),
 			"active": false,
 		},
 		"public": false,
