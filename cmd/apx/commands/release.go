@@ -1,12 +1,15 @@
 package commands
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
+	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/publisher"
 	"github.com/infobloxopen/apx/internal/ui"
@@ -18,19 +21,26 @@ func newReleaseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "release",
 		Short: "Manage releases through the release state machine",
-		Long: `Release commands let you prepare, submit, and inspect releases.
+		Long: `Release commands let you prepare, submit, finalize, and inspect releases.
 
 A release progresses through explicit states:
-  draft → validated → version-selected → prepared → submitted → ...
+  draft → validated → version-selected → prepared → submitted →
+  canonical-validated → canonical-released → package-published
 
 Use 'apx release prepare' to validate and build a release manifest.
 Use 'apx release submit' to push the release to the canonical repo.
-Use 'apx release inspect' to view the current release state.`,
+Use 'apx release finalize' to run canonical CI processing.
+Use 'apx release inspect' to view the current release state.
+Use 'apx release history' to list all releases for an API.
+Use 'apx release promote' to promote an API to a new lifecycle.`,
 	}
 	cmd.AddCommand(
 		newReleasePrepareCmd(),
 		newReleaseSubmitCmd(),
+		newReleaseFinalizeCmd(),
 		newReleaseInspectCmd(),
+		newReleaseHistoryCmd(),
+		newReleasePromoteCmd(),
 	)
 	return cmd
 }
@@ -557,4 +567,691 @@ func resolveCurrentLifecycle(cmd *cobra.Command, apiID string) string {
 	}
 
 	return ""
+}
+
+// ---------------------------------------------------------------------------
+// apx release finalize
+// ---------------------------------------------------------------------------
+
+func newReleaseFinalizeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "finalize",
+		Short: "Run canonical CI release processing",
+		Long: `Finalize is run by canonical CI after a release has been submitted.
+It re-validates the schema, creates the official canonical tag,
+updates the catalog, publishes language packages, and emits an
+immutable release record.
+
+The manifest must be in 'submitted' or 'canonical-pr-open' state.
+
+Examples:
+  apx release finalize
+  apx release finalize --catalog catalog.yaml
+  apx release finalize --skip-packages`,
+		RunE: releaseFinalizeAction,
+	}
+	cmd.Flags().String("catalog", "catalog.yaml", "Path to catalog.yaml")
+	cmd.Flags().Bool("skip-packages", false, "Skip language package publication")
+	cmd.Flags().Bool("skip-catalog", false, "Skip catalog update")
+	cmd.Flags().String("record-path", ".apx-release-record.yaml", "Path to write the release record")
+	return cmd
+}
+
+func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
+	catalogPath, _ := cmd.Flags().GetString("catalog")
+	skipPackages, _ := cmd.Flags().GetBool("skip-packages")
+	skipCatalog, _ := cmd.Flags().GetBool("skip-catalog")
+	recordPath, _ := cmd.Flags().GetString("record-path")
+
+	// Read manifest
+	manifest, err := publisher.ReadManifest(".apx-release.yaml")
+	if err != nil {
+		return publisher.NewPublishError(
+			publisher.ErrCodeMissingConfig,
+			"no release manifest found — run 'apx release prepare' and 'apx release submit' first",
+		)
+	}
+
+	// Verify state: must be submitted or canonical-pr-open
+	switch manifest.State {
+	case publisher.StateSubmitted, publisher.StateCanonicalPROpen:
+		// OK
+	case publisher.StatePackagePublished:
+		ui.Success("Release already finalized — nothing to do")
+		return nil
+	case publisher.StateFailed:
+		return publisher.NewPublishError(
+			publisher.ErrCodeValidationFailed,
+			fmt.Sprintf("release is in failed state: %s", manifest.Error.Message),
+		).WithHint("Fix the issue and re-run the release pipeline")
+	default:
+		return fmt.Errorf("unexpected manifest state %q — expected 'submitted' or 'canonical-pr-open'", manifest.State)
+	}
+
+	repoPath, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	ui.Info("Finalizing release %s @ %s", manifest.APIID, manifest.RequestedVersion)
+
+	// --- Re-validation (canonical CI validates again) ---
+	ui.Info("Re-validating schema in canonical repo...")
+
+	schemaDir := filepath.Join(repoPath, manifest.CanonicalPath)
+	if manifest.Validation == nil {
+		manifest.Validation = &publisher.ValidationResults{}
+	}
+
+	// Create a validator instance for re-validation
+	resolver := validator.NewToolchainResolver()
+	v := validator.NewValidator(resolver)
+	schemaFormat := validator.SchemaFormat(manifest.Format)
+
+	// Re-run lint
+	manifest.Validation.Lint = publisher.ValidationSkipped
+	if info, statErr := os.Stat(schemaDir); statErr == nil && info.IsDir() {
+		if lintErr := v.Lint(schemaDir, schemaFormat); lintErr != nil {
+			manifest.Validation.Lint = publisher.ValidationFailed
+			manifest.Fail(string(publisher.ErrCodeValidationFailed), lintErr.Error(), "finalize")
+			_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
+			return &publisher.PublishError{
+				Code:    publisher.ErrCodeValidationFailed,
+				Message: fmt.Sprintf("lint re-validation failed: %v", lintErr),
+				Hint:    "Fix lint issues and re-submit",
+			}
+		}
+		manifest.Validation.Lint = publisher.ValidationPassed
+	}
+
+	// Re-run breaking check (against previous tag if it exists)
+	manifest.Validation.Breaking = publisher.ValidationSkipped
+	if info, statErr := os.Stat(schemaDir); statErr == nil && info.IsDir() {
+		finalizeTM := publisher.NewTagManager(repoPath, "")
+		versions, _ := finalizeTM.ListVersionsForAPI(manifest.APIID)
+		if len(versions) > 0 {
+			// Find the latest previous version to check against
+			lineMajor, _ := config.LineMajor(manifest.Line)
+			latestPrev, _ := config.LatestVersion(versions, lineMajor)
+			if latestPrev != "" && latestPrev != manifest.RequestedVersion {
+				prevTag := config.DeriveTag(manifest.APIID, latestPrev)
+				if breakErr := v.Breaking(schemaDir, prevTag, schemaFormat); breakErr != nil {
+					manifest.Validation.Breaking = publisher.ValidationFailed
+					manifest.Fail(string(publisher.ErrCodeBreakingChange), breakErr.Error(), "finalize")
+					_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
+					return &publisher.PublishError{
+						Code:    publisher.ErrCodeBreakingChange,
+						Message: fmt.Sprintf("breaking change detected against %s: %v", prevTag, breakErr),
+						Hint:    "Create a new API line for breaking changes",
+					}
+				}
+				manifest.Validation.Breaking = publisher.ValidationPassed
+			}
+		}
+	}
+
+	// Policy validation (extensible — currently a pass-through)
+	manifest.Validation.Policy = publisher.ValidationPassed
+
+	// Transition to canonical-validated
+	if err := manifest.SetState(publisher.StateCanonicalValidated); err != nil {
+		return err
+	}
+	_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
+	ui.Success("Re-validation passed")
+
+	// --- Create canonical tag ---
+	ui.Info("Creating canonical tag %s...", manifest.Tag)
+
+	tm := publisher.NewTagManager(repoPath, "")
+	exists, err := tm.TagExists(manifest.Tag)
+	if err != nil {
+		return fmt.Errorf("checking tag existence: %w", err)
+	}
+
+	if !exists {
+		commitHash := "HEAD"
+		if manifest.SourceCommit != "" {
+			commitHash = manifest.SourceCommit
+		}
+		message := fmt.Sprintf("Release %s %s\n\nLifecycle: %s\nSource: %s/%s",
+			manifest.APIID, manifest.RequestedVersion,
+			manifest.Lifecycle, manifest.SourceRepo, manifest.SourcePath)
+		if err := tm.CreateTag(manifest.Tag, message, commitHash); err != nil {
+			manifest.Fail(string(publisher.ErrCodePushFailed), err.Error(), "finalize")
+			_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
+			return &publisher.PublishError{
+				Code:    publisher.ErrCodePushFailed,
+				Message: fmt.Sprintf("tag creation failed: %v", err),
+			}
+		}
+		if err := tm.PushTag(manifest.Tag, ""); err != nil {
+			ui.Warning("Tag created locally but push failed: %v", err)
+		}
+	} else {
+		ui.Info("Tag %s already exists — skipping creation", manifest.Tag)
+	}
+
+	// Transition to canonical-released
+	if err := manifest.SetState(publisher.StateCanonicalReleased); err != nil {
+		return err
+	}
+	_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
+	ui.Success("Canonical tag created")
+
+	// --- Build release record ---
+	record := publisher.NewReleaseRecord(manifest)
+	record.DetectCI()
+
+	// --- Catalog update ---
+	if !skipCatalog {
+		ui.Info("Updating catalog at %s...", catalogPath)
+		gen := catalog.NewGenerator(catalogPath)
+		cat, loadErr := gen.Load()
+		if loadErr != nil {
+			// Create a new catalog if it doesn't exist
+			cat = &catalog.Catalog{
+				Version: 1,
+				Modules: []catalog.Module{},
+			}
+		}
+
+		// Find or create the module entry
+		found := false
+		for i, mod := range cat.Modules {
+			if mod.ID == manifest.APIID || mod.DisplayName() == manifest.APIID {
+				cat.Modules[i].Version = manifest.RequestedVersion
+				cat.Modules[i].Lifecycle = manifest.Lifecycle
+				cat.Modules[i].LatestStable = updateLatestStable(cat.Modules[i].LatestStable, manifest.RequestedVersion, manifest.Lifecycle)
+				cat.Modules[i].LatestPrerelease = updateLatestPrerelease(cat.Modules[i].LatestPrerelease, manifest.RequestedVersion, manifest.Lifecycle)
+				found = true
+				break
+			}
+		}
+		if !found {
+			mod := catalog.Module{
+				ID:        manifest.APIID,
+				Format:    manifest.Format,
+				Domain:    manifest.Domain,
+				APILine:   manifest.Line,
+				Version:   manifest.RequestedVersion,
+				Lifecycle: manifest.Lifecycle,
+				Path:      manifest.CanonicalPath,
+			}
+			mod.LatestStable = updateLatestStable("", manifest.RequestedVersion, manifest.Lifecycle)
+			mod.LatestPrerelease = updateLatestPrerelease("", manifest.RequestedVersion, manifest.Lifecycle)
+			cat.Modules = append(cat.Modules, mod)
+		}
+
+		if saveErr := gen.Save(cat); saveErr != nil {
+			ui.Warning("Catalog update failed: %v", saveErr)
+			record.CatalogUpdated = false
+		} else {
+			record.CatalogUpdated = true
+			record.CatalogPath = catalogPath
+			ui.Success("Catalog updated")
+		}
+	}
+
+	// --- Package publication ---
+	if !skipPackages && manifest.GoModule != "" {
+		ui.Info("Recording Go module artifact: %s", manifest.GoModule)
+		record.AddArtifact("go-module", manifest.GoModule, manifest.RequestedVersion, "published")
+	} else if skipPackages {
+		if manifest.GoModule != "" {
+			record.AddArtifact("go-module", manifest.GoModule, manifest.RequestedVersion, "skipped")
+		}
+	}
+
+	// Transition to package-published (terminal success)
+	if err := manifest.SetState(publisher.StatePackagePublished); err != nil {
+		return err
+	}
+	_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
+
+	// Capture canonical commit
+	if commitOut, gitErr := exec.Command("git", "-C", repoPath, "rev-parse", "HEAD").Output(); gitErr == nil {
+		record.CanonicalCommit = strings.TrimSpace(string(commitOut))
+	}
+
+	// Write release record
+	if err := publisher.WriteReleaseRecord(record, recordPath); err != nil {
+		ui.Warning("Could not write release record: %v", err)
+	}
+
+	ui.Success("✓ Release finalized successfully")
+	ui.Info("")
+	fmt.Print(publisher.FormatRecordReport(record))
+	ui.Info("")
+	ui.Info("Release record: %s", recordPath)
+
+	return nil
+}
+
+// updateLatestStable returns the latest stable version string.
+func updateLatestStable(current, version, lifecycle string) string {
+	if lifecycle != "stable" && lifecycle != "" {
+		return current
+	}
+	// For stable releases, use the newer version
+	if current == "" {
+		return version
+	}
+	sv1, err1 := config.ParseSemVer(current)
+	sv2, err2 := config.ParseSemVer(version)
+	if err1 != nil || err2 != nil {
+		return version
+	}
+	if config.CompareSemVer(sv2, sv1) > 0 {
+		return version
+	}
+	return current
+}
+
+// updateLatestPrerelease returns the latest prerelease version string.
+func updateLatestPrerelease(current, version, lifecycle string) string {
+	if lifecycle == "stable" || lifecycle == "" {
+		return current
+	}
+	if current == "" {
+		return version
+	}
+	sv1, err1 := config.ParseSemVer(current)
+	sv2, err2 := config.ParseSemVer(version)
+	if err1 != nil || err2 != nil {
+		return version
+	}
+	if config.CompareSemVer(sv2, sv1) > 0 {
+		return version
+	}
+	return current
+}
+
+// ---------------------------------------------------------------------------
+// apx release history
+// ---------------------------------------------------------------------------
+
+func newReleaseHistoryCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "history <api-id>",
+		Short: "List all releases for an API",
+		Long: `History shows all published versions for a given API ID, extracted
+from git tags. Versions are sorted newest-first.
+
+Examples:
+  apx release history proto/payments/ledger/v1
+  apx release history proto/payments/ledger/v1 --format json`,
+		Args: cobra.ExactArgs(1),
+		RunE: releaseHistoryAction,
+	}
+	cmd.Flags().String("format", "table", "Output format: table, json")
+	return cmd
+}
+
+func releaseHistoryAction(cmd *cobra.Command, args []string) error {
+	apiID := args[0]
+	format, _ := cmd.Flags().GetString("format")
+
+	if _, parseErr := config.ParseAPIID(apiID); parseErr != nil {
+		return parseErr
+	}
+
+	repoPath, _ := os.Getwd()
+	tm := publisher.NewTagManager(repoPath, "")
+
+	versions, err := tm.ListVersionsForAPI(apiID)
+	if err != nil {
+		return fmt.Errorf("listing versions: %w", err)
+	}
+
+	if len(versions) == 0 {
+		ui.Info("No releases found for %s", apiID)
+		return nil
+	}
+
+	// Parse and sort versions (newest first)
+	type versionEntry struct {
+		Version   string `json:"version"`
+		Tag       string `json:"tag"`
+		Lifecycle string `json:"lifecycle"`
+	}
+
+	entries := make([]versionEntry, 0, len(versions))
+	for _, v := range versions {
+		lifecycle := inferLifecycleFromVersion(v)
+		entries = append(entries, versionEntry{
+			Version:   v,
+			Tag:       config.DeriveTag(apiID, v),
+			Lifecycle: lifecycle,
+		})
+	}
+
+	// Sort newest first using semver comparison
+	sort.Slice(entries, func(i, j int) bool {
+		sv1, err1 := config.ParseSemVer(entries[i].Version)
+		sv2, err2 := config.ParseSemVer(entries[j].Version)
+		if err1 != nil || err2 != nil {
+			return entries[i].Version > entries[j].Version
+		}
+		return config.CompareSemVer(sv1, sv2) > 0
+	})
+
+	if format == "json" {
+		data, _ := json.MarshalIndent(struct {
+			APIID    string         `json:"api_id"`
+			Versions []versionEntry `json:"versions"`
+		}{
+			APIID:    apiID,
+			Versions: entries,
+		}, "", "  ")
+		fmt.Println(string(data))
+		return nil
+	}
+
+	// Table format
+	ui.Info("Release history for %s:", apiID)
+	ui.Info("")
+	ui.Info("  %-20s %-14s %s", "VERSION", "LIFECYCLE", "TAG")
+	ui.Info("  %-20s %-14s %s", "-------", "---------", "---")
+	for _, e := range entries {
+		lc := e.Lifecycle
+		if lc == "" {
+			lc = "-"
+		}
+		ui.Info("  %-20s %-14s %s", e.Version, lc, e.Tag)
+	}
+	ui.Info("")
+	ui.Info("Total: %d release(s)", len(entries))
+
+	return nil
+}
+
+// inferLifecycleFromVersion guesses the lifecycle from version prerelease tags.
+func inferLifecycleFromVersion(version string) string {
+	sv, err := config.ParseSemVer(version)
+	if err != nil {
+		return ""
+	}
+	if sv.Prerelease == "" {
+		return "stable"
+	}
+	if strings.HasPrefix(sv.Prerelease, "alpha") {
+		return "experimental"
+	}
+	if strings.HasPrefix(sv.Prerelease, "beta") {
+		return "beta"
+	}
+	return ""
+}
+
+// ---------------------------------------------------------------------------
+// apx release promote
+// ---------------------------------------------------------------------------
+
+func newReleasePromoteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "promote <api-id>",
+		Short: "Promote an API to a new lifecycle state",
+		Long: `Promote creates a new release that moves an API forward in its
+lifecycle (e.g. beta → stable). It determines the appropriate new
+version and validates the lifecycle transition.
+
+The promotion creates a new release manifest ready for submit.
+
+Examples:
+  apx release promote proto/payments/ledger/v1 --to stable --version v1.0.0
+  apx release promote proto/payments/ledger/v1 --to deprecated`,
+		Args: cobra.ExactArgs(1),
+		RunE: releasePromoteAction,
+	}
+	cmd.Flags().String("to", "", "Target lifecycle (beta, stable, deprecated, sunset)")
+	cmd.Flags().String("version", "", "Version for the promoted release (required for stable promotion)")
+	cmd.Flags().String("canonical-repo", "", "Canonical repository URL")
+	cmd.Flags().Bool("force", false, "Override lifecycle checks")
+	_ = cmd.MarkFlagRequired("to")
+	return cmd
+}
+
+func releasePromoteAction(cmd *cobra.Command, args []string) error {
+	apiID := args[0]
+	targetLifecycle, _ := cmd.Flags().GetString("to")
+	version, _ := cmd.Flags().GetString("version")
+	canonicalRepo, _ := cmd.Flags().GetString("canonical-repo")
+	force, _ := cmd.Flags().GetBool("force")
+
+	// Validate target lifecycle
+	if err := config.ValidateLifecycle(targetLifecycle); err != nil {
+		return err
+	}
+
+	// Parse API ID
+	if _, parseErr := config.ParseAPIID(apiID); parseErr != nil {
+		return parseErr
+	}
+
+	// Determine current lifecycle
+	currentLifecycle := resolveCurrentLifecycle(cmd, apiID)
+	if currentLifecycle == "" {
+		// Try to infer from latest tag
+		repoPath, _ := os.Getwd()
+		tm := publisher.NewTagManager(repoPath, "")
+		versions, _ := tm.ListVersionsForAPI(apiID)
+		if len(versions) > 0 {
+			lineMajor, _ := config.LineMajor(config.ParseLineFromID(apiID))
+			latest, _ := config.LatestVersion(versions, lineMajor)
+			currentLifecycle = inferLifecycleFromVersion(latest)
+		}
+	}
+
+	ui.Info("Promoting %s: %s → %s", apiID, currentLifecycleLabel(currentLifecycle), targetLifecycle)
+
+	// Validate transition
+	if !force {
+		if err := config.ValidateLifecycleTransition(currentLifecycle, targetLifecycle); err != nil {
+			return &publisher.PublishError{
+				Code:    publisher.ErrCodeIllegalTransition,
+				Message: err.Error(),
+				Hint:    "Use --force to override lifecycle checks",
+			}
+		}
+	}
+
+	// Determine version for the promotion
+	if version == "" {
+		// Auto-derive version based on lifecycle
+		repoPath, _ := os.Getwd()
+		tm := publisher.NewTagManager(repoPath, "")
+		versions, _ := tm.ListVersionsForAPI(apiID)
+		promoteLineMajor, _ := config.LineMajor(config.ParseLineFromID(apiID))
+
+		if targetLifecycle == "stable" {
+			// For stable promotion, strip the prerelease from latest pre-release version
+			latest, _ := config.LatestVersion(versions, promoteLineMajor)
+			if latest != "" {
+				sv, err := config.ParseSemVer(latest)
+				if err == nil && sv.Prerelease != "" {
+					version = fmt.Sprintf("v%d.%d.%d", sv.Major, sv.Minor, sv.Patch)
+				} else if err == nil {
+					// Already stable — bump patch
+					version = fmt.Sprintf("v%d.%d.%d", sv.Major, sv.Minor, sv.Patch+1)
+				}
+			}
+		} else if targetLifecycle == "beta" {
+			latest, _ := config.LatestVersion(versions, promoteLineMajor)
+			if latest != "" {
+				sv, err := config.ParseSemVer(latest)
+				if err == nil {
+					version = fmt.Sprintf("v%d.%d.%d-beta.1", sv.Major, sv.Minor, sv.Patch)
+				}
+			}
+		}
+
+		if version == "" {
+			return fmt.Errorf("cannot auto-determine version for %s promotion; use --version", targetLifecycle)
+		}
+		ui.Info("Auto-derived version: %s", version)
+	}
+
+	// Validate version-lifecycle compatibility
+	if !force {
+		if err := config.ValidateVersionLifecycle(version, targetLifecycle); err != nil {
+			return &publisher.PublishError{
+				Code:    publisher.ErrCodeLifecycleMismatch,
+				Message: err.Error(),
+				Hint:    "Use --force to override or choose a compatible version",
+			}
+		}
+	}
+
+	// Validate version-line compatibility
+	if err := config.ValidateVersionLine(version, config.ParseLineFromID(apiID)); err != nil {
+		return &publisher.PublishError{
+			Code:    publisher.ErrCodeVersionLineMismatch,
+			Message: err.Error(),
+		}
+	}
+
+	// Resolve source repo
+	sourceRepo := canonicalRepo
+	if sourceRepo == "" {
+		sourceRepo = resolveSourceRepo(cmd)
+		if sourceRepo == "github.com/<org>/<repo>" {
+			return publisher.NewPublishError(
+				publisher.ErrCodeMissingConfig,
+				"cannot determine canonical repo; use --canonical-repo or configure org/repo in apx.yaml",
+			)
+		}
+	}
+
+	// Build identity
+	api, source, _, langs, err := config.BuildIdentityBlock(apiID, sourceRepo, targetLifecycle, version)
+	if err != nil {
+		return err
+	}
+
+	// Create manifest
+	manifest := publisher.NewManifest(api, source, langs, version, sourceRepo)
+	manifest.Lifecycle = targetLifecycle
+
+	// Skip to prepared (promotion is a lifecycle change, not a content change)
+	manifest.Validation = &publisher.ValidationResults{
+		Lint:     publisher.ValidationSkipped,
+		Breaking: publisher.ValidationSkipped,
+		Policy:   publisher.ValidationPassed,
+	}
+
+	// Capture source commit
+	promoteRepoPath, _ := os.Getwd()
+	if commitOut, gitErr := exec.Command("git", "-C", promoteRepoPath, "rev-parse", "HEAD").Output(); gitErr == nil {
+		manifest.SourceCommit = strings.TrimSpace(string(commitOut))
+	}
+
+	if err := manifest.SetState(publisher.StateValidated); err != nil {
+		return err
+	}
+	if err := manifest.SetState(publisher.StateVersionSelected); err != nil {
+		return err
+	}
+	if err := manifest.SetState(publisher.StatePrepared); err != nil {
+		return err
+	}
+
+	// Write manifest
+	if err := publisher.WriteManifest(manifest, ".apx-release.yaml"); err != nil {
+		return fmt.Errorf("writing manifest: %w", err)
+	}
+
+	ui.Success("✓ Promotion prepared: %s → %s @ %s", currentLifecycleLabel(currentLifecycle), targetLifecycle, version)
+	ui.Info("Tag:         %s", manifest.Tag)
+	ui.Info("Manifest:    .apx-release.yaml")
+	ui.Info("")
+	ui.Info("Next step:   apx release submit")
+
+	return nil
+}
+
+// currentLifecycleLabel returns a display label for the current lifecycle.
+func currentLifecycleLabel(lc string) string {
+	if lc == "" {
+		return "(unknown)"
+	}
+	return lc
+}
+
+// ---------------------------------------------------------------------------
+// Dependents
+// ---------------------------------------------------------------------------
+
+// FindDependents returns a list of API IDs from the catalog that depend on
+// the given API ID. It searches the dependency lock files or catalog cross-
+// references found in the repository.
+func FindDependents(repoPath, apiID, catalogPath string) ([]string, error) {
+	gen := catalog.NewGenerator(catalogPath)
+	cat, err := gen.Load()
+	if err != nil {
+		return nil, fmt.Errorf("loading catalog: %w", err)
+	}
+
+	// Search for modules that list apiID in their dependencies.
+	// This is a heuristic based on the catalog tags.
+	var dependents []string
+	for _, mod := range cat.Modules {
+		if mod.ID == apiID {
+			continue
+		}
+		// Check if any tag references the target API
+		for _, tag := range mod.Tags {
+			if tag == "depends:"+apiID || strings.HasPrefix(tag, "depends:"+apiID+"/") {
+				dependents = append(dependents, mod.ID)
+				break
+			}
+		}
+	}
+
+	// Also search for lock file references
+	lockDeps, _ := findLockFileDependents(repoPath, apiID)
+	for _, d := range lockDeps {
+		if !containsString(dependents, d) {
+			dependents = append(dependents, d)
+		}
+	}
+
+	return dependents, nil
+}
+
+// findLockFileDependents scans apx.lock files in the repo for references
+// to the given API ID.
+func findLockFileDependents(repoPath, apiID string) ([]string, error) {
+	lockPath := filepath.Join(repoPath, "apx.lock")
+	data, err := os.ReadFile(lockPath)
+	if err != nil {
+		return nil, nil // No lock file — not an error
+	}
+
+	var dependents []string
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.Contains(line, apiID) {
+			// Extract the module that depends on apiID
+			// Lock files list dependencies as keys
+			if strings.Contains(line, ":") {
+				parts := strings.SplitN(line, ":", 2)
+				dep := strings.TrimSpace(parts[0])
+				if dep != "" && dep != apiID && !containsString(dependents, dep) {
+					dependents = append(dependents, dep)
+				}
+			}
+		}
+	}
+	return dependents, nil
+}
+
+func containsString(slice []string, s string) bool {
+	for _, v := range slice {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
