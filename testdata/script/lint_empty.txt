@@ -1,0 +1,33 @@
+# Test: apx lint on an empty directory (no schema files)
+# A freshly-scaffolded canonical repo has no APIs yet.
+# lint and breaking should succeed gracefully instead of erroring.
+
+# Setup: canonical repo with no schema files
+mkdir empty-repo
+cd empty-repo
+exec apx config init
+
+# lint with no path (defaults to ".") should succeed
+exec apx lint
+stdout 'No schema files found'
+
+# lint with an explicit empty directory should succeed
+mkdir subdir
+exec apx lint subdir
+stdout 'No schema files found'
+
+# breaking with no path should also succeed
+exec apx breaking --against HEAD
+stdout 'No schema files found'
+
+# lint with a single unknown file should still error
+cp $WORK/no-schema.txt unknown.txt
+! exec apx lint unknown.txt
+stderr 'could not detect schema format'
+
+# Cleanup
+cd ..
+rm -rf empty-repo
+
+-- no-schema.txt --
+this is not a schema file

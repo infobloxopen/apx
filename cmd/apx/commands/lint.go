@@ -64,6 +64,15 @@ func lintAction(cmd *cobra.Command, args []string) error {
 	}
 
 	if format == validator.FormatUnknown {
+		// No explicit --format and we couldn't detect one. If this is a
+		// directory, it may simply contain no schema files yet (e.g. a
+		// freshly-scaffolded canonical repo). In that case succeed with
+		// a helpful message instead of erroring.
+		if info, statErr := os.Stat(absPath); statErr == nil && info.IsDir() {
+			ui.Info("No schema files found in: %s", absPath)
+			ui.Info("Nothing to lint. Add schema files or specify --format.")
+			return nil
+		}
 		return fmt.Errorf("could not detect schema format for: %s\nPlease specify format with --format flag", absPath)
 	}
 
