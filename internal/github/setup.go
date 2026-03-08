@@ -357,15 +357,15 @@ func openBrowserReal(url string) error {
 // It starts a temporary local HTTP server, opens the browser to GitHub's
 // app creation page with a pre-filled manifest, receives the callback
 // code, and exchanges it for the app credentials (ID + PEM).
-func CreateAppViaManifest(org, repo string) (appID string, pemContents string, err error) {
+func CreateAppViaManifest(org, repo string) (appID, appSlug, pemContents string, err error) {
 	if err := CheckGHAuth(); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// Start listener to discover an available port.
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return "", "", fmt.Errorf("failed to start local server: %w", err)
+		return "", "", "", fmt.Errorf("failed to start local server: %w", err)
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
 	callbackURL := fmt.Sprintf("http://localhost:%d/callback", port)
@@ -403,7 +403,7 @@ func CreateAppViaManifest(org, repo string) (appID string, pemContents string, e
 			errCh <- fmt.Errorf("GitHub redirect missing code parameter")
 			return
 		}
-		codeCh <- code
+		codeCh <- code //nolint:errcheck
 		w.Header().Set("Content-Type", "text/html")
 		fmt.Fprint(w, `<!DOCTYPE html><html><body>
 <h2>&#10003; GitHub App created!</h2>
@@ -444,29 +444,92 @@ document.getElementById('mf').submit();
 	case code = <-codeCh:
 		// success
 	case e := <-errCh:
-		return "", "", e
+		return "", "", "", e
 	case <-time.After(5 * time.Minute):
-		return "", "", fmt.Errorf("timed out waiting for GitHub App creation (5 minutes)")
+		return "", "", "", fmt.Errorf("timed out waiting for GitHub App creation (5 minutes)")
 	}
 
 	// Exchange the temporary code for app credentials.
 	out, ghErr := GHRun("api", fmt.Sprintf("app-manifests/%s/conversions", code), "--method", "POST")
 	if ghErr != nil {
-		return "", "", fmt.Errorf("failed to exchange manifest code: %s", out)
+		return "", "", "", fmt.Errorf("failed to exchange manifest code: %s", out)
 	}
 
 	var result struct {
-		ID  int    `json:"id"`
-		PEM string `json:"pem"`
+		ID   int    `json:"id"`
+		Slug string `json:"slug"`
+		PEM  string `json:"pem"`
 	}
 	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		return "", "", fmt.Errorf("failed to parse app creation response: %w", err)
+		return "", "", "", fmt.Errorf("failed to parse app creation response: %w", err)
 	}
 	if result.ID == 0 || result.PEM == "" {
-		return "", "", fmt.Errorf("GitHub returned incomplete app data (id=%d, pem_len=%d)", result.ID, len(result.PEM))
+		return "", "", "", fmt.Errorf("GitHub returned incomplete app data (id=%d, pem_len=%d)", result.ID, len(result.PEM))
 	}
 
-	return fmt.Sprintf("%d", result.ID), result.PEM, nil
+	// The App must be installed on the org before workflows can use it.
+	// Open the installation page and wait for the user to complete it.
+	installURL := fmt.Sprintf("https://github.com/apps/%s/installations/new", result.Slug)
+	ui.Info("\nApp created! Now it must be installed on the %q organization.", org)
+	ui.Info("Opening browser to install the App...")
+	ui.Info("If the browser doesn't open, visit: %s", installURL)
+	_ = openBrowserFn(installURL)
+
+	// Poll until the installation appears (up to 3 minutes).
+	ui.Info("Waiting for installation to complete...")
+	installed := false
+	for i := 0; i < 36; i++ { // 36 × 5s = 3 min
+		time.Sleep(5 * time.Second)
+		if checkAppInstalled(org, result.ID) {
+			installed = true
+			break
+		}
+	}
+	if !installed {
+		ui.Warning("Could not verify installation — make sure you installed the App on %q.", org)
+		ui.Warning("Install URL: %s", installURL)
+	} else {
+		ui.Success("App installed on %q!", org)
+	}
+
+	return fmt.Sprintf("%d", result.ID), result.Slug, result.PEM, nil
+}
+
+// checkAppInstalled checks whether the GitHub App (by ID) has an
+// installation on the given org. Uses user auth (gh api) to query
+// the org's installations list.
+func checkAppInstalled(org string, appID int) bool {
+	out, err := GHRun("api", fmt.Sprintf("orgs/%s/installations", org),
+		"--jq", fmt.Sprintf(".installations[] | select(.app_id == %d) | .id", appID))
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(out) != ""
+}
+
+// EnsureAppInstalled verifies the App is installed on the org. If not,
+// it opens the browser to the installation page and polls until done.
+// This is used on subsequent runs when the App was already created but
+// may not have been installed.
+func EnsureAppInstalled(org string, appID int, appSlug string) error {
+	if checkAppInstalled(org, appID) {
+		return nil
+	}
+
+	installURL := fmt.Sprintf("https://github.com/apps/%s/installations/new", appSlug)
+	ui.Info("App is not installed on %q. Opening browser to install...", org)
+	ui.Info("If the browser doesn't open, visit: %s", installURL)
+	_ = openBrowserFn(installURL)
+
+	ui.Info("Waiting for installation to complete...")
+	for i := 0; i < 36; i++ {
+		time.Sleep(5 * time.Second)
+		if checkAppInstalled(org, appID) {
+			ui.Success("App installed on %q!", org)
+			return nil
+		}
+	}
+	return fmt.Errorf("app not installed on %q after 3 minutes; install manually at %s", org, installURL)
 }
 
 // ---------------------------------------------------------------------------
@@ -489,6 +552,28 @@ func GetCachedAppID(org string) string {
 		return ""
 	}
 	data, err := os.ReadFile(filepath.Join(dir, org+"-app-id"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+// CacheAppSlug writes the App slug to ~/.config/apx/<org>-app-slug.
+func CacheAppSlug(org, slug string) error {
+	dir, err := pemCacheDirFn()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, org+"-app-slug"), []byte(slug), 0600)
+}
+
+// GetCachedAppSlug returns the cached App slug for an org, or "" if not cached.
+func GetCachedAppSlug(org string) string {
+	dir, err := pemCacheDirFn()
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(dir, org+"-app-slug"))
 	if err != nil {
 		return ""
 	}

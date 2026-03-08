@@ -217,13 +217,21 @@ func TestCreateAppViaManifest_ExchangesCode(t *testing.T) {
 		}
 		// manifest code exchange
 		if len(args) >= 2 && args[0] == "api" && strings.HasPrefix(args[1], "app-manifests/") {
-			return `{"id": 99999, "pem": "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"}`, nil
+			return `{"id": 99999, "slug": "apx-apis-acme", "pem": "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"}`, nil
+		}
+		// installations check (for EnsureAppInstalled polling)
+		if len(args) >= 2 && args[0] == "api" && strings.Contains(args[1], "/installations") {
+			return `[{"app_id": 99999}]`, nil
 		}
 		return "", fmt.Errorf("unexpected gh call: %v", args)
 	}
 
 	// Instead of actually opening browser, hit the callback directly
 	openBrowserFn = func(url string) error {
+		// If it's an install URL, just return (already installed per mock above)
+		if strings.Contains(url, "/installations/new") {
+			return nil
+		}
 		// Parse the port from the URL and hit /callback?code=testcode
 		go func() {
 			time.Sleep(100 * time.Millisecond)
@@ -238,8 +246,9 @@ func TestCreateAppViaManifest_ExchangesCode(t *testing.T) {
 		return nil
 	}
 
-	appID, pem, err := CreateAppViaManifest("acme", "apis")
+	appID, slug, pem, err := CreateAppViaManifest("acme", "apis")
 	require.NoError(t, err)
 	assert.Equal(t, "99999", appID)
+	assert.Equal(t, "apx-apis-acme", slug)
 	assert.Contains(t, pem, "BEGIN RSA PRIVATE KEY")
 }

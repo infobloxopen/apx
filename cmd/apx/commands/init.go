@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/infobloxopen/apx/internal/detector"
 	gh "github.com/infobloxopen/apx/internal/github"
@@ -239,7 +240,7 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 			ui.Info("\nNo GitHub App configured for org %q.", org)
 			ui.Info("Creating one via the GitHub App manifest flow...\n")
 
-			newAppID, pemContents, err := gh.CreateAppViaManifest(org, repo)
+			newAppID, appSlug, pemContents, err := gh.CreateAppViaManifest(org, repo)
 			if err != nil {
 				return fmt.Errorf("failed to create GitHub App: %w", err)
 			}
@@ -250,11 +251,27 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 			if err := gh.CacheAppID(org, newAppID); err != nil {
 				return fmt.Errorf("failed to cache app ID: %w", err)
 			}
+			if appSlug != "" {
+				if err := gh.CacheAppSlug(org, appSlug); err != nil {
+					ui.Warning("Failed to cache app slug: %v", err)
+				}
+			}
 
 			appID = newAppID
 			ui.Success("GitHub App created! App ID: %s", appID)
 		} else if needsApp {
 			return fmt.Errorf("--app-id and --app-pem-file are required with --setup-github in non-interactive mode")
+		} else {
+			// App already exists – ensure it is installed on the org
+			appSlug := gh.GetCachedAppSlug(org)
+			if appSlug != "" {
+				appIDInt, _ := strconv.Atoi(appID)
+				if appIDInt > 0 {
+					if err := gh.EnsureAppInstalled(org, appIDInt, appSlug); err != nil {
+						ui.Warning("Could not verify app installation: %v", err)
+					}
+				}
+			}
 		}
 
 		ui.Info("\nConfiguring GitHub repository...")
