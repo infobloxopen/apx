@@ -55,6 +55,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newPolicyCmd(),
 		newCatalogCmd(),
 		newPublishCmd(),
+		newReleaseCmd(),
 		newSearchCmd(),
 		newShowCmd(),
 		newAddCmd(),

@@ -93,13 +93,25 @@ func publishAction(cmd *cobra.Command, args []string) error {
 
 func publishWithIdentity(cmd *cobra.Command, opts publishOpts) error {
 	if opts.Version == "" {
-		return fmt.Errorf("--version is required (e.g. v1.0.0-beta.1)")
+		return publisher.NewPublishError(publisher.ErrCodeInvalidVersion,
+			"--version is required (e.g. v1.0.0-beta.1)")
 	}
 
 	// Validate lifecycle if provided
 	if opts.Lifecycle != "" {
 		if err := config.ValidateLifecycle(opts.Lifecycle); err != nil {
 			return err
+		}
+		// Validate version-lifecycle compatibility
+		if err := config.ValidateVersionLifecycle(opts.Version, opts.Lifecycle); err != nil {
+			return &publisher.PublishError{
+				Code:    publisher.ErrCodeLifecycleMismatch,
+				Message: err.Error(),
+				Hint:    "Use 'apx release prepare --force' to override",
+			}
+		}
+		if config.LifecycleRequiresWarning(opts.Lifecycle) {
+			ui.Warning("Publishing under deprecated lifecycle — consumers should migrate")
 		}
 	}
 
@@ -108,16 +120,20 @@ func publishWithIdentity(cmd *cobra.Command, opts publishOpts) error {
 	if sourceRepo == "" {
 		sourceRepo = resolveSourceRepo(cmd)
 		if sourceRepo == "github.com/<org>/<repo>" {
-			return fmt.Errorf("cannot determine canonical repo; use --canonical-repo or configure org/repo in apx.yaml")
+			return publisher.NewPublishError(publisher.ErrCodeMissingConfig,
+				"cannot determine canonical repo; use --canonical-repo or configure org/repo in apx.yaml")
 		}
 	}
 
-	api, source, release, langs, err := config.BuildIdentityBlock(opts.APIID, sourceRepo, opts.Lifecycle, opts.Version)
+	api, source, _, langs, err := config.BuildIdentityBlock(opts.APIID, sourceRepo, opts.Lifecycle, opts.Version)
 	if err != nil {
 		return err
 	}
 
 	tag := config.DeriveTag(opts.APIID, opts.Version)
+
+	// Build release manifest for tracking
+	manifest := publisher.NewManifest(api, source, langs, opts.Version, sourceRepo)
 
 	// -------------------------------------------------------------------
 	// Phase 4: go_package validation (proto format only)
@@ -150,7 +166,11 @@ func publishWithIdentity(cmd *cobra.Command, opts publishOpts) error {
 							relPath = pf
 						}
 						if opts.Strict {
-							return fmt.Errorf("%s: %w", relPath, valErr)
+							manifest.Fail(string(publisher.ErrCodeGoPackageMismatch), valErr.Error(), "publish")
+							return &publisher.PublishError{
+								Code:    publisher.ErrCodeGoPackageMismatch,
+								Message: fmt.Sprintf("%s: %v", relPath, valErr),
+							}
 						}
 						ui.Warning("%s: %v", relPath, valErr)
 					}
@@ -177,10 +197,19 @@ func publishWithIdentity(cmd *cobra.Command, opts publishOpts) error {
 				// go.mod exists — validate module directive
 				existingMod, parseErr := publisher.ParseGoModModule(existing)
 				if parseErr != nil {
-					return fmt.Errorf("invalid go.mod at %s: %w", goModDir, parseErr)
+					manifest.Fail(string(publisher.ErrCodeGoModMismatch), parseErr.Error(), "publish")
+					return &publisher.PublishError{
+						Code:    publisher.ErrCodeGoModMismatch,
+						Message: fmt.Sprintf("invalid go.mod at %s: %v", goModDir, parseErr),
+					}
 				}
 				if existingMod != goModulePath {
-					return fmt.Errorf("go.mod module mismatch at %s: got %q, expected %q", goModDir, existingMod, goModulePath)
+					manifest.Fail(string(publisher.ErrCodeGoModMismatch),
+						fmt.Sprintf("got %q, expected %q", existingMod, goModulePath), "publish")
+					return &publisher.PublishError{
+						Code:    publisher.ErrCodeGoModMismatch,
+						Message: fmt.Sprintf("go.mod module mismatch at %s: got %q, expected %q", goModDir, existingMod, goModulePath),
+					}
 				}
 				ui.Info("go.mod validated: %s", goModDir)
 			} else if os.IsNotExist(readErr) {
@@ -210,11 +239,11 @@ func publishWithIdentity(cmd *cobra.Command, opts publishOpts) error {
 	if opts.DryRun {
 		ui.Info("Dry-run mode: showing what would be published")
 		ui.Info("")
-		report := config.FormatIdentityReport(api, source, release, langs)
-		fmt.Print(report)
-		ui.Info("Tag:        %s", tag)
+		fmt.Print(publisher.FormatManifestReport(manifest))
 		ui.Info("")
 		ui.Success("Would publish module successfully")
+		ui.Info("")
+		ui.Info("Tip: use 'apx release prepare' + 'apx release submit' for full state tracking")
 		return nil
 	}
 
@@ -225,7 +254,8 @@ func publishWithIdentity(cmd *cobra.Command, opts publishOpts) error {
 
 	gitDir := filepath.Join(repoPath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-		return fmt.Errorf("not in a git repository (no .git directory found)")
+		return publisher.NewPublishError(publisher.ErrCodeNotGitRepo,
+			"not in a git repository (no .git directory found)")
 	}
 
 	subtreePublisher := publisher.NewSubtreePublisher(repoPath)
@@ -244,16 +274,24 @@ func publishWithIdentity(cmd *cobra.Command, opts publishOpts) error {
 
 	commitHash, err := subtreePublisher.PublishModule(source.Path, sourceRepo, opts.Version)
 	if err != nil {
-		return fmt.Errorf("publish failed: %w", err)
+		manifest.Fail(string(publisher.ErrCodeSubtreeFailed), err.Error(), "publish")
+		return &publisher.PublishError{
+			Code:    publisher.ErrCodeSubtreeFailed,
+			Message: fmt.Sprintf("publish failed: %v", err),
+			Hint:    "Check git status and try again, or use 'apx release prepare' + 'apx release submit'",
+		}
 	}
 
-	ui.Success("\u2713 Module published successfully")
+	_ = manifest.SetState(publisher.StateSubmitted)
+
+	ui.Success("✓ Module published successfully")
 	ui.Info("Commit: %s", commitHash)
 	ui.Info("Tag: %s", tag)
 
 	if opts.CreatePR {
 		ui.Info("Creating pull request...")
-		return fmt.Errorf("PR creation not yet implemented")
+		return publisher.NewPublishError(publisher.ErrCodePushFailed,
+			"PR creation not yet implemented").WithHint("Use 'apx release submit --create-pr' in the future")
 	}
 
 	return nil
