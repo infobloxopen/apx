@@ -6,6 +6,7 @@ package github
 import (
 	"encoding/json"
 	"fmt"
+	htmpl "html/template"
 	"net"
 	"net/http"
 	"os"
@@ -389,15 +390,20 @@ func CreateAppViaManifest(org, repo string) (appID string, pemContents string, e
 	})
 
 	// / — landing page that auto-submits the manifest form to GitHub.
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprintf(w, `<!DOCTYPE html><html><body>
+	formTmpl := htmpl.Must(htmpl.New("form").Parse(`<!DOCTYPE html><html><body>
 <p>Redirecting to GitHub to create the App&#8230;</p>
-<form id="mf" method="post" action="https://github.com/organizations/%s/settings/apps/new">
-<textarea name="manifest" hidden>%s</textarea>
+<form id="mf" method="post" action="https://github.com/organizations/{{.Org}}/settings/apps/new">
+<input type="hidden" name="manifest" value="{{.Manifest}}">
 </form>
 <script>document.getElementById('mf').submit();</script>
-</body></html>`, org, string(manifestJSON))
+</body></html>`))
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		formTmpl.Execute(w, map[string]string{ //nolint:errcheck
+			"Org":      org,
+			"Manifest": string(manifestJSON),
+		})
 	})
 
 	server := &http.Server{Handler: mux}
