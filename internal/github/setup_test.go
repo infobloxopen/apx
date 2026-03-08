@@ -2,9 +2,12 @@ package github
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -118,4 +121,96 @@ func TestOrgSecretExists_Error(t *testing.T) {
 	}
 
 	assert.False(t, orgSecretExists("myorg", "APX_APP_ID"))
+}
+
+// ---------------------------------------------------------------------------
+// App ID cache tests
+// ---------------------------------------------------------------------------
+
+func TestCacheAndGetAppID(t *testing.T) {
+	tmp := t.TempDir()
+	origPemCacheDir := pemCacheDirFn
+	pemCacheDirFn = func() (string, error) { return tmp, nil }
+	t.Cleanup(func() { pemCacheDirFn = origPemCacheDir })
+
+	// No cached ID yet
+	assert.Equal(t, "", GetCachedAppID("acme"))
+
+	// Cache it
+	require.NoError(t, CacheAppID("acme", "12345"))
+
+	// Read it back
+	assert.Equal(t, "12345", GetCachedAppID("acme"))
+
+	// File has 0600 perms
+	info, err := os.Stat(filepath.Join(tmp, "acme-app-id"))
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+}
+
+// ---------------------------------------------------------------------------
+// CachePEMFromContents tests
+// ---------------------------------------------------------------------------
+
+func TestCachePEMFromContents(t *testing.T) {
+	tmp := t.TempDir()
+	origPemCacheDir := pemCacheDirFn
+	pemCacheDirFn = func() (string, error) { return tmp, nil }
+	t.Cleanup(func() { pemCacheDirFn = origPemCacheDir })
+
+	require.NoError(t, CachePEMFromContents("acme", "pem-data-here"))
+
+	data, err := os.ReadFile(filepath.Join(tmp, "acme-app.pem"))
+	require.NoError(t, err)
+	assert.Equal(t, "pem-data-here", string(data))
+
+	info, err := os.Stat(filepath.Join(tmp, "acme-app.pem"))
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+}
+
+// ---------------------------------------------------------------------------
+// CreateAppViaManifest tests
+// ---------------------------------------------------------------------------
+
+func TestCreateAppViaManifest_ExchangesCode(t *testing.T) {
+	origGHRun := GHRun
+	origBrowser := openBrowserFn
+	t.Cleanup(func() {
+		GHRun = origGHRun
+		openBrowserFn = origBrowser
+	})
+
+	GHRun = func(args ...string) (string, error) {
+		// auth status check
+		if len(args) >= 2 && args[0] == "auth" && args[1] == "status" {
+			return "Logged in", nil
+		}
+		// manifest code exchange
+		if len(args) >= 2 && args[0] == "api" && strings.HasPrefix(args[1], "app-manifests/") {
+			return `{"id": 99999, "pem": "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"}`, nil
+		}
+		return "", fmt.Errorf("unexpected gh call: %v", args)
+	}
+
+	// Instead of actually opening browser, hit the callback directly
+	openBrowserFn = func(url string) error {
+		// Parse the port from the URL and hit /callback?code=testcode
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			// Extract port from http://localhost:<port>/
+			port := strings.TrimPrefix(url, "http://localhost:")
+			port = strings.TrimSuffix(port, "/")
+			resp, err := http.Get(fmt.Sprintf("http://localhost:%s/callback?code=testcode", port))
+			if err == nil {
+				resp.Body.Close()
+			}
+		}()
+		return nil
+	}
+
+	appID, pem, err := CreateAppViaManifest("acme", "apis")
+	require.NoError(t, err)
+	assert.Equal(t, "99999", appID)
+	assert.Contains(t, pem, "BEGIN RSA PRIVATE KEY")
 }

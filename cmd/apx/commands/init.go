@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/infobloxopen/apx/internal/detector"
 	gh "github.com/infobloxopen/apx/internal/github"
@@ -214,24 +215,38 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 		appID, _ := cmd.Flags().GetString("app-id")
 		pemFile, _ := cmd.Flags().GetString("app-pem-file")
 
-		if appID == "" && !nonInteractive {
-			if err := interactive.PromptForString("GitHub App ID:", "", &appID); err != nil {
-				return fmt.Errorf("failed to get app ID: %w", err)
-			}
-		}
+		// Try to resolve from cache if flags are not provided.
 		if appID == "" {
-			return fmt.Errorf("--app-id is required with --setup-github")
+			appID = gh.GetCachedAppID(org)
+		}
+		pemCached := false
+		if cachePath, err := gh.PEMCachePath(org); err == nil {
+			if _, statErr := os.Stat(cachePath); statErr == nil {
+				pemCached = true
+			}
 		}
 
-		// pemFile is optional if there's a cached PEM
-		if pemFile == "" && !nonInteractive {
-			cachePath, _ := gh.PEMCachePath(org)
-			if err := interactive.PromptForString(
-				fmt.Sprintf("Path to App private key PEM (leave empty if cached at %s):", cachePath),
-				"", &pemFile,
-			); err != nil {
-				return fmt.Errorf("failed to get PEM path: %w", err)
+		needsApp := appID == "" || (!pemCached && pemFile == "")
+		if needsApp && !nonInteractive {
+			ui.Info("\nNo GitHub App configured for org %q.", org)
+			ui.Info("Creating one via the GitHub App manifest flow...\n")
+
+			newAppID, pemContents, err := gh.CreateAppViaManifest(org, repo)
+			if err != nil {
+				return fmt.Errorf("failed to create GitHub App: %w", err)
 			}
+
+			if err := gh.CachePEMFromContents(org, pemContents); err != nil {
+				return fmt.Errorf("failed to cache PEM: %w", err)
+			}
+			if err := gh.CacheAppID(org, newAppID); err != nil {
+				return fmt.Errorf("failed to cache app ID: %w", err)
+			}
+
+			appID = newAppID
+			ui.Success("GitHub App created! App ID: %s", appID)
+		} else if needsApp {
+			return fmt.Errorf("--app-id and --app-pem-file are required with --setup-github in non-interactive mode")
 		}
 
 		ui.Info("\nConfiguring GitHub repository...")

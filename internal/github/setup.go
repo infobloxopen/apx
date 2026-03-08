@@ -6,10 +6,15 @@ package github
 import (
 	"encoding/json"
 	"fmt"
+	"html"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/infobloxopen/apx/internal/ui"
 )
@@ -306,6 +311,163 @@ func SetupAppRepo(org, repo string) (*SetupResult, error) {
 }
 
 // ---------------------------------------------------------------------------
+// Browser helper
+// ---------------------------------------------------------------------------
+
+// openBrowserFn opens a URL in the default browser. Variable for testing.
+var openBrowserFn = openBrowserReal
+
+func openBrowserReal(url string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", url).Start()
+	case "linux":
+		return exec.Command("xdg-open", url).Start()
+	default:
+		return fmt.Errorf("unsupported platform %s — open the URL manually", runtime.GOOS)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GitHub App manifest flow
+// ---------------------------------------------------------------------------
+
+// CreateAppViaManifest creates a GitHub App using the manifest flow.
+// It starts a temporary local HTTP server, opens the browser to GitHub's
+// app creation page with a pre-filled manifest, receives the callback
+// code, and exchanges it for the app credentials (ID + PEM).
+func CreateAppViaManifest(org, repo string) (appID string, pemContents string, err error) {
+	if err := CheckGHAuth(); err != nil {
+		return "", "", err
+	}
+
+	// Start listener to discover an available port.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", "", fmt.Errorf("failed to start local server: %w", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	callbackURL := fmt.Sprintf("http://localhost:%d/callback", port)
+
+	// Build the App manifest.
+	manifest := map[string]interface{}{
+		"name": fmt.Sprintf("apx-%s-%s", repo, org),
+		"url":  fmt.Sprintf("https://github.com/%s/%s", org, repo),
+		"redirect_url": callbackURL,
+		"hook_attributes": map[string]interface{}{
+			"active": false,
+		},
+		"public": false,
+		"default_permissions": map[string]string{
+			"contents":      "write",
+			"pull_requests": "write",
+			"metadata":      "read",
+		},
+		"default_events": []string{},
+	}
+	manifestJSON, _ := json.Marshal(manifest)
+
+	// Channels for the callback handler.
+	codeCh := make(chan string, 1)
+	errCh := make(chan error, 1)
+
+	mux := http.NewServeMux()
+
+	// /callback — receives the temporary code from GitHub.
+	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		code := r.URL.Query().Get("code")
+		if code == "" {
+			http.Error(w, "missing code", http.StatusBadRequest)
+			errCh <- fmt.Errorf("GitHub redirect missing code parameter")
+			return
+		}
+		codeCh <- code
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<!DOCTYPE html><html><body>
+<h2>&#10003; GitHub App created!</h2>
+<p>You can close this tab and return to the terminal.</p>
+</body></html>`)
+	})
+
+	// / — landing page that auto-submits the manifest form to GitHub.
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprintf(w, `<!DOCTYPE html><html><body>
+<p>Redirecting to GitHub to create the App&#8230;</p>
+<form id="mf" method="post" action="https://github.com/organizations/%s/settings/apps/new">
+<input type="hidden" name="manifest" value='%s'>
+</form>
+<script>document.getElementById('mf').submit();</script>
+</body></html>`, org, html.EscapeString(string(manifestJSON)))
+	})
+
+	server := &http.Server{Handler: mux}
+	go server.Serve(listener) //nolint:errcheck
+	defer server.Close()
+
+	startURL := fmt.Sprintf("http://localhost:%d/", port)
+	ui.Info("Opening browser to create GitHub App for org %q...", org)
+	ui.Info("If the browser doesn't open, visit: %s", startURL)
+	_ = openBrowserFn(startURL)
+
+	// Wait for the callback or timeout.
+	var code string
+	select {
+	case code = <-codeCh:
+		// success
+	case e := <-errCh:
+		return "", "", e
+	case <-time.After(5 * time.Minute):
+		return "", "", fmt.Errorf("timed out waiting for GitHub App creation (5 minutes)")
+	}
+
+	// Exchange the temporary code for app credentials.
+	out, ghErr := GHRun("api", fmt.Sprintf("app-manifests/%s/conversions", code), "--method", "POST")
+	if ghErr != nil {
+		return "", "", fmt.Errorf("failed to exchange manifest code: %s", out)
+	}
+
+	var result struct {
+		ID  int    `json:"id"`
+		PEM string `json:"pem"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		return "", "", fmt.Errorf("failed to parse app creation response: %w", err)
+	}
+	if result.ID == 0 || result.PEM == "" {
+		return "", "", fmt.Errorf("GitHub returned incomplete app data (id=%d, pem_len=%d)", result.ID, len(result.PEM))
+	}
+
+	return fmt.Sprintf("%d", result.ID), result.PEM, nil
+}
+
+// ---------------------------------------------------------------------------
+// App ID cache
+// ---------------------------------------------------------------------------
+
+// CacheAppID writes the App ID to ~/.config/apx/<org>-app-id.
+func CacheAppID(org, appID string) error {
+	dir, err := pemCacheDirFn()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, org+"-app-id"), []byte(appID), 0600)
+}
+
+// GetCachedAppID returns the cached App ID for an org, or "" if not cached.
+func GetCachedAppID(org string) string {
+	dir, err := pemCacheDirFn()
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(dir, org+"-app-id"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+// ---------------------------------------------------------------------------
 // PEM cache
 // ---------------------------------------------------------------------------
 
@@ -365,4 +527,18 @@ func CachePEM(org, pemPath string) (string, error) {
 	ui.Success("Cached PEM at %s (mode 0600)", cachePath)
 
 	return string(data), nil
+}
+
+// CachePEMFromContents writes PEM contents directly to the cache.
+// Used after the manifest flow returns the PEM as a string.
+func CachePEMFromContents(org, contents string) error {
+	cachePath, err := PEMCachePath(org)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(cachePath, []byte(contents), 0600); err != nil {
+		return fmt.Errorf("cannot write PEM cache %s: %w", cachePath, err)
+	}
+	ui.Success("Cached PEM at %s (mode 0600)", cachePath)
+	return nil
 }
