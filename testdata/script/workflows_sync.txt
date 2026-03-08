@@ -1,0 +1,78 @@
+# Test: apx workflows sync
+# Verifies workflow regeneration from templates
+
+# --- Setup: canonical repo with stale workflows ---
+mkdir canonical-repo
+cd canonical-repo
+exec apx config init
+
+# Create stale workflow files
+mkdir -p .github/workflows
+exec sh -c 'echo "old-ci-content" > .github/workflows/ci.yml'
+exec sh -c 'echo "old-merge-content" > .github/workflows/on-merge.yml'
+
+# Also create a canonical-looking directory
+mkdir -p proto catalog
+
+# Dry-run should not modify files
+exec apx workflows sync --dry-run
+stdout 'Would write'
+stdout 'ci.yml'
+stdout 'on-merge.yml'
+stdout 'no files were modified'
+grep 'old-ci-content' .github/workflows/ci.yml
+
+# Actual sync should overwrite
+exec apx workflows sync
+stdout 'Updated'
+stdout 'ci.yml'
+stdout 'on-merge.yml'
+
+# Verify the new content has the action reference
+grep 'infobloxopen/apx@v1' .github/workflows/ci.yml
+grep 'infobloxopen/apx@v1' .github/workflows/on-merge.yml
+
+# Verify old content is gone
+! grep 'old-ci-content' .github/workflows/ci.yml
+
+# --- Setup: app repo with stale workflow ---
+cd ..
+mkdir app-repo
+cd app-repo
+
+# Create apx.yaml with org/repo and module_roots
+cp $WORK/app-config.yaml apx.yaml
+
+# Create stale publish workflow
+mkdir -p .github/workflows
+exec sh -c 'echo "old-publish-content" > .github/workflows/apx-publish.yml'
+
+# Sync should regenerate
+exec apx workflows sync
+stdout 'Updated'
+stdout 'apx-publish.yml'
+grep 'infobloxopen/apx@v1' .github/workflows/apx-publish.yml
+! grep 'old-publish-content' .github/workflows/apx-publish.yml
+
+# --- No workflows and no structure: should error ---
+cd ..
+mkdir empty-repo
+cd empty-repo
+cp $WORK/minimal-config.yaml apx.yaml
+! exec apx workflows sync
+stderr 'could not determine repository type'
+
+# Cleanup
+cd ..
+rm -rf canonical-repo app-repo empty-repo
+
+-- app-config.yaml --
+version: 1
+org: testorg
+repo: myapp
+module_roots:
+  - internal/apis/proto
+-- minimal-config.yaml --
+version: 1
+org: testorg
+repo: testrepo
