@@ -1,6 +1,8 @@
 package validator
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -54,8 +56,127 @@ func TestDetectFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := DetectFormat(tt.path); got != tt.want {
-				t.Errorf("DetectFormat() = %v, want %v", got, tt.want)
+			if got := detectFormatFromFile(tt.path); got != tt.want {
+				t.Errorf("detectFormatFromFile() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDetectFormat_Directory(t *testing.T) {
+	// Create temp directory with schema files
+	tmp := t.TempDir()
+
+	tests := []struct {
+		name  string
+		files []string // relative paths to create
+		want  SchemaFormat
+	}{
+		{
+			name:  "directory with proto files",
+			files: []string{"internal/apis/proto/payments/ledger/v1/ledger.proto"},
+			want:  FormatProto,
+		},
+		{
+			name:  "directory with avro files",
+			files: []string{"schemas/avro/user.avsc"},
+			want:  FormatAvro,
+		},
+		{
+			name:  "empty directory",
+			files: nil,
+			want:  FormatUnknown,
+		},
+		{
+			name:  "directory with no schema files",
+			files: []string{"README.md", "go.mod"},
+			want:  FormatUnknown,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := filepath.Join(tmp, tt.name)
+			_ = os.MkdirAll(dir, 0o755)
+			for _, f := range tt.files {
+				p := filepath.Join(dir, f)
+				_ = os.MkdirAll(filepath.Dir(p), 0o755)
+				_ = os.WriteFile(p, []byte(""), 0o644)
+			}
+			if got := DetectFormat(dir); got != tt.want {
+				t.Errorf("DetectFormat(%s) = %v, want %v", dir, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDetectFormatFromModuleRoots(t *testing.T) {
+	tests := []struct {
+		name  string
+		roots []string
+		want  SchemaFormat
+	}{
+		{
+			name:  "single proto root",
+			roots: []string{"internal/apis/proto"},
+			want:  FormatProto,
+		},
+		{
+			name:  "single openapi root",
+			roots: []string{"schemas/openapi"},
+			want:  FormatOpenAPI,
+		},
+		{
+			name:  "single avro root",
+			roots: []string{"schemas/avro"},
+			want:  FormatAvro,
+		},
+		{
+			name:  "single jsonschema root",
+			roots: []string{"schemas/jsonschema"},
+			want:  FormatJSONSchema,
+		},
+		{
+			name:  "single parquet root",
+			roots: []string{"data/parquet"},
+			want:  FormatParquet,
+		},
+		{
+			name:  "multiple roots same format",
+			roots: []string{"internal/apis/proto", "vendor/apis/proto"},
+			want:  FormatProto,
+		},
+		{
+			name:  "mixed format roots",
+			roots: []string{"schemas/proto", "schemas/openapi"},
+			want:  FormatUnknown,
+		},
+		{
+			name:  "unrecognized root segment",
+			roots: []string{"internal/apis/custom"},
+			want:  FormatUnknown,
+		},
+		{
+			name:  "empty roots",
+			roots: nil,
+			want:  FormatUnknown,
+		},
+		{
+			name:  "protobuf alias",
+			roots: []string{"schemas/protobuf"},
+			want:  FormatProto,
+		},
+		{
+			name:  "swagger alias",
+			roots: []string{"schemas/swagger"},
+			want:  FormatOpenAPI,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := DetectFormatFromModuleRoots(tt.roots); got != tt.want {
+				t.Errorf("DetectFormatFromModuleRoots(%v) = %v, want %v", tt.roots, got, tt.want)
 			}
 		})
 	}

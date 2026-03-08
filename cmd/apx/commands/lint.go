@@ -59,6 +59,10 @@ func lintAction(cmd *cobra.Command, args []string) error {
 		format = validator.DetectFormat(absPath)
 	}
 
+	if format == validator.FormatUnknown && cfg != nil {
+		format = validator.DetectFormatFromModuleRoots(cfg.ModuleRoots)
+	}
+
 	if format == validator.FormatUnknown {
 		return fmt.Errorf("could not detect schema format for: %s\nPlease specify format with --format flag", absPath)
 	}

@@ -3,6 +3,8 @@ package validator
 import (
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -44,8 +46,19 @@ func NewValidator(resolver *ToolchainResolver) *Validator {
 	}
 }
 
-// DetectFormat detects the schema format from file path and content
+// DetectFormat detects the schema format from a file or directory path.
+// When path is a directory it walks the tree looking for the first file
+// with a recognizable schema extension.
 func DetectFormat(path string) SchemaFormat {
+	info, err := os.Stat(path)
+	if err == nil && info.IsDir() {
+		return detectFormatFromDir(path)
+	}
+	return detectFormatFromFile(path)
+}
+
+// detectFormatFromFile detects schema format from a single file path.
+func detectFormatFromFile(path string) SchemaFormat {
 	ext := strings.ToLower(filepath.Ext(path))
 	base := strings.ToLower(filepath.Base(path))
 
@@ -84,6 +97,65 @@ func DetectFormat(path string) SchemaFormat {
 	}
 
 	return FormatUnknown
+}
+
+// detectFormatFromDir walks a directory tree and returns the format of
+// the first schema file found. It stops as soon as a file with a
+// recognized extension is encountered.
+func detectFormatFromDir(dir string) SchemaFormat {
+	var found SchemaFormat
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if f := detectFormatFromFile(path); f != FormatUnknown {
+			found = f
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	if found == "" {
+		return FormatUnknown
+	}
+	return found
+}
+
+// DetectFormatFromModuleRoots infers the schema format from the
+// configured module_roots. Each root is expected to end with a format
+// segment (e.g. "internal/apis/proto" → proto). If all roots agree on
+// one format it is returned; otherwise FormatUnknown.
+func DetectFormatFromModuleRoots(roots []string) SchemaFormat {
+	if len(roots) == 0 {
+		return FormatUnknown
+	}
+	var detected SchemaFormat
+	for _, root := range roots {
+		seg := strings.ToLower(filepath.Base(root))
+		var f SchemaFormat
+		switch seg {
+		case "proto", "protobuf":
+			f = FormatProto
+		case "openapi", "swagger":
+			f = FormatOpenAPI
+		case "avro":
+			f = FormatAvro
+		case "jsonschema":
+			f = FormatJSONSchema
+		case "parquet":
+			f = FormatParquet
+		default:
+			continue
+		}
+		if detected == "" {
+			detected = f
+		} else if detected != f {
+			return FormatUnknown // ambiguous
+		}
+	}
+	if detected == "" {
+		return FormatUnknown
+	}
+	return detected
 }
 
 // Lint validates a schema file for syntax and style issues
