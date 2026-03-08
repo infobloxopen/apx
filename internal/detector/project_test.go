@@ -86,6 +86,7 @@ func TestGetSmartDefaults(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "Infoblox-CTO", defaults.Org)
 		assert.Equal(t, "apis", defaults.Repo)
+		assert.Empty(t, defaults.UpstreamOrg, "no upstream when origin is not a fork")
 	})
 
 	t.Run("falls back when git remote unavailable", func(t *testing.T) {
@@ -106,6 +107,64 @@ func TestGetSmartDefaults(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, defaults.Languages)
 	})
+
+	t.Run("fork detected via upstream remote", func(t *testing.T) {
+		gitRemoteURL = func(remote string) (string, error) {
+			switch remote {
+			case "origin":
+				return "git@github.com:dgarcia/apis.git", nil
+			case "upstream":
+				return "git@github.com:Infoblox-CTO/apis.git", nil
+			}
+			return "", fmt.Errorf("unknown remote %s", remote)
+		}
+		defaults, err := GetSmartDefaults()
+		require.NoError(t, err)
+		assert.Equal(t, "Infoblox-CTO", defaults.Org, "should use upstream org for consumption")
+		assert.Equal(t, "apis", defaults.Repo)
+		assert.Equal(t, "Infoblox-CTO", defaults.UpstreamOrg, "should record upstream org")
+	})
+
+	t.Run("fork with different repo name upstream", func(t *testing.T) {
+		gitRemoteURL = func(remote string) (string, error) {
+			switch remote {
+			case "origin":
+				return "git@github.com:dgarcia/my-fork.git", nil
+			case "upstream":
+				return "https://github.com/Infoblox-CTO/apis.git", nil
+			}
+			return "", fmt.Errorf("unknown remote %s", remote)
+		}
+		defaults, err := GetSmartDefaults()
+		require.NoError(t, err)
+		assert.Equal(t, "Infoblox-CTO", defaults.Org)
+		assert.Equal(t, "apis", defaults.Repo, "should use upstream repo name")
+		assert.Equal(t, "Infoblox-CTO", defaults.UpstreamOrg)
+	})
+
+	t.Run("no upstream remote means not a fork", func(t *testing.T) {
+		gitRemoteURL = func(remote string) (string, error) {
+			if remote == "origin" {
+				return "git@github.com:dgarcia/apis.git", nil
+			}
+			return "", fmt.Errorf("no such remote: %s", remote)
+		}
+		defaults, err := GetSmartDefaults()
+		require.NoError(t, err)
+		assert.Equal(t, "dgarcia", defaults.Org, "no upstream so use origin org")
+		assert.Empty(t, defaults.UpstreamOrg)
+	})
+
+	t.Run("upstream same org as origin is not a fork", func(t *testing.T) {
+		gitRemoteURL = func(remote string) (string, error) {
+			// Both remotes point to the same org (e.g. multiple remotes for same org)
+			return "git@github.com:Infoblox-CTO/apis.git", nil
+		}
+		defaults, err := GetSmartDefaults()
+		require.NoError(t, err)
+		assert.Equal(t, "Infoblox-CTO", defaults.Org)
+		assert.Empty(t, defaults.UpstreamOrg, "same org means not a fork")
+	})
 }
 
 func TestDetectOrgFromGit(t *testing.T) {
@@ -119,6 +178,21 @@ func TestDetectOrgFromGit(t *testing.T) {
 		org, err := DetectOrgFromGit()
 		require.NoError(t, err)
 		assert.Equal(t, "MyOrg", org)
+	})
+
+	t.Run("prefers upstream over origin", func(t *testing.T) {
+		gitRemoteURL = func(remote string) (string, error) {
+			switch remote {
+			case "upstream":
+				return "https://github.com/Infoblox-CTO/apis.git", nil
+			case "origin":
+				return "https://github.com/dgarcia/apis.git", nil
+			}
+			return "", fmt.Errorf("no remote")
+		}
+		org, err := DetectOrgFromGit()
+		require.NoError(t, err)
+		assert.Equal(t, "Infoblox-CTO", org, "should prefer upstream org")
 	})
 }
 

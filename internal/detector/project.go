@@ -14,6 +14,12 @@ type ProjectDefaults struct {
 	Org       string
 	Repo      string
 	Languages []string
+	// UpstreamOrg is populated when origin is a fork and an "upstream"
+	// remote points to a different org. Consumption paths (go_package,
+	// buf module, dependency resolution) should reference this org
+	// because the canonical API repo lives there, not in the fork owner's
+	// namespace.
+	UpstreamOrg string
 }
 
 // GetSmartDefaults detects default values based on the current directory context
@@ -31,6 +37,23 @@ func GetSmartDefaults() (*ProjectDefaults, error) {
 		}
 		if repo != "" {
 			defaults.Repo = repo
+		}
+
+		// Check if this is a fork by looking for an "upstream" remote.
+		// When someone forks Infoblox-CTO/apis → dgarcia/apis, their
+		// origin points to dgarcia/apis but the canonical API repo for
+		// consumption is still Infoblox-CTO/apis.
+		if upOrg, upRepo, err := DetectFromGitRemote("upstream"); err == nil {
+			if upOrg != "" && upOrg != defaults.Org {
+				defaults.UpstreamOrg = upOrg
+				// For consumption, the org that owns the canonical repo
+				// is the upstream org, so override the default.
+				defaults.Org = upOrg
+			}
+			// If upstream has a different repo name, prefer it
+			if upRepo != "" && upRepo != defaults.Repo {
+				defaults.Repo = upRepo
+			}
 		}
 	} else {
 		// Fall back to filesystem path detection for org
@@ -126,9 +149,13 @@ func detectRepoFromDir() (string, error) {
 	return filepath.Base(cwd), nil
 }
 
-// DetectOrgFromGit is kept for backward compatibility. It tries git remote
-// first, then falls back to filesystem path inspection.
+// DetectOrgFromGit is kept for backward compatibility. It tries the upstream
+// remote first (fork detection), then origin, then filesystem path inspection.
 func DetectOrgFromGit() (string, error) {
+	// If there's an upstream remote, prefer its org (fork scenario)
+	if org, _, err := DetectFromGitRemote("upstream"); err == nil && org != "" {
+		return org, nil
+	}
 	if org, _, err := DetectFromGitRemote("origin"); err == nil && org != "" {
 		return org, nil
 	}
