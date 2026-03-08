@@ -1,3 +1,303 @@
 # Publishing Workflow
 
-*Coming soon — this page is under construction.*
+This page covers how to publish schemas from an app repository to the canonical repository. APX provides two publishing paths and supports both manual and CI-triggered workflows.
+
+## Overview
+
+Publishing moves a schema snapshot from your app repo into the canonical repository via a pull request. The canonical repo's CI then validates, tags, and catalogs the release.
+
+```
+┌─────────────────────────┐          ┌──────────────────────────┐
+│     App Repository       │          │  Canonical Repository     │
+│                          │          │                           │
+│  1. Author schemas       │          │                           │
+│  2. Validate locally     │          │                           │
+│  3. Tag or run publish   │          │                           │
+│                          │  PR      │                           │
+│  4. apx publish ──────────────────► │  5. CI validates PR       │
+│     (or apx release      │          │  6. Reviewer approves     │
+│      prepare + submit)   │          │  7. Merge to main         │
+│                          │          │  8. Post-merge CI:        │
+│                          │          │     - catalog update      │
+│                          │          │     - tag creation         │
+└─────────────────────────┘          └──────────────────────────┘
+```
+
+## Two Publishing Paths
+
+### Quick Publish (`apx publish`)
+
+A single command that validates, pushes a release branch, and opens a PR on the canonical repo. Best for local development and quick iterations.
+
+```bash
+apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+```
+
+**What happens:**
+
+1. Parses the API ID and derives canonical paths
+2. Validates `go_package` and module path consistency
+3. Enforces lifecycle policy rules
+4. Clones the canonical repo to a temp directory
+5. Creates a release branch `apx/publish/<api-id>/<version>`
+6. Copies module files into the canonical source path
+7. Generates `go.mod` if missing
+8. Pushes the branch and opens a PR via the `gh` CLI
+
+```bash
+# Examples
+apx publish proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle preview
+apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+
+# Preview without publishing
+apx publish proto/payments/ledger/v1 --version v1.0.0 --dry-run
+```
+
+See [Publish Command](../publishing/publish-command.md) for full flag reference.
+
+---
+
+### Release Pipeline (`apx release`)
+
+A multi-step workflow with explicit phases, manifest persistence, and idempotency checks. Best for CI pipelines and production-grade releases.
+
+```bash
+# Step 1: Validate and create a release manifest
+apx release prepare proto/payments/ledger/v1 --version v1.0.0
+
+# Step 2: Push release branch and open PR on canonical repo
+apx release submit
+
+# Step 3: Tag, catalog, and emit release record (run by canonical CI)
+apx release finalize
+```
+
+**What each step does:**
+
+| Step | Command | Output |
+|------|---------|--------|
+| **Prepare** | `apx release prepare` | Validates schemas, lifecycle, version-line compatibility. Writes `.apx-release.yaml` manifest. |
+| **Submit** | `apx release submit` | Clones canonical repo, creates branch `apx/release/<api-id>/<version>`, opens PR. Records PR metadata in manifest. |
+| **Finalize** | `apx release finalize` | Re-validates, creates annotated tag, updates catalog, emits immutable release record. Run by canonical CI after merge. |
+
+The release pipeline also supports lifecycle promotions:
+
+```bash
+apx release promote proto/payments/ledger/v1 --to stable --version v1.0.0
+apx release submit
+```
+
+See [Release Commands](../cli-reference/release-commands.md) for full reference.
+
+---
+
+## CI-Triggered Publishing
+
+The recommended production workflow uses CI to publish automatically when you push a tag.
+
+### How It Works
+
+1. You push a tag matching the APX pattern (e.g. `proto/payments/ledger/v1/v1.0.0`)
+2. The app repo's `apx-publish.yml` workflow triggers
+3. CI validates the schema and calls `apx publish`
+4. A PR is opened on the canonical repo
+5. Canonical CI validates the PR, reviewers approve, and it merges
+6. Post-merge CI on the canonical repo creates the official tag and updates the catalog
+
+### Tag Format
+
+Tags follow the pattern `<api-id>/<version>`:
+
+```
+proto/payments/ledger/v1/v1.0.0
+openapi/billing/invoices/v2/v2.1.0-beta.1
+avro/events/clicks/v1/v1.0.0-alpha.3
+```
+
+### Triggering a Publish
+
+```bash
+# Create and push a tag
+git tag proto/payments/ledger/v1/v1.0.0
+git push origin proto/payments/ledger/v1/v1.0.0
+```
+
+The `apx-publish.yml` workflow matches tags against these patterns:
+
+```yaml
+on:
+  push:
+    tags:
+      - "proto/**/v[0-9]*"
+      - "openapi/**/v[0-9]*"
+      - "avro/**/v[0-9]*"
+      - "jsonschema/**/v[0-9]*"
+      - "parquet/**/v[0-9]*"
+```
+
+### The App Repo Workflow
+
+The `apx-publish.yml` workflow is generated by `apx init app` or `apx workflows sync`:
+
+```yaml
+name: APX Publish
+on:
+  push:
+    tags:
+      - "proto/**/v[0-9]*"
+      - "openapi/**/v[0-9]*"
+      - "avro/**/v[0-9]*"
+      - "jsonschema/**/v[0-9]*"
+      - "parquet/**/v[0-9]*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APX_APP_ID }}
+          private-key: ${{ secrets.APX_APP_PRIVATE_KEY }}
+          owner: <org>
+          repositories: <canonical-repo>
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install APX
+        uses: infobloxopen/apx@v1
+
+      - name: Parse tag
+        id: tag
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate
+        run: |
+          apx lint
+          apx breaking --against HEAD^ || true
+
+      - name: Publish to canonical repo
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          apx publish \
+            --tag="${{ steps.tag.outputs.tag }}" \
+            --canonical-repo=github.com/<org>/<canonical-repo>
+```
+
+The `<org>` and `<canonical-repo>` placeholders are filled from your `apx.yaml` when the workflow is generated.
+
+---
+
+## Manual vs CI Publishing
+
+| Aspect | Manual (`apx publish`) | CI (tag-triggered) |
+|--------|----------------------|-------------------|
+| **Trigger** | Run from terminal | Push a git tag |
+| **Auth** | Your `gh` CLI session | GitHub App token |
+| **Validation** | Local only | CI runs lint + breaking |
+| **Audit trail** | Git log | CI run URL in PR body |
+| **Best for** | Development, quick iteration | Production releases |
+
+Both paths produce the same result: a PR on the canonical repo with the schema snapshot.
+
+---
+
+## What Happens After the PR
+
+Once the PR is opened on the canonical repo (by either path):
+
+1. **Canonical CI validates** — `ci.yml` runs `apx lint` and `apx breaking --against origin/main`
+2. **Review** — team members review the schema changes
+3. **Merge** — PR merges to `main`
+4. **Post-merge CI** — `on-merge.yml` runs:
+   - Re-validates schemas
+   - Runs `apx catalog generate` to update `catalog/catalog.yaml`
+   - Commits catalog changes with `[skip ci]`
+
+See [CI Templates](../canonical-repo/ci-templates.md) for details on canonical repo workflows.
+
+---
+
+## Prerequisites
+
+### For Manual Publishing
+
+- **`gh` CLI** installed and authenticated (`gh auth login`)
+- **Write access** to the canonical repo (push branches + create PRs)
+
+### For CI Publishing
+
+- **APX GitHub App** installed on both the app repo and canonical repo
+- **Org secrets** `APX_APP_ID` and `APX_APP_PRIVATE_KEY` available to the app repo
+- **`apx-publish.yml`** workflow in `.github/workflows/`
+
+See [Protection](../canonical-repo/protection.md) for GitHub App setup.
+
+---
+
+## Lifecycle and Version Rules
+
+APX enforces consistency between lifecycle state and version:
+
+| Lifecycle | Required version format | Example |
+|-----------|------------------------|---------|
+| `experimental` | `-alpha.*` prerelease | `v1.0.0-alpha.1` |
+| `preview` | `-alpha.*`, `-beta.*`, or `-rc.*` | `v1.0.0-beta.1` |
+| `stable` | No prerelease tag | `v1.0.0` |
+| `deprecated` | Any | `v1.2.1` |
+| `sunset` | Blocked (no new releases) | — |
+
+```bash
+# These work:
+apx publish proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
+apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+
+# This fails (stable requires clean semver):
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle stable
+```
+
+See [Publishing Overview](../publishing/overview.md) for the full lifecycle model.
+
+---
+
+## Troubleshooting
+
+### `apx publish` fails with "gh: not authenticated"
+
+Run `gh auth login` to authenticate the GitHub CLI.
+
+### PR creation fails with permission error
+
+Ensure you have push access to the canonical repo, or use the CI-triggered path with the GitHub App token.
+
+### "version already published" error
+
+The same version with identical content was already published. This is an idempotency check — `apx publish` detects the existing tag by comparing SHA-256 content hashes and reports success.
+
+### CI workflow doesn't trigger on tag push
+
+Verify the tag matches the expected pattern. Tags must start with the schema format prefix:
+```bash
+# Correct
+git tag proto/payments/ledger/v1/v1.0.0
+
+# Wrong — missing the version line directory
+git tag proto/payments/ledger/v1.0.0
+```
+
+## Next Steps
+
+- [CI Integration](ci-integration.md) — app repo CI setup details
+- [Publish Command](../publishing/publish-command.md) — full CLI reference
+- [Release Commands](../cli-reference/release-commands.md) — multi-step pipeline
+- [CI Templates](../canonical-repo/ci-templates.md) — canonical repo workflows
