@@ -10,7 +10,7 @@ cd app-a
 exec git init
 exec git config user.name 'E2E Test Bot'
 exec git config user.email 'e2e@example.com'
-exec apx init app --org=testorg --non-interactive internal/apis/proto/service-a/v1
+exec apx init app --org=testorg --repo=test-app --non-interactive internal/apis/proto/service-a/v1
 exists apx.yaml
 
 # Add dependency on service-b
@@ -27,7 +27,7 @@ cd app-b
 exec git init
 exec git config user.name 'E2E Test Bot'
 exec git config user.email 'e2e@example.com'
-exec apx init app --org=testorg --non-interactive internal/apis/proto/service-b/v1
+exec apx init app --org=testorg --repo=test-app --non-interactive internal/apis/proto/service-b/v1
 exists apx.yaml
 
 # Add dependency on service-a (creating circular dep)

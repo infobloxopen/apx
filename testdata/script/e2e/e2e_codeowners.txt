@@ -33,7 +33,7 @@ cd app
 exec git init
 exec git config user.name 'E2E Test Bot'
 exec git config user.email 'e2e@example.com'
-exec apx init app --org=testorg --non-interactive internal/apis/proto/owners/v1
+exec apx init app --org=testorg --repo=test-app --non-interactive internal/apis/proto/owners/v1
 exists apx.yaml
 ! exists CODEOWNERS
 

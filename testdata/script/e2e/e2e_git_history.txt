@@ -11,7 +11,7 @@ cd app
 exec git init
 exec git config user.name 'Author One'
 exec git config user.email 'author1@example.com'
-exec apx init app --org=testorg --non-interactive internal/apis/proto/history/v1
+exec apx init app --org=testorg --repo=test-app --non-interactive internal/apis/proto/history/v1
 exists internal/apis/proto/history/v1/history.proto
 
 # Commit 1: Initial schema by Author One

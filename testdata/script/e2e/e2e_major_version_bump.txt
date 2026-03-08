@@ -10,7 +10,7 @@ cd app
 exec git init
 exec git config user.name 'E2E Test Bot'
 exec git config user.email 'e2e@example.com'
-exec apx init app --org=testorg --non-interactive internal/apis/proto/versioned/v1
+exec apx init app --org=testorg --repo=test-app --non-interactive internal/apis/proto/versioned/v1
 exists internal/apis/proto/versioned/v1/versioned.proto
 
 exec git add .
@@ -18,7 +18,7 @@ exec git commit -m 'Initial schema v1.0.0'
 exec git tag proto/versioned/v1/v1.0.0
 
 # Step 2: Create v2 module with breaking changes
-exec apx init app --org=testorg --non-interactive internal/apis/proto/versioned/v2
+exec apx init app --org=testorg --repo=test-app --non-interactive internal/apis/proto/versioned/v2
 
 # Verify v2 directory was created alongside v1
 exists internal/apis/proto/versioned/v1/versioned.proto
