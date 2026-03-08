@@ -1,5 +1,5 @@
 # Test: Git History and Authorship Preservation (US4)
-# Validates that git subtree publishing preserves commit history and authorship.
+# Validates that PR-based publishing preserves commit history and authorship.
 # Creates multiple commits from different authors and verifies they're preserved.
 #
 # Prerequisites: k3d and Gitea running (handled by TestE2E)
@@ -95,4 +95,4 @@ cd ..
 # - 5 schema-related commits from 3 different authors
 # - All commit messages preserved
 # - All author names and emails preserved
-# - Unrelated commits exist but should be filtered during subtree publish
+# - Unrelated commits exist but should be filtered during PR-based publish

@@ -98,7 +98,7 @@ Then publish with `proto/payments/ledger/v2` as the API ID.
 ### `lifecycle "stable" requires a stable version`
 
 Prerelease versions (e.g. `-beta.1`) cannot be published under the `stable` lifecycle. Either:
-- Change the lifecycle to `preview` (allows prerelease versions)
+- Change the lifecycle to `beta` (allows prerelease versions)
 - Remove the prerelease suffix to publish a stable version
 
 ---

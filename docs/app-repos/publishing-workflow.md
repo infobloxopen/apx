@@ -47,7 +47,7 @@ apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
 ```bash
 # Examples
 apx publish proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle preview
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
 apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
 
 # Preview without publishing
@@ -185,12 +185,22 @@ jobs:
           apx lint
           apx breaking --against HEAD^ || true
 
+      - name: Extract API ID and version from tag
+        id: parse
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Tag format: <api-id>/<version>  e.g. proto/payments/ledger/v1/v1.0.0
+          VERSION="${TAG##*/}"            # last component
+          API_ID="${TAG%/*}"              # everything before last /
+          echo "api_id=${API_ID}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Publish to canonical repo
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          apx publish \
-            --tag="${{ steps.tag.outputs.tag }}" \
+          apx publish "${{ steps.parse.outputs.api_id }}" \
+            --version "${{ steps.parse.outputs.version }}" \
             --canonical-repo=github.com/<org>/<canonical-repo>
 ```
 
@@ -252,7 +262,7 @@ APX enforces consistency between lifecycle state and version:
 | Lifecycle | Required version format | Example |
 |-----------|------------------------|---------|
 | `experimental` | `-alpha.*` prerelease | `v1.0.0-alpha.1` |
-| `preview` | `-alpha.*`, `-beta.*`, or `-rc.*` | `v1.0.0-beta.1` |
+| `beta` | `-alpha.*`, `-beta.*`, or `-rc.*` | `v1.0.0-beta.1` |
 | `stable` | No prerelease tag | `v1.0.0` |
 | `deprecated` | Any | `v1.2.1` |
 | `sunset` | Blocked (no new releases) | — |

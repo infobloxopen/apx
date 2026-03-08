@@ -10,26 +10,26 @@ import (
 // The lifecycle is a support/stability signal independent of version numbers:
 //
 //	experimental — early exploration; no compatibility guarantee
-//	preview      — API surface is stabilizing; breaking changes still possible
+//	beta         — API surface is stabilizing; breaking changes still possible
 //	stable       — full backward compatibility within the major line
 //	deprecated   — maintained but no new features; consumers should migrate
 //	sunset       — end of life; no further releases permitted
 //
-// "beta" is accepted as a backward-compatible alias for "preview".
+// "preview" is accepted as a backward-compatible alias for "beta".
 const (
 	LifecycleExperimental = "experimental"
-	LifecyclePreview      = "preview"
-	LifecycleBeta         = "beta" // alias for preview (backward compat)
+	LifecycleBeta         = "beta"
+	LifecyclePreview      = "preview" // alias for beta (backward compat)
 	LifecycleStable       = "stable"
 	LifecycleDeprecated   = "deprecated"
 	LifecycleSunset       = "sunset"
 )
 
 // NormalizeLifecycle converts backward-compatible lifecycle aliases to their
-// canonical form. "beta" → "preview"; all others pass through unchanged.
+// canonical form. "preview" → "beta"; all others pass through unchanged.
 func NormalizeLifecycle(lifecycle string) string {
-	if lifecycle == LifecycleBeta {
-		return LifecyclePreview
+	if lifecycle == LifecyclePreview {
+		return LifecycleBeta
 	}
 	return lifecycle
 }
@@ -40,7 +40,7 @@ func NormalizeLifecycle(lifecycle string) string {
 // Rules:
 //
 //	experimental → must have -alpha.* prerelease
-//	preview/beta → must have -alpha.*, -beta.*, or -rc.* prerelease
+//	beta/preview → must have -alpha.*, -beta.*, or -rc.* prerelease
 //	stable       → must NOT have a prerelease tag
 //	deprecated   → any version allowed (warning emitted by caller)
 //	sunset       → blocked unless override is set
@@ -62,8 +62,8 @@ func ValidateVersionLifecycle(version, lifecycle string) error {
 				lifecycle, version,
 			)
 		}
-	case LifecyclePreview:
-		if !isPreviewPrerelease(pre) {
+	case LifecycleBeta:
+		if !isBetaPrerelease(pre) {
 			return fmt.Errorf(
 				"lifecycle %q requires a prerelease tag (-alpha.*, -beta.*, or -rc.*), got version %q",
 				lifecycle, version,
@@ -91,9 +91,9 @@ func ValidateVersionLifecycle(version, lifecycle string) error {
 	return nil
 }
 
-// isPreviewPrerelease returns true if the prerelease tag is one of
-// the allowed preview-phase labels: alpha, beta, or rc.
-func isPreviewPrerelease(pre string) bool {
+// isBetaPrerelease returns true if the prerelease tag is one of
+// the allowed beta-phase labels: alpha, beta, or rc.
+func isBetaPrerelease(pre string) bool {
 	return strings.HasPrefix(pre, "alpha") ||
 		strings.HasPrefix(pre, "beta") ||
 		strings.HasPrefix(pre, "rc")
@@ -126,7 +126,7 @@ var lifecycleOrder = map[string]int{
 // ValidateLifecycleTransition checks that moving from one lifecycle state
 // to another is legal. The only legal direction is forward:
 //
-//	experimental → preview → stable → deprecated → sunset
+//	experimental → beta → stable → deprecated → sunset
 //
 // Transitions backward (e.g. stable → experimental) are always illegal.
 // Staying at the same state is always legal.
@@ -155,7 +155,7 @@ func ValidateLifecycleTransition(from, to string) error {
 
 	if toIdx < fromIdx {
 		return fmt.Errorf(
-			"illegal lifecycle transition %s → %s: lifecycle can only move forward (experimental → preview → stable → deprecated → sunset)",
+			"illegal lifecycle transition %s → %s: lifecycle can only move forward (experimental → beta → stable → deprecated → sunset)",
 			from, to,
 		)
 	}
@@ -169,14 +169,14 @@ func ValidateLifecycleTransition(from, to string) error {
 // ---------------------------------------------------------------------------
 
 // ValidateV0Lifecycle enforces that a v0 API line uses only experimental or
-// preview lifecycle states. v0 lines are inherently unstable and must signal
+// beta lifecycle states. v0 lines are inherently unstable and must signal
 // that to consumers.
 func ValidateV0Lifecycle(lifecycle string) error {
 	lc := NormalizeLifecycle(lifecycle)
-	if lc != LifecycleExperimental && lc != LifecyclePreview {
+	if lc != LifecycleExperimental && lc != LifecycleBeta {
 		return fmt.Errorf(
 			"v0 API lines require lifecycle %q or %q, got %q",
-			LifecycleExperimental, LifecyclePreview, lifecycle,
+			LifecycleExperimental, LifecycleBeta, lifecycle,
 		)
 	}
 	return nil
@@ -213,7 +213,7 @@ func DeriveCompatibilityPromise(line, lifecycle string) CompatibilityPromise {
 			Summary:        "No compatibility guarantee — breaking changes expected",
 			BreakingPolicy: "Breaking changes allowed in any release",
 		}
-	case lc == LifecyclePreview:
+	case lc == LifecycleBeta:
 		return CompatibilityPromise{
 			Level:          "stabilizing",
 			Summary:        "API surface is stabilizing — minor breaking changes possible",
@@ -253,7 +253,7 @@ func ProductionRecommendation(lifecycle string) string {
 	switch lc {
 	case LifecycleExperimental:
 		return "Not recommended for production use"
-	case LifecyclePreview:
+	case LifecycleBeta:
 		return "Use with caution — API may change before stable release"
 	case LifecycleStable:
 		return "Recommended for production use"

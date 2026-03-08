@@ -57,7 +57,7 @@ Each layer answers a different question:
 |----------|-------|---------|
 | What compatibility scope am I in? | **API line** | `v0`, `v1`, `v2` |
 | Which build am I running? | **Release version** | `1.0.0-beta.1`, `1.2.3` |
-| Is this safe to depend on in production? | **Lifecycle** | `experimental`, `preview`, `stable` |
+| Is this safe to depend on in production? | **Lifecycle** | `experimental`, `beta`, `stable` |
 
 Without separating these, teams overload version strings to convey lifecycle meaning — which is fragile and confusing.
 
@@ -69,7 +69,7 @@ APX supports `v0` API lines for APIs that are still taking shape.  SemVer define
 
 | Rule | Detail |
 |------|--------|
-| Allowed lifecycles | `experimental` or `preview` only |
+| Allowed lifecycles | `experimental` or `beta` only |
 | Breaking changes | Allowed — bumps the minor version |
 | Production use | Not recommended |
 | Promotion to stable | Not permitted on v0; graduate to `v1` instead |
@@ -77,7 +77,7 @@ APX supports `v0` API lines for APIs that are still taking shape.  SemVer define
 ### v0 Version Examples
 
 ```
-0.1.0   ← first preview
+0.1.0   ← first beta
 0.2.0   ← breaking change (minor bump)
 0.2.1   ← patch fix
 0.3.0   ← another breaking change
@@ -85,7 +85,7 @@ APX supports `v0` API lines for APIs that are still taking shape.  SemVer define
 
 When the API is ready for production, create the `v1` line and publish `v1.0.0` with lifecycle `stable`.
 
-## Two Preview Workflows
+## Two Beta Workflows
 
 APX supports two official workflows for pre-production APIs:
 
@@ -103,26 +103,26 @@ Use this when:
 - Others may observe or consume it, but everyone understands it can break
 - You are not yet committed to a stable contract
 
-### Workflow 2 — Prerelease on Upcoming Stable Line (v1 + preview)
+### Workflow 2 — Prerelease on Upcoming Stable Line (v1 + beta)
 
 For APIs approaching GA that need integration testing:
 
 ```bash
 apx release prepare proto/payments/ledger/v1 \
-  --version 1.0.0-alpha.1 --lifecycle preview
+  --version 1.0.0-alpha.1 --lifecycle beta
 
 apx release prepare proto/payments/ledger/v1 \
-  --version 1.0.0-beta.1  --lifecycle preview
+  --version 1.0.0-beta.1  --lifecycle beta
 
 apx release prepare proto/payments/ledger/v1 \
-  --version 1.0.0-rc.1    --lifecycle preview
+  --version 1.0.0-rc.1    --lifecycle beta
 
 apx release prepare proto/payments/ledger/v1 \
   --version 1.0.0          --lifecycle stable
 ```
 
 Use this when:
-- You want preview users to test the actual `v1` contract before GA
+- You want beta users to test the actual `v1` contract before GA
 - The API is mostly defined and you are converging toward a release
 - Pre-release labels (`alpha`, `beta`, `rc`) communicate release phase
 

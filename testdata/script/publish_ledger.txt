@@ -1,5 +1,5 @@
 # Test: apx publish
-# Verifies publish workflow with git subtree (dry-run mode for testing)
+# Verifies publish workflow via PR (dry-run mode for testing)
 
 # Setup app repository
 mkdir app-repo

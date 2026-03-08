@@ -42,7 +42,7 @@ func ParseAPIID(apiID string) (*APIIdentity, error) {
 }
 
 // isValidLine checks that a line string matches v<N> where N >= 0.
-// v0 lines are allowed for experimental/preview APIs.
+// v0 lines are allowed for experimental/beta APIs.
 func isValidLine(line string) bool {
 	if !strings.HasPrefix(line, "v") {
 		return false
@@ -217,13 +217,13 @@ func ValidateLifecycle(lifecycle string) error {
 	valid := map[string]bool{
 		"experimental": true,
 		"preview":      true,
-		"beta":         true, // backward-compatible alias for preview
+		"beta":         true, // canonical; preview is the backward-compat alias
 		"stable":       true,
 		"deprecated":   true,
 		"sunset":       true,
 	}
 	if !valid[lifecycle] {
-		return fmt.Errorf("invalid lifecycle %q: must be one of experimental, preview, stable, deprecated, sunset", lifecycle)
+		return fmt.Errorf("invalid lifecycle %q: must be one of experimental, beta, stable, deprecated, sunset", lifecycle)
 	}
 	return nil
 }

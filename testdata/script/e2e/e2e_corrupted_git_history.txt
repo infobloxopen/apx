@@ -1,5 +1,5 @@
 # Test: Corrupted Git History (Edge Case)
-# Validates handling of git subtree split failures with unusual git state.
+# Validates handling of PR-based publish failures with unusual git state.
 #
 # Prerequisites: k3d and Gitea running (handled by TestE2E)
 # Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner

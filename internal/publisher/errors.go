@@ -31,7 +31,7 @@ const (
 	ErrCodeGoModMismatch PublishErrorCode = "GO_MOD_MISMATCH"
 
 	// ErrCodeMergeConflict means the canonical repo has diverged and a
-	// merge conflict occurred during subtree/copy publish.
+	// merge conflict occurred during publish.
 	ErrCodeMergeConflict PublishErrorCode = "MERGE_CONFLICT"
 
 	// ErrCodeCanonicalMoved means the canonical repo's HEAD has moved since
@@ -57,9 +57,6 @@ const (
 
 	// ErrCodeMissingConfig means apx.yaml could not be loaded.
 	ErrCodeMissingConfig PublishErrorCode = "MISSING_CONFIG"
-
-	// ErrCodeSubtreeFailed means the git subtree split failed.
-	ErrCodeSubtreeFailed PublishErrorCode = "SUBTREE_FAILED"
 
 	// ErrCodePushFailed means the git push to canonical repo failed.
 	ErrCodePushFailed PublishErrorCode = "PUSH_FAILED"
@@ -123,7 +120,6 @@ var ErrorCodeDescriptions = map[PublishErrorCode]string{
 	ErrCodeNotGitRepo:           "Not inside a git repository",
 	ErrCodeInvalidVersion:       "Version is not valid semver",
 	ErrCodeMissingConfig:        "apx.yaml not found or invalid",
-	ErrCodeSubtreeFailed:        "Git subtree split failed",
 	ErrCodePushFailed:           "Git push to canonical repo failed",
 	ErrCodeBreakingChange:       "Breaking changes require a new API line",
 	ErrCodeVersionLineMismatch:  "Version major does not match API line",

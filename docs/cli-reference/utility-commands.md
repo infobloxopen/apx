@@ -175,7 +175,7 @@ apx inspect release <api-id>@<version>
 |------|------|---------|-------------|
 | `--source-repo` | string | from apx.yaml | Source repository |
 
-Lifecycle is inferred from the version's prerelease tag (alpha → experimental, beta/rc → preview, none → stable).
+Lifecycle is inferred from the version's prerelease tag (alpha → experimental, beta/rc → beta, none → stable).
 
 ---
 

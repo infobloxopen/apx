@@ -133,7 +133,7 @@ func TestGenerateFromTags_PrereleaseOnly_Beta(t *testing.T) {
 	require.Len(t, cat.Modules, 1)
 	m := cat.Modules[0]
 	assert.Equal(t, "v1.0.0-beta.3", m.LatestPrerelease)
-	assert.Equal(t, "preview", m.Lifecycle)
+	assert.Equal(t, "beta", m.Lifecycle)
 }
 
 func TestGenerateFromTags_PrereleaseOnly_RC(t *testing.T) {
@@ -146,7 +146,7 @@ func TestGenerateFromTags_PrereleaseOnly_RC(t *testing.T) {
 	require.Len(t, cat.Modules, 1)
 	m := cat.Modules[0]
 	assert.Equal(t, "v1.0.0-rc.2", m.LatestPrerelease)
-	assert.Equal(t, "preview", m.Lifecycle) // rc → preview lifecycle
+	assert.Equal(t, "beta", m.Lifecycle) // rc → beta lifecycle
 }
 
 func TestGenerateFromTags_StableOverridesPrerelease(t *testing.T) {
@@ -192,7 +192,7 @@ func TestGenerateFromTags_MultipleAPIs(t *testing.T) {
 	assert.Equal(t, "experimental", cat.Modules[2].Lifecycle) // alpha
 
 	assert.Equal(t, "proto/payments/wallet/v1", cat.Modules[3].ID)
-	assert.Equal(t, "preview", cat.Modules[3].Lifecycle)
+	assert.Equal(t, "beta", cat.Modules[3].Lifecycle)
 }
 
 func TestGenerateFromTags_IgnoresNonMatchingTags(t *testing.T) {
@@ -256,5 +256,5 @@ func TestGenerateCatalogSaveAndLoad(t *testing.T) {
 
 	assert.Equal(t, "openapi/iam/roles/v2", loaded.Modules[0].ID)
 	assert.Equal(t, "v2.0.0-beta.1", loaded.Modules[0].Version)
-	assert.Equal(t, "preview", loaded.Modules[0].Lifecycle)
+	assert.Equal(t, "beta", loaded.Modules[0].Lifecycle)
 }

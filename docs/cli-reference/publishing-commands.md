@@ -23,8 +23,8 @@ Examples:
 # Alpha release
 apx publish proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
 
-# Preview release (beta prerelease tag, preview lifecycle)
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle preview
+# Beta release (beta prerelease tag, beta lifecycle)
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
 
 # GA release
 apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
@@ -47,11 +47,10 @@ apx publish --module-path <path> --canonical-repo <url> --version <semver>
 | Flag | Type | Description |
 |------|------|-------------|
 | `--version` | string | SemVer version to publish (required) |
-| `--lifecycle` | string | Lifecycle state: experimental, preview, stable, deprecated, sunset (`beta` accepted as alias for `preview`) |
+| `--lifecycle` | string | Lifecycle state: experimental, beta, stable, deprecated, sunset (`preview` accepted as alias for `beta`) |
 | `--canonical-repo` | string | Canonical repo URL (auto-derived from config) |
 | `--module-path` | string | Module path (legacy mode) |
 | `--dry-run` | bool | Preview without publishing |
-| `--create-pr` | bool | Create PR instead of pushing |
 
 ### What Happens During Publish
 

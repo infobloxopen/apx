@@ -54,7 +54,7 @@ canonical_repo: github.com/acme/apis
 canonical_path: proto/payments/ledger/v1
 tag: proto/payments/ledger/v1/v1.2.0
 error:
-  code: SUBTREE_FAILED
+  code: PR_CREATION_FAILED
   message: something went wrong
   phase: submit
 

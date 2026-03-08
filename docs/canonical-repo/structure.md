@@ -169,16 +169,16 @@ APX uses **subdirectory tags** for each API version:
 
 ```bash
 # v1 releases
-proto/payments/ledger/v1.0.0
-proto/payments/ledger/v1.2.3
+proto/payments/ledger/v1/v1.0.0
+proto/payments/ledger/v1/v1.2.3
 
 # v2 releases  
-proto/payments/ledger/v2.0.0
-proto/payments/ledger/v2.1.0
+proto/payments/ledger/v2/v2.0.0
+proto/payments/ledger/v2/v2.1.0
 
 # Other formats
-openapi/users/v1.0.0
-avro/events/v1.5.0
+openapi/users/v1/v1.0.0
+avro/events/v1/v1.5.0
 ```
 
 ### Tag Protection

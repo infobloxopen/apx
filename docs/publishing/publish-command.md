@@ -20,10 +20,10 @@ apx publish --module-path <path> --canonical-repo <url> --version <semver>
 apx publish proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
 ```
 
-### Preview release
+### Beta release
 
 ```bash
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle preview
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
 ```
 
 ### GA release
@@ -55,11 +55,10 @@ apx publish proto/payments/ledger/v1 --version v1.0.0 --dry-run
 | Flag | Description |
 |------|-------------|
 | `--version` | SemVer version to publish (required) |
-| `--lifecycle` | Lifecycle state (experimental, preview, stable, deprecated, sunset; `beta` accepted as alias for `preview`) |
+| `--lifecycle` | Lifecycle state (experimental, beta, stable, deprecated, sunset; `preview` accepted as alias for `beta`) |
 | `--canonical-repo` | Canonical repository URL (auto-derived from apx.yaml) |
 | `--module-path` | Module path (legacy; prefer positional api-id) |
 | `--dry-run` | Show what would be published without publishing |
-| `--create-pr` | Clone canonical repo, copy module files to a feature branch, and open a PR via the `gh` CLI |
 | `--strict` | Make `go_package` mismatches an error instead of a warning |
 | `--skip-gomod` | Skip `go.mod` generation and validation |
 
@@ -70,13 +69,12 @@ apx publish proto/payments/ledger/v1 --version v1.0.0 --dry-run
 3. **Derives** Go module and import paths
 4. **Validates** consistency of paths and `go_package` options
 5. **Generates** or validates `go.mod` for the module (unless `--skip-gomod`)
-6. **Publishes** the module — either direct push or PR:
-   - **Without `--create-pr`**: subtree split + push to `main` on canonical
-   - **With `--create-pr`**: shallow-clone canonical, copy files to a feature branch, push, and open a PR via `gh`
+6. **Publishes** the module via PR:
+   - Shallow-clones the canonical repo, copies files to a feature branch, pushes, and opens a PR via `gh`
 
-### PR-based Publish (`--create-pr`)
+### PR-based Publish
 
-When `--create-pr` is used, APX:
+When publishing, APX:
 
 1. Verifies the `gh` CLI is installed and authenticated
 2. Shallow-clones the canonical repo to a temp directory
@@ -87,7 +85,7 @@ When `--create-pr` is used, APX:
 
 ```bash
 # Requires: gh auth login  (one-time setup)
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle preview --create-pr
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
 ```
 
 The PR title follows the convention `publish: <api-id>@<version>`.

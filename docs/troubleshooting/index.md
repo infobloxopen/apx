@@ -34,7 +34,7 @@ faq
 
 :::{grid-item-card} **Publishing**
 ^^^
-- Subtree merge conflicts
+- PR creation errors
 - Permission errors
 - CI failures
 :::

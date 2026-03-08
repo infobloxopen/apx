@@ -9,7 +9,7 @@ APX validates that the declared lifecycle is compatible with the version being p
 | Lifecycle | Allowed versions | Rejected versions |
 |-----------|-----------------|------------------|
 | `experimental` | Must have `-alpha.*` prerelease | Stable versions, `-beta.*`, `-rc.*` |
-| `preview` | Must have `-alpha.*`, `-beta.*`, or `-rc.*` prerelease | Stable versions |
+| `beta` | Must have `-alpha.*`, `-beta.*`, or `-rc.*` prerelease | Stable versions |
 | `stable` | Must be a stable version (no prerelease) | Any prerelease |
 | `deprecated` | Any version | *(none)* |
 | `sunset` | Releases are blocked | Any version (unless overridden) |
@@ -20,7 +20,7 @@ APIs on the `v0` line have additional restrictions:
 
 | Guardrail | Rule |
 |-----------|------|
-| Lifecycle | Must be `experimental` or `preview` |
+| Lifecycle | Must be `experimental` or `beta` |
 | Stable promotion | Not permitted — graduate to `v1` instead |
 | Breaking changes | Allowed — minor version bump instead of rejection |
 
@@ -31,10 +31,10 @@ These restrictions are enforced by `apx release prepare` and `apx release promot
 Lifecycle states must progress forward:
 
 ```
-experimental → preview → stable → deprecated → sunset
+experimental → beta → stable → deprecated → sunset
 ```
 
-APX rejects backward transitions (e.g., `stable` → `preview`).
+APX rejects backward transitions (e.g., `stable` → `beta`).
 
 ## Breaking Change Enforcement
 

@@ -20,7 +20,7 @@ APX separates three signals so each one does exactly one job:
 |--------|-------|---------|
 | **Compatibility scope** | API line | `v0`, `v1`, `v2` |
 | **Release phase** | SemVer version | `1.0.0-alpha.1`, `1.0.0-beta.1`, `1.0.0` |
-| **Support/stability posture** | Lifecycle | `experimental`, `preview`, `stable` |
+| **Support/stability posture** | Lifecycle | `experimental`, `beta`, `stable` |
 
 ## Lifecycle States
 
@@ -33,7 +33,7 @@ Early exploration.  The API is still forming — its shape, semantics, and scope
 - **Production use:** not recommended
 - **Required versions:** must carry an `-alpha.*` prerelease tag
 
-### `preview`
+### `beta`
 
 The API surface is stabilizing.  The design is mostly defined, but minor breaking changes are still possible as the contract converges.
 
@@ -43,7 +43,7 @@ The API surface is stabilizing.  The design is mostly defined, but minor breakin
 - **Required versions:** must carry `-alpha.*`, `-beta.*`, or `-rc.*` prerelease tag
 
 :::{note}
-`beta` is accepted as a backward-compatible alias for `preview`.  The canonical name is `preview`; APX normalizes `beta` → `preview` internally.
+`preview` is accepted as a backward-compatible alias for `beta`.  The canonical name is `beta`; APX normalizes `preview` → `beta` internally.
 :::
 
 ### `stable`
@@ -78,15 +78,15 @@ End of life.  No further releases will be made.
 Lifecycle states progress forward and cannot be reversed:
 
 ```
-experimental → preview → stable → deprecated → sunset
+experimental → beta → stable → deprecated → sunset
 ```
 
-APX enforces this ordering.  You cannot move a `stable` API back to `preview`, for example.
+APX enforces this ordering.  You cannot move a `stable` API back to `beta`, for example.
 
 | From | Allowed targets |
 |------|----------------|
-| `experimental` | `preview`, `stable`, `deprecated`, `sunset` |
-| `preview` | `stable`, `deprecated`, `sunset` |
+| `experimental` | `beta`, `stable`, `deprecated`, `sunset` |
+| `beta` | `stable`, `deprecated`, `sunset` |
 | `stable` | `deprecated`, `sunset` |
 | `deprecated` | `sunset` |
 | `sunset` | *(none — terminal state)* |
@@ -97,7 +97,7 @@ API lines starting with `v0` have special rules rooted in SemVer's definition of
 
 | Rule | Detail |
 |------|--------|
-| **Allowed lifecycles** | `experimental` or `preview` only |
+| **Allowed lifecycles** | `experimental` or `beta` only |
 | **Stable promotion** | Not allowed — graduate the API to a `v1` line instead |
 | **Breaking changes** | Allowed; APX bumps the minor version instead of rejecting |
 | **Production use** | Not recommended |
@@ -113,9 +113,9 @@ APX derives a **compatibility promise** from the combination of API line and lif
 | API Line | Lifecycle | Level | Summary |
 |----------|-----------|-------|---------|
 | `v0` | `experimental` | none | No backward-compatibility guarantee; anything may change |
-| `v0` | `preview` | none | No backward-compatibility guarantee; breaking changes expected |
+| `v0` | `beta` | none | No backward-compatibility guarantee; breaking changes expected |
 | `v1+` | `experimental` | none | No backward-compatibility guarantee |
-| `v1+` | `preview` | stabilizing | API surface is stabilizing; minor breaking changes possible |
+| `v1+` | `beta` | stabilizing | API surface is stabilizing; minor breaking changes possible |
 | `v1+` | `stable` | full | Full backward compatibility within the major version line |
 | any | `deprecated` | maintenance | Bug fixes only; no new features; migrate to successor |
 | any | `sunset` | eol | End of life; no further releases |
@@ -126,12 +126,12 @@ APX derives a **compatibility promise** from the combination of API line and lif
 |----------|-----------|--------|
 | `v0` | any | Breaking changes allowed (minor version bump) |
 | `v1+` | `experimental` | Breaking changes allowed (prerelease scope) |
-| `v1+` | `preview` | Breaking changes may occur between prereleases |
+| `v1+` | `beta` | Breaking changes may occur between prereleases |
 | `v1+` | `stable` | Backward-incompatible changes are blocked |
 | any | `deprecated` | No changes expected (maintenance only) |
 | any | `sunset` | No releases permitted |
 
-## Two Preview Workflows
+## Two Beta Workflows
 
 APX supports two official workflows for pre-production APIs.  Choose the one that matches your situation.
 
@@ -162,19 +162,19 @@ apx release prepare proto/payments/ledger/v1 \
   --version 1.0.0 --lifecycle stable
 ```
 
-### Workflow 2: Prerelease on Upcoming Stable Line (v1 + preview)
+### Workflow 2: Prerelease on Upcoming Stable Line (v1 + beta)
 
 For APIs approaching GA that need integration testing:
 
 ```bash
 apx release prepare proto/payments/ledger/v1 \
-  --version 1.0.0-alpha.1 --lifecycle preview
+  --version 1.0.0-alpha.1 --lifecycle beta
 
 apx release prepare proto/payments/ledger/v1 \
-  --version 1.0.0-beta.1  --lifecycle preview
+  --version 1.0.0-beta.1  --lifecycle beta
 
 apx release prepare proto/payments/ledger/v1 \
-  --version 1.0.0-rc.1    --lifecycle preview
+  --version 1.0.0-rc.1    --lifecycle beta
 
 apx release prepare proto/payments/ledger/v1 \
   --version 1.0.0          --lifecycle stable
@@ -182,7 +182,7 @@ apx release prepare proto/payments/ledger/v1 \
 
 **When to use:**
 - The API is mostly defined and converging toward a release
-- You want preview users to test the actual `v1` contract before GA
+- You want beta users to test the actual `v1` contract before GA
 - Consumers benefit from alpha → beta → rc progression signals
 
 **Key benefit:** consumers never rewrite imports — the import path (`proto/payments/ledger/v1`) stays the same from alpha through GA.
@@ -215,7 +215,7 @@ Compatibility:
 # APX enforces v0 lifecycle policy
 $ apx release prepare proto/payments/ledger/v0 \
     --version 0.4.0 --lifecycle stable
-Error: v0 line must use lifecycle "experimental" or "preview", got "stable"
+Error: v0 line must use lifecycle "experimental" or "beta", got "stable"
 
 # Valid v0 release
 $ apx release prepare proto/payments/ledger/v0 \
@@ -225,14 +225,14 @@ $ apx release prepare proto/payments/ledger/v0 \
 ### Promoting a release
 
 ```bash
-# Promote from preview to stable
+# Promote from beta to stable
 $ apx release promote proto/payments/ledger/v1 \
     --target-lifecycle stable --version 1.0.0
 
 # v0 cannot be promoted to stable
 $ apx release promote proto/payments/ledger/v0 \
     --target-lifecycle stable
-Error: v0 line must use lifecycle "experimental" or "preview", got "stable"
+Error: v0 line must use lifecycle "experimental" or "beta", got "stable"
 ```
 
 ## See Also

@@ -40,7 +40,7 @@ apx update --dry-run
 - Reads `apx.lock` for currently pinned versions
 - Queries the canonical repo catalog for newer versions within the same API line
 - Applies only **compatible** updates (patch and minor bumps)
-- Respects lifecycle transitions (won't downgrade from `stable` to `preview`)
+- Respects lifecycle transitions (won't downgrade from `stable` to `beta`)
 - Updates `apx.lock` with new pinned versions
 - Regenerates code automatically
 

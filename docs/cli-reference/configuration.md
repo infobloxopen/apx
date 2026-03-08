@@ -88,7 +88,7 @@ version: 1
 | `api.domain` | string | no |  |  | Business domain for the API |
 | `api.name` | string | no |  |  | API name within the domain |
 | `api.line` | string | no |  |  | API compatibility line (e.g. v1, v2) |
-| `api.lifecycle` | string | no |  | experimental, preview, stable, deprecated, sunset | Maturity/support state of this API line (`beta` accepted as alias for `preview`) |
+| `api.lifecycle` | string | no |  | experimental, beta, stable, deprecated, sunset | Maturity/support state of this API line (`preview` accepted as alias for `beta`) |
 | `source` | struct | no |  |  | Canonical source repository identity |
 | `source.repo` | string | no |  |  | Canonical source repository (e.g. github.com/acme/apis) |
 | `source.path` | string | no |  |  | Path within the canonical repo (derived from api.id) |
@@ -210,7 +210,7 @@ api:
   domain: payments
   name: ledger
   line: v1
-  lifecycle: preview
+  lifecycle: beta
 ```
 
 The `line` field represents the API compatibility line (`v1`, `v2`, etc.). Only breaking changes create a new line. The `lifecycle` field tracks the maturity state independently from the release version.
@@ -218,13 +218,13 @@ The `line` field represents the API compatibility line (`v1`, `v2`, etc.). Only 
 | Lifecycle | Meaning |
 |-----------|--------|
 | `experimental` | Early exploration, no compatibility guarantees |
-| `preview` | API surface is stabilizing; minor breaking changes still possible |
+| `beta` | API surface is stabilizing; minor breaking changes still possible |
 | `stable` | Production-ready, backward-compatible within the API line |
 | `deprecated` | Superseded by a newer line, still supported |
 | `sunset` | End-of-life, will be removed |
 
 :::{note}
-`beta` is accepted as a backward-compatible alias for `preview`. New projects should use `preview`.
+`preview` is accepted as a backward-compatible alias for `beta`.
 :::
 
 ### `source`

@@ -17,7 +17,7 @@ Common questions about APX usage, configuration, and best practices.
 **A**: `apx update` and `apx upgrade` are **planned** for a future release. For now, re-add the dependency at the new version: `apx add proto/payments/ledger/v1@v1.3.0`.
 
 ### Q: How does APX publish APIs?
-**A**: APX uses git subtree to publish APIs, preserving complete commit history, authorship, and context in the canonical repository.
+**A**: APX opens a pull request against the canonical repository, copying module files to a feature branch for review and CI validation before merging.
 
 ## Governance & Policy
 
@@ -155,7 +155,7 @@ apx publish \
 
 ### Q: How does APX handle large repositories?
 **A**: 
-- **Git subtree** preserves complete commit history and authorship
+- **PR-based workflow** provides complete audit trail and review process
 - **Selective publishing** only processes changed APIs
 - **Cache optimization** for tools and dependencies
 - **Incremental processing** to handle repository scale efficiently

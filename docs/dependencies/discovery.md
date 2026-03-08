@@ -28,7 +28,7 @@ apx search --format=openapi
 
 # Filter by lifecycle state
 apx search --lifecycle=stable
-apx search --lifecycle=preview
+apx search --lifecycle=beta
 
 # Filter by domain
 apx search --domain=payments
@@ -48,7 +48,7 @@ apx --json search payments
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--format` | `-f` | Filter by schema format (`proto`, `openapi`, `avro`, `jsonschema`, `parquet`) |
-| `--lifecycle` | `-l` | Filter by lifecycle (`experimental`, `preview`/`beta`, `stable`, `deprecated`, `sunset`) |
+| `--lifecycle` | `-l` | Filter by lifecycle (`experimental`, `beta`, `stable`, `deprecated`, `sunset`) |
 | `--domain` | `-d` | Filter by domain (e.g. `payments`, `billing`) |
 | `--api-line` | | Filter by API line (e.g. `v1`, `v2`) |
 | `--catalog` | `-c` | Path to catalog file (default: `catalog/catalog.yaml`) |

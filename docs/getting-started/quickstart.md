@@ -122,7 +122,7 @@ api:                                  # canonical API identity
   domain: payments
   name: ledger
   line: v1
-  lifecycle: preview                  # experimental → preview → stable → deprecated → sunset
+  lifecycle: beta                  # experimental → beta → stable → deprecated → sunset
 
 source:                               # where the canonical copy lives
   repo: github.com/<org>/apis
@@ -141,7 +141,7 @@ languages:                            # per-language derived coordinates
 You only need to supply the **API ID** (`api.id`), **source repo**, and **lifecycle**.
 APX derives the remaining fields — `format`, `domain`, `name`, `line`,
 `source.path`, and all `languages` coordinates — automatically via
-`apx init app` or `apx identity`.  They are shown here so you can see
+`apx init app` or `apx inspect identity`.  They are shown here so you can see
 the full coordinate model that the rest of this guide builds on.
 :::
 
@@ -160,7 +160,7 @@ The identity fields you see in `apx.yaml` drive every command in this guide:
 | Field | Where it shows up |
 |-------|-------------------|
 | `api.id` | Git tag prefix (`proto/payments/ledger/v1/v1.2.3`), overlay directory name, `apx search` results |
-| `api.lifecycle` | SemVer guardrails — `preview` APIs may only publish `0.x` or pre-release versions |
+| `api.lifecycle` | SemVer guardrails — `beta` APIs may only publish `0.x` or pre-release versions |
 | `source.repo` + `source.path` | Target for `apx publish` PRs; base path in the canonical repo |
 | `languages.go.module` | `go.mod` synthesised during `apx gen go` and overlay setup |
 | `languages.go.import` | The import path your application code uses — unchanged from local dev through production |
@@ -346,17 +346,16 @@ When ready to publish your schema:
 apx lint && apx breaking --against=HEAD^ && apx semver suggest --against=HEAD^
 ```
 
-### 2. Publish via PR (recommended)
+### 2. Publish via PR
 
-The simplest path for teams: `apx publish --create-pr` copies your module into
+The simplest path for teams: `apx publish` copies your module into
 the canonical repo on a feature branch and opens a pull request via the `gh` CLI.
 
 ```bash
 # One-time: gh auth login
 apx publish proto/payments/ledger/v1 \
   --version v1.0.0-beta.1 \
-  --lifecycle preview \
-  --create-pr
+  --lifecycle beta
 ```
 
 APX will:
@@ -509,7 +508,7 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           API_ID="${TAG%/v*}"                    # proto/payments/ledger/v1
           VERSION="${TAG##*/}"                   # v1.2.3
-          apx publish "$API_ID" --version "$VERSION" --create-pr
+          apx publish "$API_ID" --version "$VERSION"
 ```
 
 ### Canonical Repo CI (Validate & Release)

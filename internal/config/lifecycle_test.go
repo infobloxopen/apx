@@ -7,8 +7,8 @@ import (
 )
 
 func TestNormalizeLifecycle(t *testing.T) {
-	assert.Equal(t, "preview", NormalizeLifecycle("beta"))
-	assert.Equal(t, "preview", NormalizeLifecycle("preview"))
+	assert.Equal(t, "beta", NormalizeLifecycle("beta"))
+	assert.Equal(t, "beta", NormalizeLifecycle("preview"))
 	assert.Equal(t, "experimental", NormalizeLifecycle("experimental"))
 	assert.Equal(t, "stable", NormalizeLifecycle("stable"))
 	assert.Equal(t, "deprecated", NormalizeLifecycle("deprecated"))
@@ -25,7 +25,7 @@ func TestValidateVersionLifecycle_Experimental(t *testing.T) {
 }
 
 func TestValidateVersionLifecycle_Preview(t *testing.T) {
-	// preview allows -alpha.*, -beta.*, or -rc.*
+	// "preview" is an alias for "beta" — accepts alpha, beta, and rc prereleases
 	assert.NoError(t, ValidateVersionLifecycle("v1.0.0-alpha.1", "preview"))
 	assert.NoError(t, ValidateVersionLifecycle("v1.0.0-beta.1", "preview"))
 	assert.NoError(t, ValidateVersionLifecycle("v1.0.0-rc.1", "preview"))
@@ -35,7 +35,7 @@ func TestValidateVersionLifecycle_Preview(t *testing.T) {
 }
 
 func TestValidateVersionLifecycle_Beta(t *testing.T) {
-	// "beta" is an alias for "preview" — accepts alpha, beta, and rc prereleases
+	// "beta" is the canonical lifecycle — accepts alpha, beta, and rc prereleases
 	assert.NoError(t, ValidateVersionLifecycle("v1.0.0-beta.1", "beta"))
 	assert.NoError(t, ValidateVersionLifecycle("v1.0.0-alpha.1", "beta"))
 	assert.NoError(t, ValidateVersionLifecycle("v1.0.0-rc.1", "beta"))
@@ -166,10 +166,10 @@ func TestValidateLifecycleTransition_UnknownState(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestValidateV0Lifecycle(t *testing.T) {
-	// v0 only allows experimental or preview (beta alias)
+	// v0 only allows experimental or beta (preview alias)
 	assert.NoError(t, ValidateV0Lifecycle("experimental"))
-	assert.NoError(t, ValidateV0Lifecycle("preview"))
-	assert.NoError(t, ValidateV0Lifecycle("beta")) // alias for preview
+	assert.NoError(t, ValidateV0Lifecycle("beta"))
+	assert.NoError(t, ValidateV0Lifecycle("preview")) // alias for beta
 	assert.Error(t, ValidateV0Lifecycle("stable"))
 	assert.Error(t, ValidateV0Lifecycle("deprecated"))
 	assert.Error(t, ValidateV0Lifecycle("sunset"))
@@ -218,8 +218,8 @@ func TestDeriveCompatibilityPromise(t *testing.T) {
 
 func TestProductionRecommendation(t *testing.T) {
 	assert.Contains(t, ProductionRecommendation("experimental"), "Not recommended")
-	assert.Contains(t, ProductionRecommendation("preview"), "caution")
-	assert.Contains(t, ProductionRecommendation("beta"), "caution") // alias
+	assert.Contains(t, ProductionRecommendation("beta"), "caution")
+	assert.Contains(t, ProductionRecommendation("preview"), "caution") // alias
 	assert.Contains(t, ProductionRecommendation("stable"), "Recommended")
 	assert.Contains(t, ProductionRecommendation("deprecated"), "Migrate")
 	assert.Contains(t, ProductionRecommendation("sunset"), "Do not use")

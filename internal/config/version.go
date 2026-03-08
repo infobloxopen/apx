@@ -376,7 +376,7 @@ func lifecyclePrerelease(lifecycle string, counter int) string {
 	switch lc {
 	case "experimental":
 		return fmt.Sprintf("alpha.%d", counter)
-	case "preview":
+	case "beta":
 		return fmt.Sprintf("beta.%d", counter)
 	default:
 		return ""
@@ -419,7 +419,7 @@ func lifecyclePrereleasePrefix(lifecycle string) string {
 	switch lc {
 	case "experimental":
 		return "alpha"
-	case "preview":
+	case "beta":
 		return "beta"
 	default:
 		return ""

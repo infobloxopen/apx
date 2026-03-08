@@ -59,7 +59,7 @@ apx release prepare proto/payments/ledger/v1 --version v2.0.0 --force
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--version` | string | *(required)* | SemVer version to release |
-| `--lifecycle` | string | auto | Lifecycle state (`experimental`, `preview`, `stable`, `deprecated`, `sunset`) |
+| `--lifecycle` | string | auto | Lifecycle state (`experimental`, `beta`, `stable`, `deprecated`, `sunset`) |
 | `--canonical-repo` | string | from config | Canonical repository URL |
 | `--strict` | bool | false | Fail on `go_package` validation warnings |
 | `--skip-gomod` | bool | false | Skip `go.mod` validation |
@@ -242,7 +242,7 @@ Release history for proto/payments/ledger/v1:
   v1.2.0               stable         proto/payments/ledger/v1/v1.2.0
   v1.1.0               stable         proto/payments/ledger/v1/v1.1.0
   v1.0.0               stable         proto/payments/ledger/v1/v1.0.0
-  v1.0.0-beta.1        preview        proto/payments/ledger/v1/v1.0.0-beta.1
+  v1.0.0-beta.1        beta           proto/payments/ledger/v1/v1.0.0-beta.1
   v1.0.0-alpha.1       experimental   proto/payments/ledger/v1/v1.0.0-alpha.1
 
 Total: 5 release(s)
@@ -253,7 +253,7 @@ Total: 5 release(s)
 ## `apx release promote`
 
 Create a release manifest that moves an API forward in its lifecycle
-(e.g. `preview` → `stable`).  The promotion produces a prepared manifest that
+(e.g. `beta` → `stable`).  The promotion produces a prepared manifest that
 is then submitted with `apx release submit`.
 
 ```bash
@@ -277,7 +277,7 @@ apx release promote proto/payments/ledger/v1 --to stable --force
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--to` | string | *(required)* | Target lifecycle (`preview`, `stable`, `deprecated`, `sunset`) |
+| `--to` | string | *(required)* | Target lifecycle (`beta`, `stable`, `deprecated`, `sunset`) |
 | `--version` | string | auto | Version for the promoted release |
 | `--canonical-repo` | string | from config | Canonical repository URL |
 | `--force` | bool | false | Override lifecycle checks |
@@ -285,7 +285,7 @@ apx release promote proto/payments/ledger/v1 --to stable --force
 ### What Happens
 
 1. Current lifecycle is resolved from the manifest, config, or latest git tag
-2. Lifecycle transition is validated (must move forward: experimental → preview → stable → deprecated → sunset)
+2. Lifecycle transition is validated (must move forward: experimental → beta → stable → deprecated → sunset)
 3. If `--version` is omitted, a version is auto-derived (e.g. strip prerelease for stable promotion)
 4. A prepared manifest is written — the next step is `apx release submit`
 

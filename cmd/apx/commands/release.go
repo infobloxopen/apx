@@ -65,7 +65,7 @@ Examples:
 		RunE: releasePrepareAction,
 	}
 	cmd.Flags().String("version", "", "Version to release (e.g. v1.0.0-beta.1)")
-	cmd.Flags().String("lifecycle", "", "Lifecycle state (experimental, preview, stable, deprecated, sunset)")
+	cmd.Flags().String("lifecycle", "", "Lifecycle state (experimental, beta, stable, deprecated, sunset)")
 	cmd.Flags().String("canonical-repo", "", "Canonical repository URL")
 	cmd.Flags().Bool("strict", false, "Make go_package mismatches an error")
 	cmd.Flags().Bool("skip-gomod", false, "Skip go.mod generation and validation")
@@ -123,7 +123,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 			return &publisher.PublishError{
 				Code:    publisher.ErrCodeLifecycleMismatch,
 				Message: err.Error(),
-				Hint:    "v0 lines must use 'experimental' or 'preview' lifecycle",
+				Hint:    "v0 lines must use 'experimental' or 'beta' lifecycle",
 			}
 		}
 	}
@@ -135,7 +135,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 				return &publisher.PublishError{
 					Code:    publisher.ErrCodeIllegalTransition,
 					Message: err.Error(),
-					Hint:    "Lifecycle can only move forward: experimental → preview → stable → deprecated → sunset",
+					Hint:    "Lifecycle can only move forward: experimental → beta → stable → deprecated → sunset",
 				}
 			}
 		}
@@ -1052,7 +1052,7 @@ func inferLifecycleFromVersion(version string) string {
 		return "experimental"
 	}
 	if strings.HasPrefix(sv.Prerelease, "beta") || strings.HasPrefix(sv.Prerelease, "rc") {
-		return "preview"
+		return "beta"
 	}
 	return ""
 }
@@ -1077,7 +1077,7 @@ Examples:
 		Args: cobra.ExactArgs(1),
 		RunE: releasePromoteAction,
 	}
-	cmd.Flags().String("to", "", "Target lifecycle (preview, stable, deprecated, sunset)")
+	cmd.Flags().String("to", "", "Target lifecycle (beta, stable, deprecated, sunset)")
 	cmd.Flags().String("version", "", "Version for the promoted release (required for stable promotion)")
 	cmd.Flags().String("canonical-repo", "", "Canonical repository URL")
 	cmd.Flags().Bool("force", false, "Override lifecycle checks")
@@ -1161,7 +1161,7 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 					version = fmt.Sprintf("v%d.%d.%d", sv.Major, sv.Minor, sv.Patch+1)
 				}
 			}
-		} else if targetLifecycle == "preview" || targetLifecycle == "beta" {
+		} else if targetLifecycle == "beta" || targetLifecycle == "preview" {
 			latest, _ := config.LatestVersion(versions, promoteLineMajor)
 			if latest != "" {
 				sv, err := config.ParseSemVer(latest)

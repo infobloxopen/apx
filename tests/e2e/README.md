@@ -115,7 +115,7 @@ E2E_KEEP_FAILED=1 E2E_ENABLED=1 go test -v ./tests/e2e -run TestE2E
 - `e2e_major_version_bump.txt` - Allows breaking changes in new major version (v2)
 
 ### Phase 6: Git History Preservation (User Story 4) ✅
-- `e2e_git_history.txt` - Verifies commit history and authorship through subtree publish
+- `e2e_git_history.txt` - Verifies commit history and authorship through PR-based publish
 
 ### Phase 7: Edge Cases ✅
 - `e2e_gitea_unreachable.txt` - Gitea unavailability error handling

@@ -146,7 +146,7 @@ apx semver suggest --against HEAD^
 # → minor (new fields added, no breaking changes)
 
 # With explicit API ID and lifecycle
-apx semver suggest --api-id proto/payments/ledger/v1 --lifecycle preview --against HEAD^
+apx semver suggest --api-id proto/payments/ledger/v1 --lifecycle beta --against HEAD^
 # → v1.1.0-beta.1
 
 # JSON output

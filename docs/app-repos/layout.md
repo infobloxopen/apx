@@ -72,7 +72,7 @@ api:
   domain: payments
   name: ledger
   line: v1
-  lifecycle: preview              # experimental → preview → stable → deprecated → sunset
+  lifecycle: beta              # experimental → beta → stable → deprecated → sunset
 
 source:
   repo: github.com/<org>/apis

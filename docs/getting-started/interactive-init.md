@@ -303,7 +303,7 @@ codegen:
 
 publishing:
   canonical_repo: github.com/mycompany/apis
-  strategy: subtree
+  strategy: pr
 ```
 
 ## Best Practices

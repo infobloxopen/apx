@@ -43,7 +43,7 @@
 
 **Key ideas**
 - Canonical source of truth: `github.com/<org>/apis` (one repo, many submodules).
-- App teams tag releases **in their app repo**; `apx publish` opens a PR to the canonical repo using **git subtree** (history-preserving).
+- App teams tag releases **in their app repo**; `apx publish` opens a PR to the canonical repo.
 - Only CI in the canonical repo creates tags and optional language packages (Maven, wheels, OCI bundles).
 - **Canonical import paths everywhere**: Generated code uses the canonical import path (e.g. `github.com/<org>/apis/proto/<domain>/<api>`) even during local development.
 - **go.work overlays**: Local development uses workspace overlays to resolve canonical paths to local generated stubs.
@@ -541,7 +541,7 @@ A: Yes. `apx search <keywords>` queries the catalog (generated in the canonical 
 A: Re-add the dependency at the new version: `apx add proto/payments/ledger/v1@v1.3.0`. Automatic `apx update` / `apx upgrade` commands are planned for a future release.
 
 **Q: How does APX publish APIs?**  
-A: APX uses git subtree to preserve commit history when publishing APIs to the canonical repository.
+A: APX opens a pull request against the canonical repository, copying module files to a feature branch for review and CI validation before merging.
 
 **Q: How do we prevent service-specific options (e.g., gorm) in shared schemas?**  
 A: `apx policy check` fails on `(gorm.*)` and unapproved generators, both in app CI (pre-PR) and canonical CI.
@@ -566,7 +566,7 @@ A: `apx policy check` fails on `(gorm.*)` and unapproved generators, both in app
 - `apx gen <lang>` — generate stubs with canonical import paths into `internal/gen/<lang>/<api>@<ver>/`.
 - `apx sync` — update `go.work` overlays to map canonical paths to local generated stubs.
 - `apx unlink <api>` — remove `go.work` overlay for an API (switch to published module).
-- `apx publish --module-path=... --canonical-repo=...` — open PR to canonical repo using git subtree.
+- `apx publish <api-id> --version <ver>` — open PR to canonical repo.
 - `apx semver suggest --against=<ref>` — compute recommended SemVer bump based on detected changes.
 - *(Planned)* `apx update <api>` / `apx upgrade <api>@<ver>` — bump dependencies automatically.
 

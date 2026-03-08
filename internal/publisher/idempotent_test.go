@@ -63,7 +63,7 @@ func TestPublishError_AllCodesHaveDescriptions(t *testing.T) {
 		ErrCodeMergeConflict, ErrCodeCanonicalMoved, ErrCodePolicyFailed,
 		ErrCodePackagePublishFailed, ErrCodeCatalogUpdateFailed,
 		ErrCodeNotGitRepo, ErrCodeInvalidVersion, ErrCodeMissingConfig,
-		ErrCodeSubtreeFailed, ErrCodePushFailed,
+		ErrCodePushFailed, ErrCodePRCreationFailed,
 	}
 
 	for _, code := range codes {

@@ -28,7 +28,7 @@ The compatibility matrix:
 Error: lifecycle "experimental" only allows -alpha.* prerelease versions
 ```
 
-**Fix:** Use `-alpha.N` for experimental, or promote the lifecycle to `preview`.
+**Fix:** Use `-alpha.N` for experimental, or promote the lifecycle to `beta`.
 
 ---
 
@@ -53,7 +53,7 @@ The SemVer major version must match the declared version line:
 ### `v0 APIs cannot use lifecycle "stable"`
 
 ```
-Error: v0 APIs are limited to "experimental" or "preview" lifecycle
+Error: v0 APIs are limited to "experimental" or "beta" lifecycle
 ```
 
 The `v0` line is reserved for APIs under active development. Stable graduation requires moving to `v1`:

@@ -178,12 +178,22 @@ jobs:
           apx lint
           apx breaking --against HEAD^ || true
 
+      - name: Extract API ID and version from tag
+        id: parse
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Tag format: <api-id>/<version>  e.g. proto/payments/ledger/v1/v1.0.0
+          VERSION="${TAG##*/}"            # last component
+          API_ID="${TAG%/*}"              # everything before last /
+          echo "api_id=${API_ID}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Publish to canonical repo
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          apx publish \
-            --tag="${{ steps.tag.outputs.tag }}" \
+          apx publish "${{ steps.parse.outputs.api_id }}" \
+            --version "${{ steps.parse.outputs.version }}" \
             --canonical-repo=github.com/<org>/<canonical-repo>
 ```
 

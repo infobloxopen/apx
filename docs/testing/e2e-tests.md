@@ -9,7 +9,7 @@ The APX E2E test suite validates the complete schema publishing workflow against
 | Complete Workflow | 2 | `apx init` → `apx publish` → PR creation |
 | Cross-Repo Deps | 2 | App2 consumes App1's schema, both publish independently |
 | Breaking Changes | 3 | Detection, non-breaking allowance, major version bumps |
-| Git History | 1 | Commit preservation through subtree publishing |
+| Git History | 1 | Commit preservation through PR-based publishing |
 | Edge Cases | 8 | Error handling, concurrency, cleanup |
 
 **Total: 16 testscript scenarios** covering all 18 functional requirements.

@@ -352,7 +352,7 @@ func PublishModuleWithPR(
 		return nil, fmt.Errorf("git add: %s", out)
 	}
 
-	commitMsg := fmt.Sprintf("publish: %s@%s\n\nCreated by apx publish --create-pr", apiID, version)
+	commitMsg := fmt.Sprintf("publish: %s@%s\n\nCreated by apx publish", apiID, version)
 	if out, commitErr := runGitIn(cloneDir, "commit", "-m", commitMsg); commitErr != nil {
 		// No changes to commit is acceptable if module already matches
 		if strings.Contains(out, "nothing to commit") {
@@ -369,7 +369,7 @@ func PublishModuleWithPR(
 	// ── 7. Create PR ─────────────────────────────────────────────────
 	title := fmt.Sprintf("publish: %s@%s", apiID, version)
 	body := fmt.Sprintf(
-		"Automated publish of API `%s` at version `%s`.\n\nCreated by `apx publish --create-pr`.",
+		"Automated publish of API `%s` at version `%s`.\n\nCreated by `apx publish`.",
 		apiID, version,
 	)
 

@@ -32,7 +32,6 @@ Examples:
 	cmd.Flags().String("version", "", "Version to publish (e.g. v1.0.0-beta.1)")
 	cmd.Flags().String("lifecycle", "", "Lifecycle state (experimental, beta, stable, deprecated, sunset)")
 	cmd.Flags().Bool("dry-run", false, "Show what would be published without actually publishing")
-	cmd.Flags().Bool("create-pr", false, "Create a pull request instead of pushing directly")
 	cmd.Flags().Bool("strict", false, "Make go_package mismatches an error instead of a warning")
 	cmd.Flags().Bool("skip-gomod", false, "Skip go.mod generation and validation")
 	return cmd
@@ -45,7 +44,6 @@ type publishOpts struct {
 	Lifecycle     string
 	CanonicalRepo string
 	DryRun        bool
-	CreatePR      bool
 	Strict        bool
 	SkipGomod     bool
 }
@@ -56,7 +54,6 @@ func publishAction(cmd *cobra.Command, args []string) error {
 	version, _ := cmd.Flags().GetString("version")
 	lifecycle, _ := cmd.Flags().GetString("lifecycle")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
-	createPR, _ := cmd.Flags().GetBool("create-pr")
 	strict, _ := cmd.Flags().GetBool("strict")
 	skipGomod, _ := cmd.Flags().GetBool("skip-gomod")
 
@@ -74,7 +71,6 @@ func publishAction(cmd *cobra.Command, args []string) error {
 			Lifecycle:     lifecycle,
 			CanonicalRepo: canonicalRepo,
 			DryRun:        dryRun,
-			CreatePR:      createPR,
 			Strict:        strict,
 			SkipGomod:     skipGomod,
 		})
@@ -88,7 +84,7 @@ func publishAction(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--canonical-repo is required when using --module-path")
 	}
 
-	return publishLegacy(modulePath, canonicalRepo, version, dryRun, createPR)
+	return publishLegacy(modulePath, canonicalRepo, version, dryRun)
 }
 
 func publishWithIdentity(cmd *cobra.Command, opts publishOpts) error {
@@ -282,77 +278,52 @@ func publishWithIdentity(cmd *cobra.Command, opts publishOpts) error {
 	// -------------------------------------------------------------------
 	// PR-based publish: clone canonical, copy files, push branch, open PR
 	// -------------------------------------------------------------------
-	if opts.CreatePR {
-		canonicalNWO, nwoErr := publisher.ParseCanonicalNWO(sourceRepo)
-		if nwoErr != nil {
-			return &publisher.PublishError{
-				Code:    publisher.ErrCodePRCreationFailed,
-				Message: nwoErr.Error(),
-				Hint:    "Provide --canonical-repo as github.com/<owner>/<repo>",
-			}
+	canonicalNWO, nwoErr := publisher.ParseCanonicalNWO(sourceRepo)
+	if nwoErr != nil {
+		return &publisher.PublishError{
+			Code:    publisher.ErrCodePRCreationFailed,
+			Message: nwoErr.Error(),
+			Hint:    "Provide --canonical-repo as github.com/<owner>/<repo>",
 		}
-
-		localModuleDir := filepath.Join(repoPath, source.Path)
-		if info, statErr := os.Stat(localModuleDir); statErr != nil || !info.IsDir() {
-			return publisher.NewPublishError(publisher.ErrCodeSubtreeFailed,
-				fmt.Sprintf("module directory not found: %s", source.Path))
-		}
-
-		goModulePath := ""
-		if goCoords, ok := langs["go"]; ok {
-			goModulePath = goCoords.Module
-		}
-
-		ui.Info("Creating pull request on %s …", canonicalNWO)
-		prResp, prErr := publisher.PublishModuleWithPR(
-			localModuleDir, canonicalNWO, source.Path,
-			opts.APIID, opts.Version, goModulePath,
-		)
-		if prErr != nil {
-			manifest.Fail(string(publisher.ErrCodePRCreationFailed), prErr.Error(), "publish")
-			return &publisher.PublishError{
-				Code:    publisher.ErrCodePRCreationFailed,
-				Message: prErr.Error(),
-				Hint:    "Ensure gh is authenticated and you have push access to the canonical repo",
-			}
-		}
-
-		_ = manifest.SetState(publisher.StateSubmitted)
-		ui.Success("✓ Pull request created")
-		if prResp.HTMLURL != "" {
-			ui.Info("PR: %s", prResp.HTMLURL)
-		}
-		if prResp.Number > 0 {
-			ui.Info("PR #%d", prResp.Number)
-		}
-		return nil
 	}
 
-	// -------------------------------------------------------------------
-	// Direct publish: subtree split + push to main
-	// -------------------------------------------------------------------
-	subtreePublisher := publisher.NewSubtreePublisher(repoPath)
+	localModuleDir := filepath.Join(repoPath, source.Path)
+	if info, statErr := os.Stat(localModuleDir); statErr != nil || !info.IsDir() {
+		return publisher.NewPublishError(publisher.ErrCodePRCreationFailed,
+			fmt.Sprintf("module directory not found: %s", source.Path))
+	}
 
-	commitHash, err := subtreePublisher.PublishModule(source.Path, sourceRepo, opts.Version)
-	if err != nil {
-		manifest.Fail(string(publisher.ErrCodeSubtreeFailed), err.Error(), "publish")
+	goModulePath := ""
+	if goCoords, ok := langs["go"]; ok {
+		goModulePath = goCoords.Module
+	}
+
+	ui.Info("Creating pull request on %s …", canonicalNWO)
+	prResp, prErr := publisher.PublishModuleWithPR(
+		localModuleDir, canonicalNWO, source.Path,
+		opts.APIID, opts.Version, goModulePath,
+	)
+	if prErr != nil {
+		manifest.Fail(string(publisher.ErrCodePRCreationFailed), prErr.Error(), "publish")
 		return &publisher.PublishError{
-			Code:    publisher.ErrCodeSubtreeFailed,
-			Message: fmt.Sprintf("publish failed: %v", err),
-			Hint:    "Check git status and try again, or use --create-pr for a PR-based workflow",
+			Code:    publisher.ErrCodePRCreationFailed,
+			Message: prErr.Error(),
+			Hint:    "Ensure gh is authenticated and you have push access to the canonical repo",
 		}
 	}
 
 	_ = manifest.SetState(publisher.StateSubmitted)
-
-	ui.Success("✓ Module published successfully")
-	ui.Info("Commit: %s", commitHash)
-	ui.Info("Tag: %s", tag)
-
+	ui.Success("✓ Pull request created")
+	if prResp.HTMLURL != "" {
+		ui.Info("PR: %s", prResp.HTMLURL)
+	}
+	if prResp.Number > 0 {
+		ui.Info("PR #%d", prResp.Number)
+	}
 	return nil
 }
 
-func publishLegacy(modulePath, canonicalRepo, version string, dryRun, createPR bool) error {
+func publishLegacy(modulePath, canonicalRepo, version string, dryRun bool) error {
 	absModulePath, err := filepath.Abs(modulePath)
 	if err != nil {
 		return fmt.Errorf("failed to resolve module path: %w", err)
@@ -393,40 +364,24 @@ func publishLegacy(modulePath, canonicalRepo, version string, dryRun, createPR b
 	ui.Info("Target repository: %s", canonicalRepo)
 	ui.Info("Version: %s", version)
 
-	// PR-based publish for legacy path
-	if createPR {
-		canonicalNWO, nwoErr := publisher.ParseCanonicalNWO(canonicalRepo)
-		if nwoErr != nil {
-			return fmt.Errorf("cannot parse canonical repo: %w", nwoErr)
-		}
-
-		// Use modulePath as both local source and canonical target path
-		apiID := modulePath // best-effort label for legacy path
-		ui.Info("Creating pull request on %s …", canonicalNWO)
-		prResp, prErr := publisher.PublishModuleWithPR(
-			absModulePath, canonicalNWO, modulePath,
-			apiID, version, "",
-		)
-		if prErr != nil {
-			return fmt.Errorf("PR creation failed: %w", prErr)
-		}
-		ui.Success("✓ Pull request created")
-		if prResp.HTMLURL != "" {
-			ui.Info("PR: %s", prResp.HTMLURL)
-		}
-		return nil
+	// PR-based publish
+	canonicalNWO, nwoErr := publisher.ParseCanonicalNWO(canonicalRepo)
+	if nwoErr != nil {
+		return fmt.Errorf("cannot parse canonical repo: %w", nwoErr)
 	}
 
-	// Direct push (subtree split + push to main)
-	subtreePublisher := publisher.NewSubtreePublisher(repoPath)
-
-	commitHash, err := subtreePublisher.PublishModule(modulePath, canonicalRepo, version)
-	if err != nil {
-		return fmt.Errorf("publish failed: %w", err)
+	apiID := modulePath // best-effort label for legacy path
+	ui.Info("Creating pull request on %s …", canonicalNWO)
+	prResp, prErr := publisher.PublishModuleWithPR(
+		absModulePath, canonicalNWO, modulePath,
+		apiID, version, "",
+	)
+	if prErr != nil {
+		return fmt.Errorf("PR creation failed: %w", prErr)
 	}
-
-	ui.Success("\u2713 Module published successfully")
-	ui.Info("Commit hash: %s", commitHash)
-
+	ui.Success("✓ Pull request created")
+	if prResp.HTMLURL != "" {
+		ui.Info("PR: %s", prResp.HTMLURL)
+	}
 	return nil
 }

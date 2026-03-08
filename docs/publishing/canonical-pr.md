@@ -1,6 +1,6 @@
 # Canonical Pull Request
 
-When you run `apx publish --create-pr`, APX opens a pull request against the
+When you run `apx publish`, APX opens a pull request against the
 canonical repository (`github.com/<org>/apis`).  This page describes the
 end-to-end flow.
 
@@ -17,7 +17,7 @@ end-to-end flow.
 ```
 App repo                          Canonical repo
 ────────                          ──────────────
- 1. apx publish --create-pr
+ 1. apx publish
     ├─ shallow-clone canonical
     ├─ checkout -b apx/publish/<api>/<ver>
     ├─ copy module files
@@ -74,8 +74,7 @@ proto/payments/ledger/
 # From your app repo
 apx publish proto/payments/ledger/v1 \
   --version v1.0.0-beta.1 \
-  --lifecycle preview \
-  --create-pr
+  --lifecycle beta
 
 # Output:
 #   Publishing API: proto/payments/ledger/v1

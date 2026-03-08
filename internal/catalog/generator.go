@@ -23,7 +23,7 @@ type Module struct {
 	Version          string   `yaml:"version,omitempty"`
 	LatestStable     string   `yaml:"latest_stable,omitempty"`
 	LatestPrerelease string   `yaml:"latest_prerelease,omitempty"`
-	Lifecycle        string   `yaml:"lifecycle,omitempty"`      // experimental, preview, stable, deprecated, sunset
+	Lifecycle        string   `yaml:"lifecycle,omitempty"`      // experimental, beta, stable, deprecated, sunset
 	Compatibility    string   `yaml:"compatibility,omitempty"`  // none, stabilizing, full, maintenance, eol
 	ProductionUse    string   `yaml:"production_use,omitempty"` // human-readable recommendation
 	Path             string   `yaml:"path"`
@@ -439,9 +439,9 @@ func GenerateFromTags(tags []string, org, repo string) *Catalog {
 			case strings.HasPrefix(pre, "-alpha"):
 				m.Lifecycle = "experimental"
 			case strings.HasPrefix(pre, "-beta"):
-				m.Lifecycle = "preview"
+				m.Lifecycle = "beta"
 			case strings.HasPrefix(pre, "-rc"):
-				m.Lifecycle = "preview"
+				m.Lifecycle = "beta"
 			default:
 				m.Lifecycle = "experimental"
 			}

@@ -62,7 +62,7 @@ payments/ledger/v1              ✘  (missing format prefix)
 | Lifecycle | Allowed versions | Rejected versions |
 |-----------|-----------------|-------------------|
 | `experimental` | `-alpha.*` prerelease only | Stable, `-beta.*`, `-rc.*` |
-| `preview` | `-alpha.*`, `-beta.*`, or `-rc.*` | Stable versions |
+| `beta` | `-alpha.*`, `-beta.*`, or `-rc.*` | Stable versions |
 | `stable` | Stable only (no prerelease) | Any prerelease |
 | `deprecated` | Any | *(none)* |
 | `sunset` | Blocked (no new releases) | All (unless `--force`) |
@@ -84,7 +84,7 @@ apx publish proto/payments/ledger/v1 --version v2.0.0
 
 | Rule | Detail |
 |------|--------|
-| Allowed lifecycles | `experimental` or `preview` only |
+| Allowed lifecycles | `experimental` or `beta` only |
 | Stable promotion | Rejected — graduate to `v1` |
 | Breaking changes | Allowed with minor version bump |
 
@@ -93,10 +93,10 @@ apx publish proto/payments/ledger/v1 --version v2.0.0
 Lifecycle must progress forward:
 
 ```
-experimental → preview → stable → deprecated → sunset
+experimental → beta → stable → deprecated → sunset
 ```
 
-Backward transitions (e.g. `stable` → `preview`) are rejected.
+Backward transitions (e.g. `stable` → `beta`) are rejected.
 
 ---
 

@@ -4,7 +4,7 @@ APX's publishing model is built on a **canonical identity** system that separate
 
 1. **API identity** — what contract you are talking about (`proto/payments/ledger/v1`)
 2. **Artifact version** — which published build you want (`v1.0.0-beta.1`, `v1.2.3`)
-3. **Lifecycle state** — how much confidence/support it has (`experimental`, `preview`, `stable`, `deprecated`, `sunset`)
+3. **Lifecycle state** — how much confidence/support it has (`experimental`, `beta`, `stable`, `deprecated`, `sunset`)
 
 ## The Identity Model
 
@@ -39,13 +39,13 @@ The `lifecycle` field signals maturity and support level independently from the 
 | Lifecycle | Signal |
 |-----------|--------|
 | `experimental` | Early exploration — no compatibility guarantee |
-| `preview` | Stabilizing — breaking changes still possible |
+| `beta` | Stabilizing — breaking changes still possible |
 | `stable` | Production-ready — full backward compatibility |
 | `deprecated` | Superseded — maintained for existing users |
 | `sunset` | End of life — no further releases |
 
 :::{note}
-`beta` is accepted as a backward-compatible alias for `preview`.  New projects should use `preview`.
+`preview` is accepted as a backward-compatible alias for `beta`.
 :::
 
 See [Lifecycle Reference](lifecycle.md) for detailed lifecycle rules, the compatibility promise model, and enforcement policies.
@@ -63,8 +63,8 @@ When you run `apx publish`, APX:
 7. Records lifecycle, compatibility, and version information
 
 ```bash
-# Publish a preview release on an upcoming stable line
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle preview
+# Publish a beta release on an upcoming stable line
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
 
 # Publish GA
 apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
@@ -141,13 +141,13 @@ automatically.
 | Lifecycle | Required version tag | Suggested by `apx semver suggest` |
 |-----------|---------------------|------------------------------------|
 | `experimental` | `-alpha.*` | `-alpha.N` |
-| `preview` | `-alpha.*`, `-beta.*`, or `-rc.*` | `-beta.N` |
+| `beta` | `-alpha.*`, `-beta.*`, or `-rc.*` | `-beta.N` |
 | `stable` | *(no prerelease)* | clean semver (e.g. `1.0.0`) |
 | `deprecated` | any | *(caller warned)* |
 | `sunset` | **blocked** | *(releases not allowed)* |
 
 :::{note}
-`beta` is accepted as a backward-compatible alias for `preview`.  New projects should use `preview`.
+`preview` is accepted as a backward-compatible alias for `beta`.
 :::
 
 ### Experimental — early exploration
@@ -169,22 +169,19 @@ For APIs that will break frequently, use a `v0` line instead:
 apx publish proto/payments/ledger/v0 --version v0.1.0 --lifecycle experimental
 ```
 
-### Preview — stabilizing toward GA
+### Beta — stabilizing toward GA
 
-Publish under `preview` when the API design is mostly settled but still
+Publish under `beta` when the API design is mostly settled but still
 converging.  Consumers can start integrating, but minor breaking changes remain
 possible.
 
 ```bash
 # Beta release
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle preview
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
 
 # Release candidate
-apx publish proto/payments/ledger/v1 --version v1.0.0-rc.1 --lifecycle preview
+apx publish proto/payments/ledger/v1 --version v1.0.0-rc.1 --lifecycle beta
 ```
-
-Note that the `-beta.1` prerelease tag on the version is a SemVer convention —
-the lifecycle is `preview`, not `beta`.
 
 ### Stable — production-ready (GA)
 
@@ -194,7 +191,7 @@ within the API line.  Version must not have a prerelease tag.
 ```bash
 apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
 
-# Or promote from preview to stable
+# Or promote from beta to stable
 apx release promote proto/payments/ledger/v1 --to stable --version v1.0.0
 apx release submit
 ```
@@ -227,8 +224,8 @@ A typical API moves through these stages over its lifetime:
 # 1. Experimental — early exploration
 apx publish proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
 
-# 2. Preview — stabilizing, beta out to early adopters
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1  --lifecycle preview
+# 2. Beta — stabilizing, beta out to early adopters
+apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1  --lifecycle beta
 
 # 3. Stable — GA
 apx publish proto/payments/ledger/v1 --version v1.0.0          --lifecycle stable

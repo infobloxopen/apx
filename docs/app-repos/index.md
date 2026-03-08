@@ -39,7 +39,7 @@ App repos handle the development lifecycle:
 ^^^
 - Tag releases in app repo
 - CI automatically opens canonical repo PR
-- History-preserving subtree or simple copy
+- PR-based publish to canonical repo
 - Validation before and after publish
 :::
 
@@ -60,7 +60,7 @@ App repos handle the development lifecycle:
 - **Local Testing**: Full validation and code generation with canonical imports
 - **go.work Overlays**: Seamless local development without import gymnastics  
 - **Automated Publishing**: No manual canonical repo management
-- **Clean History**: Subtree preserves commit history in canonical repo
+- **Clean History**: PR-based workflow with full audit trail in canonical repo
 - **Policy Enforcement**: APX validates schemas before publishing
 
 ## Directory Structure

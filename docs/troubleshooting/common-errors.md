@@ -131,7 +131,7 @@ brew install bufbuild/buf/buf   # install system-wide
 Error: gh: not authenticated. Run "gh auth login" to authenticate.
 ```
 
-**Cause:** The GitHub CLI is not authenticated, required for `apx publish --create-pr` and `apx release submit`.
+**Cause:** The GitHub CLI is not authenticated, required for `apx publish` and `apx release submit`.
 
 **Fix:**
 ```bash
