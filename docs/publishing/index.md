@@ -228,3 +228,6 @@ For urgent fixes:
 ## Next Steps
 
 1. Review the [full CLI reference](../cli-reference/index.md) for all publishing flags
+2. Read the [Lifecycle Reference](lifecycle.md) for lifecycle states, v0 policy, and compatibility promises
+3. See [Release Guardrails](release-guardrails.md) for policy enforcement during releases
+4. Understand the [Versioning Strategy](../dependencies/versioning-strategy.md) three-layer model

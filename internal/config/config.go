@@ -32,8 +32,8 @@ type APIIdentity struct {
 	Format    string `yaml:"format" json:"format"`       // e.g. "proto", "openapi", "avro"
 	Domain    string `yaml:"domain" json:"domain"`       // e.g. "payments"
 	Name      string `yaml:"name" json:"name"`           // e.g. "ledger"
-	Line      string `yaml:"line" json:"line"`           // e.g. "v1"
-	Lifecycle string `yaml:"lifecycle" json:"lifecycle"` // experimental, beta, stable, deprecated, sunset
+	Line      string `yaml:"line" json:"line"`           // e.g. "v0", "v1", "v2"
+	Lifecycle string `yaml:"lifecycle" json:"lifecycle"` // experimental, preview, stable, deprecated, sunset
 }
 
 // SourceIdentity describes where the canonical source lives.

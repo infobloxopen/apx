@@ -361,8 +361,49 @@ func TestFormatSuggestionReport_Blocked(t *testing.T) {
 func TestLifecyclePrerelease(t *testing.T) {
 	assert.Equal(t, "alpha.1", lifecyclePrerelease("experimental", 1))
 	assert.Equal(t, "alpha.3", lifecyclePrerelease("experimental", 3))
-	assert.Equal(t, "beta.1", lifecyclePrerelease("beta", 1))
+	assert.Equal(t, "beta.1", lifecyclePrerelease("preview", 1))
+	assert.Equal(t, "beta.1", lifecyclePrerelease("beta", 1)) // alias for preview
 	assert.Equal(t, "", lifecyclePrerelease("stable", 1))
 	assert.Equal(t, "", lifecyclePrerelease("deprecated", 1))
 	assert.Equal(t, "", lifecyclePrerelease("", 1))
+}
+
+// ---------------------------------------------------------------------------
+// v0 line support in SuggestVersion
+// ---------------------------------------------------------------------------
+
+func TestSuggestVersion_V0BreakingAllowed(t *testing.T) {
+	// v0 allows breaking changes — they result in a minor bump
+	s, err := SuggestVersion("v0.2.0", true, true, "experimental", "v0")
+	require.NoError(t, err)
+	assert.Equal(t, "v0.3.0-alpha.1", s.Suggested)
+	assert.Equal(t, BumpMinor, s.Bump)
+	assert.Contains(t, s.Reasoning, "v0")
+}
+
+func TestSuggestVersion_V0BreakingInitial(t *testing.T) {
+	// v0 initial with breaking changes
+	s, err := SuggestVersion("", true, true, "experimental", "v0")
+	require.NoError(t, err)
+	assert.Equal(t, "v0.1.0-alpha.1", s.Suggested)
+	assert.Equal(t, BumpMinor, s.Bump)
+}
+
+func TestSuggestVersion_V0NonBreaking(t *testing.T) {
+	// v0 non-breaking additive change → minor bump
+	s, err := SuggestVersion("v0.1.0-alpha.1", false, true, "experimental", "v0")
+	require.NoError(t, err)
+	assert.Equal(t, "v0.1.0-alpha.2", s.Suggested) // prerelease bump
+}
+
+func TestSuggestVersion_V0Preview(t *testing.T) {
+	s, err := SuggestVersion("", false, true, "preview", "v0")
+	require.NoError(t, err)
+	assert.Equal(t, "v0.0.0-beta.1", s.Suggested)
+}
+
+func TestValidateVersionLine_V0(t *testing.T) {
+	assert.NoError(t, ValidateVersionLine("v0.1.0", "v0"))
+	assert.NoError(t, ValidateVersionLine("v0.1.0-alpha.1", "v0"))
+	assert.Error(t, ValidateVersionLine("v1.0.0", "v0"))
 }

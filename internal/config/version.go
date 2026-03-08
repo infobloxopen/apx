@@ -210,7 +210,7 @@ func SortVersions(versions []string) []string {
 
 // ValidateVersionLine checks that a version's major component matches the
 // API line's major version. For example, v1.2.3 is valid for line "v1" but
-// not for line "v2".
+// not for line "v2". v0 lines match major version 0.
 func ValidateVersionLine(version, line string) error {
 	sv, err := ParseSemVer(version)
 	if err != nil {
@@ -234,20 +234,21 @@ func ValidateVersionLine(version, line string) error {
 // lifecycle state.
 //
 // Rules:
-//   - breaking change detected → reject (return error, caller must create new major line)
+//   - v0 line: breaking changes are allowed (bump minor), non-breaking → minor or patch
+//   - v1+ breaking change detected → reject (return error, caller must create new major line)
 //   - non-breaking additive change → minor
 //   - bugfix/docs/generator-only change → patch (caller signals via hasChanges=false)
-//   - if no current version exists → initial version for the line (e.g. v1.0.0, v2.0.0)
+//   - if no current version exists → initial version for the line (e.g. v0.1.0, v1.0.0, v2.0.0)
 //
 // The lifecycle parameter is used to attach the correct prerelease tag:
 //   - "experimental" → -alpha.1
-//   - "beta" → -beta.1
+//   - "preview"/"beta" → -beta.1
 //   - "stable" → no prerelease
 //   - "deprecated" → no prerelease (but caller should warn)
 //   - "sunset" → blocked
 func SuggestVersion(current string, hasBreaking, hasChanges bool, lifecycle, line string) (*VersionSuggestion, error) {
 	// Sunset blocks completely
-	if lifecycle == "sunset" {
+	if NormalizeLifecycle(lifecycle) == "sunset" {
 		return nil, fmt.Errorf("lifecycle %q blocks new releases; create a new API line or use --force", lifecycle)
 	}
 
@@ -256,11 +257,44 @@ func SuggestVersion(current string, hasBreaking, hasChanges bool, lifecycle, lin
 		return nil, err
 	}
 
+	isV0 := major == 0
+
 	// Determine prerelease suffix based on lifecycle
 	preSuffix := lifecyclePrerelease(lifecycle, 1)
 
-	// Breaking changes → reject
+	// Breaking changes
 	if hasBreaking {
+		if isV0 {
+			// v0 allows breaking changes — bump minor
+			if current == "" {
+				suggested := "v0.1.0"
+				if preSuffix != "" {
+					suggested += "-" + preSuffix
+				}
+				return &VersionSuggestion{
+					Current:   "",
+					Suggested: suggested,
+					Bump:      BumpMinor,
+					Reasoning: "Breaking changes on v0 line — minor bump (v0 has no compatibility guarantee)",
+				}, nil
+			}
+			sv, parseErr := ParseSemVer(current)
+			if parseErr != nil {
+				return nil, fmt.Errorf("cannot parse current version %q: %w", current, parseErr)
+			}
+			suggested := fmt.Sprintf("v0.%d.0", sv.Minor+1)
+			if preSuffix != "" {
+				suggested += "-" + preSuffix
+			}
+			return &VersionSuggestion{
+				Current:   current,
+				Suggested: suggested,
+				Bump:      BumpMinor,
+				Reasoning: "Breaking changes on v0 line — minor bump (v0 has no compatibility guarantee)",
+			}, nil
+		}
+
+		// v1+ — breaking changes are not allowed within a line
 		return &VersionSuggestion{
 				Current:   current,
 				Suggested: "",
@@ -338,10 +372,11 @@ func SuggestVersion(current string, hasBreaking, hasChanges bool, lifecycle, lin
 // lifecyclePrerelease returns the prerelease suffix for the given lifecycle state.
 // The counter parameter is appended (e.g. "alpha.1", "beta.2").
 func lifecyclePrerelease(lifecycle string, counter int) string {
-	switch lifecycle {
+	lc := NormalizeLifecycle(lifecycle)
+	switch lc {
 	case "experimental":
 		return fmt.Sprintf("alpha.%d", counter)
-	case "beta":
+	case "preview":
 		return fmt.Sprintf("beta.%d", counter)
 	default:
 		return ""
@@ -380,10 +415,11 @@ func bumpPrerelease(sv *SemVer, lifecycle string) (string, string) {
 
 // lifecyclePrereleasePrefix returns the prerelease prefix for a lifecycle.
 func lifecyclePrereleasePrefix(lifecycle string) string {
-	switch lifecycle {
+	lc := NormalizeLifecycle(lifecycle)
+	switch lc {
 	case "experimental":
 		return "alpha"
-	case "beta":
+	case "preview":
 		return "beta"
 	default:
 		return ""

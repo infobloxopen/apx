@@ -41,19 +41,20 @@ func ParseAPIID(apiID string) (*APIIdentity, error) {
 	}, nil
 }
 
-// isValidLine checks that a line string matches v<N> where N >= 1.
+// isValidLine checks that a line string matches v<N> where N >= 0.
+// v0 lines are allowed for experimental/preview APIs.
 func isValidLine(line string) bool {
 	if !strings.HasPrefix(line, "v") {
 		return false
 	}
 	n, err := strconv.Atoi(line[1:])
-	if err != nil || n < 1 {
+	if err != nil || n < 0 {
 		return false
 	}
 	return true
 }
 
-// LineMajor returns the major version number from a line string (e.g. "v1" → 1).
+// LineMajor returns the major version number from a line string (e.g. "v1" → 1, "v0" → 0).
 func LineMajor(line string) (int, error) {
 	if !strings.HasPrefix(line, "v") {
 		return 0, fmt.Errorf("line %q must start with 'v'", line)
@@ -62,10 +63,16 @@ func LineMajor(line string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("line %q is not a valid version: %w", line, err)
 	}
-	if n < 1 {
-		return 0, fmt.Errorf("line major version must be >= 1, got %d", n)
+	if n < 0 {
+		return 0, fmt.Errorf("line major version must be >= 0, got %d", n)
 	}
 	return n, nil
+}
+
+// IsV0Line returns true if the line represents a v0 (unstable) API line.
+func IsV0Line(line string) bool {
+	n, err := LineMajor(line)
+	return err == nil && n == 0
 }
 
 // DeriveSourcePath computes the canonical source path for an API ID.
@@ -77,6 +84,7 @@ func DeriveSourcePath(apiID string) string {
 // DeriveGoModule computes the Go module path for the given API line.
 //
 // Rules (per Go module versioning):
+//   - For v0: <sourceRepo>/<format>/<domain>/<name>       (no version suffix)
 //   - For v1: <sourceRepo>/<format>/<domain>/<name>       (no version suffix)
 //   - For v2+: <sourceRepo>/<format>/<domain>/<name>/v<N>  (major version suffix)
 func DeriveGoModule(sourceRepo string, api *APIIdentity) (string, error) {
@@ -86,7 +94,7 @@ func DeriveGoModule(sourceRepo string, api *APIIdentity) (string, error) {
 	}
 
 	base := path.Join(sourceRepo, api.Format, api.Domain, api.Name)
-	if major == 1 {
+	if major <= 1 {
 		return base, nil
 	}
 	return fmt.Sprintf("%s/v%d", base, major), nil
@@ -95,6 +103,7 @@ func DeriveGoModule(sourceRepo string, api *APIIdentity) (string, error) {
 // DeriveGoImport computes the Go import path for the given API line.
 //
 // Rules:
+//   - For v0: <sourceRepo>/<format>/<domain>/<name>/v0      (v0 in import path)
 //   - For v1: <sourceRepo>/<format>/<domain>/<name>/v1      (v1 in import path)
 //   - For v2+: <sourceRepo>/<format>/<domain>/<name>/v<N>    (same as module path)
 func DeriveGoImport(sourceRepo string, api *APIIdentity) (string, error) {
@@ -207,13 +216,14 @@ func FormatIdentityReport(api *APIIdentity, source *SourceIdentity, release *Rel
 func ValidateLifecycle(lifecycle string) error {
 	valid := map[string]bool{
 		"experimental": true,
-		"beta":         true,
+		"preview":      true,
+		"beta":         true, // backward-compatible alias for preview
 		"stable":       true,
 		"deprecated":   true,
 		"sunset":       true,
 	}
 	if !valid[lifecycle] {
-		return fmt.Errorf("invalid lifecycle %q: must be one of experimental, beta, stable, deprecated, sunset", lifecycle)
+		return fmt.Errorf("invalid lifecycle %q: must be one of experimental, preview, stable, deprecated, sunset", lifecycle)
 	}
 	return nil
 }
@@ -242,6 +252,7 @@ func ValidateGoPackage(goPackage string, expectedImport string) error {
 // should be placed for the given API identity.
 //
 // Rules:
+//   - For v0: <format>/<domain>/<name>        (module root above the /v0/ package dir)
 //   - For v1: <format>/<domain>/<name>        (module root above the /v1/ package dir)
 //   - For v2+: <format>/<domain>/<name>/v<N>   (module root = package dir, includes major version suffix)
 func DeriveGoModDir(api *APIIdentity) string {

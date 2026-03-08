@@ -23,7 +23,9 @@ type Module struct {
 	Version          string   `yaml:"version,omitempty"`
 	LatestStable     string   `yaml:"latest_stable,omitempty"`
 	LatestPrerelease string   `yaml:"latest_prerelease,omitempty"`
-	Lifecycle        string   `yaml:"lifecycle,omitempty"` // experimental, beta, stable, deprecated, sunset
+	Lifecycle        string   `yaml:"lifecycle,omitempty"`       // experimental, preview, stable, deprecated, sunset
+	Compatibility    string   `yaml:"compatibility,omitempty"`   // none, stabilizing, full, maintenance, eol
+	ProductionUse    string   `yaml:"production_use,omitempty"` // human-readable recommendation
 	Path             string   `yaml:"path"`
 	Tags             []string `yaml:"tags,omitempty"`
 	Owners           []string `yaml:"owners,omitempty"`

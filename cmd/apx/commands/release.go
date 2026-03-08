@@ -65,7 +65,7 @@ Examples:
 		RunE: releasePrepareAction,
 	}
 	cmd.Flags().String("version", "", "Version to release (e.g. v1.0.0-beta.1)")
-	cmd.Flags().String("lifecycle", "", "Lifecycle state (experimental, beta, stable, deprecated, sunset)")
+	cmd.Flags().String("lifecycle", "", "Lifecycle state (experimental, preview, stable, deprecated, sunset)")
 	cmd.Flags().String("canonical-repo", "", "Canonical repository URL")
 	cmd.Flags().Bool("strict", false, "Make go_package mismatches an error")
 	cmd.Flags().Bool("skip-gomod", false, "Skip go.mod generation and validation")
@@ -108,11 +108,23 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	}
 
 	// Validate version-line compatibility (major version must match API line)
-	if err := config.ValidateVersionLine(version, config.ParseLineFromID(apiID)); err != nil {
+	line := config.ParseLineFromID(apiID)
+	if err := config.ValidateVersionLine(version, line); err != nil {
 		return &publisher.PublishError{
 			Code:    publisher.ErrCodeVersionLineMismatch,
 			Message: err.Error(),
 			Hint:    "Ensure version major matches the API line (e.g. v1.x.x for /v1)",
+		}
+	}
+
+	// v0 line policy enforcement
+	if config.IsV0Line(line) && lifecycle != "" && !force {
+		if err := config.ValidateV0Lifecycle(lifecycle); err != nil {
+			return &publisher.PublishError{
+				Code:    publisher.ErrCodeLifecycleMismatch,
+				Message: err.Error(),
+				Hint:    "v0 lines must use 'experimental' or 'preview' lifecycle",
+			}
 		}
 	}
 
@@ -123,7 +135,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 				return &publisher.PublishError{
 					Code:    publisher.ErrCodeIllegalTransition,
 					Message: err.Error(),
-					Hint:    "Lifecycle can only move forward: experimental → beta → stable → deprecated → sunset",
+					Hint:    "Lifecycle can only move forward: experimental → preview → stable → deprecated → sunset",
 				}
 			}
 		}
@@ -978,8 +990,8 @@ func inferLifecycleFromVersion(version string) string {
 	if strings.HasPrefix(sv.Prerelease, "alpha") {
 		return "experimental"
 	}
-	if strings.HasPrefix(sv.Prerelease, "beta") {
-		return "beta"
+	if strings.HasPrefix(sv.Prerelease, "beta") || strings.HasPrefix(sv.Prerelease, "rc") {
+		return "preview"
 	}
 	return ""
 }
@@ -1004,7 +1016,7 @@ Examples:
 		Args: cobra.ExactArgs(1),
 		RunE: releasePromoteAction,
 	}
-	cmd.Flags().String("to", "", "Target lifecycle (beta, stable, deprecated, sunset)")
+	cmd.Flags().String("to", "", "Target lifecycle (preview, stable, deprecated, sunset)")
 	cmd.Flags().String("version", "", "Version for the promoted release (required for stable promotion)")
 	cmd.Flags().String("canonical-repo", "", "Canonical repository URL")
 	cmd.Flags().Bool("force", false, "Override lifecycle checks")
@@ -1054,6 +1066,18 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 				Hint:    "Use --force to override lifecycle checks",
 			}
 		}
+
+		// v0 line policy enforcement for promote target
+		line := config.ParseLineFromID(apiID)
+		if config.IsV0Line(line) {
+			if err := config.ValidateV0Lifecycle(targetLifecycle); err != nil {
+				return &publisher.PublishError{
+					Code:    publisher.ErrCodeLifecycleMismatch,
+					Message: err.Error(),
+					Hint:    "v0 lines cannot be promoted to stable; create a v1 line instead",
+				}
+			}
+		}
 	}
 
 	// Determine version for the promotion
@@ -1076,7 +1100,7 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 					version = fmt.Sprintf("v%d.%d.%d", sv.Major, sv.Minor, sv.Patch+1)
 				}
 			}
-		} else if targetLifecycle == "beta" {
+		} else if targetLifecycle == "preview" || targetLifecycle == "beta" {
 			latest, _ := config.LatestVersion(versions, promoteLineMajor)
 			if latest != "" {
 				sv, err := config.ParseSemVer(latest)

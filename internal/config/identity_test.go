@@ -60,9 +60,12 @@ func TestParseAPIID(t *testing.T) {
 			wantErr: "invalid API line",
 		},
 		{
-			name:    "invalid line v0",
-			input:   "proto/payments/ledger/v0",
-			wantErr: "invalid API line",
+			name:  "valid v0 line",
+			input: "proto/payments/ledger/v0",
+			want: &APIIdentity{
+				ID: "proto/payments/ledger/v0", Format: "proto",
+				Domain: "payments", Name: "ledger", Line: "v0",
+			},
 		},
 		{
 			name:    "empty string",
@@ -95,10 +98,10 @@ func TestLineMajor(t *testing.T) {
 		want    int
 		wantErr bool
 	}{
+		{"v0", 0, false},
 		{"v1", 1, false},
 		{"v2", 2, false},
 		{"v10", 10, false},
-		{"v0", 0, true},
 		{"1", 0, true},
 		{"vx", 0, true},
 	}
@@ -279,7 +282,7 @@ func TestFormatIdentityReport(t *testing.T) {
 }
 
 func TestValidateLifecycle(t *testing.T) {
-	for _, valid := range []string{"experimental", "beta", "stable", "deprecated", "sunset"} {
+	for _, valid := range []string{"experimental", "preview", "beta", "stable", "deprecated", "sunset"} {
 		assert.NoError(t, ValidateLifecycle(valid))
 	}
 	assert.Error(t, ValidateLifecycle("alpha"))
@@ -353,6 +356,11 @@ func TestDeriveGoModDir(t *testing.T) {
 		want string
 	}{
 		{
+			name: "v0 no version suffix",
+			api:  &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v0"},
+			want: "proto/payments/ledger",
+		},
+		{
 			name: "v1 no version suffix",
 			api:  &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
 			want: "proto/payments/ledger",
@@ -375,4 +383,48 @@ func TestDeriveGoModDir(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// v0 line support
+// ---------------------------------------------------------------------------
+
+func TestIsV0Line(t *testing.T) {
+	assert.True(t, IsV0Line("v0"))
+	assert.False(t, IsV0Line("v1"))
+	assert.False(t, IsV0Line("v2"))
+	assert.False(t, IsV0Line("invalid"))
+}
+
+func TestBuildIdentityBlockV0(t *testing.T) {
+	api, source, release, langs, err := BuildIdentityBlock(
+		"proto/payments/ledger/v0",
+		"github.com/acme/apis",
+		"experimental",
+		"v0.1.0-alpha.1",
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, "proto/payments/ledger/v0", api.ID)
+	assert.Equal(t, "v0", api.Line)
+	assert.Equal(t, "experimental", api.Lifecycle)
+	assert.Equal(t, "github.com/acme/apis", source.Repo)
+	assert.Equal(t, "v0.1.0-alpha.1", release.Current)
+	// v0 module has no version suffix (like v1)
+	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", langs["go"].Module)
+	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v0", langs["go"].Import)
+}
+
+func TestDeriveGoModuleV0(t *testing.T) {
+	api := &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v0"}
+	got, err := DeriveGoModule("github.com/acme/apis", api)
+	require.NoError(t, err)
+	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", got)
+}
+
+func TestDeriveGoImportV0(t *testing.T) {
+	api := &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v0"}
+	got, err := DeriveGoImport("github.com/acme/apis", api)
+	require.NoError(t, err)
+	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v0", got)
 }

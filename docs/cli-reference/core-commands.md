@@ -105,6 +105,33 @@ Latest prerelease:  v1.3.0-beta.1
 Go module:  github.com/acme/apis/proto/payments/ledger
 Go import:  github.com/acme/apis/proto/payments/ledger/v1
 Owners:     @platform/payments
+Compatibility:
+  Level:    full
+  Promise:  full backward compatibility within the major version line
+  Breaking: backward-incompatible changes are blocked on this line
+  Use:      recommended for production
+```
+
+For a v0 API the lifecycle section shows the reduced compatibility guarantee:
+
+```bash
+$ apx show proto/payments/ledger/v0
+API:        proto/payments/ledger/v0
+Format:     proto
+Domain:     payments
+Name:       ledger
+Line:       v0
+Lifecycle:  experimental
+Source:     github.com/acme/apis/proto/payments/ledger/v0
+Latest stable:      (none)
+Latest prerelease:  0.3.0
+Go module:  github.com/acme/apis/proto/payments/ledger
+Go import:  github.com/acme/apis/proto/payments/ledger/v0
+Compatibility:
+  Level:    none
+  Promise:  no backward-compatibility guarantee; anything may change
+  Breaking: breaking changes are allowed (minor version bump)
+  Use:      not recommended for production
 ```
 
 ## `apx config`

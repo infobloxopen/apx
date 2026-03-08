@@ -44,11 +44,12 @@ Examples:
 
 // showInfo holds everything we know about an API for display or JSON output.
 type showInfo struct {
-	API       *config.APIIdentity              `json:"api"`
-	Source    *config.SourceIdentity           `json:"source"`
-	Release   *showRelease                     `json:"release,omitempty"`
-	Languages map[string]config.LanguageCoords `json:"languages,omitempty"`
-	Catalog   *showCatalog                     `json:"catalog,omitempty"`
+	API           *config.APIIdentity              `json:"api"`
+	Source        *config.SourceIdentity           `json:"source"`
+	Release       *showRelease                     `json:"release,omitempty"`
+	Languages     map[string]config.LanguageCoords `json:"languages,omitempty"`
+	Catalog       *showCatalog                     `json:"catalog,omitempty"`
+	Lifecycle     *showLifecycle                   `json:"lifecycle,omitempty"`
 }
 
 type showRelease struct {
@@ -61,6 +62,14 @@ type showCatalog struct {
 	Lifecycle string   `json:"lifecycle,omitempty"`
 	Owners    []string `json:"owners,omitempty"`
 	Version   string   `json:"version,omitempty"`
+}
+
+type showLifecycle struct {
+	State                string `json:"state"`
+	CompatibilityLevel   string `json:"compatibility_level"`
+	CompatibilitySummary string `json:"compatibility_summary"`
+	BreakingPolicy       string `json:"breaking_policy"`
+	ProductionUse        string `json:"production_use"`
 }
 
 func showAction(cmd *cobra.Command, args []string) error {
@@ -133,6 +142,19 @@ func showAction(cmd *cobra.Command, args []string) error {
 
 	// JSON output
 	jsonOut, _ := cmd.Root().PersistentFlags().GetBool("json")
+
+	// Build lifecycle section if lifecycle is known
+	if api.Lifecycle != "" {
+		promise := config.DeriveCompatibilityPromise(api.Line, api.Lifecycle)
+		info.Lifecycle = &showLifecycle{
+			State:                config.NormalizeLifecycle(api.Lifecycle),
+			CompatibilityLevel:   promise.Level,
+			CompatibilitySummary: promise.Summary,
+			BreakingPolicy:       promise.BreakingPolicy,
+			ProductionUse:        config.ProductionRecommendation(api.Lifecycle),
+		}
+	}
+
 	if jsonOut {
 		data, err := json.MarshalIndent(info, "", "  ")
 		if err != nil {
@@ -158,15 +180,26 @@ func printShowText(info *showInfo, catalogFound bool) {
 	ui.Info("Line:       %s", api.Line)
 
 	if api.Lifecycle != "" {
-		ui.Info("Lifecycle:  %s", api.Lifecycle)
+		ui.Info("Lifecycle:  %s", config.NormalizeLifecycle(api.Lifecycle))
 	}
 
 	if source != nil {
 		ui.Info("Source:     %s/%s", source.Repo, source.Path)
 	}
 
+	// Lifecycle details
+	if info.Lifecycle != nil {
+		ui.Info("")
+		ui.Info("Compatibility")
+		ui.Info("  Level:    %s", info.Lifecycle.CompatibilityLevel)
+		ui.Info("  Promise:  %s", info.Lifecycle.CompatibilitySummary)
+		ui.Info("  Breaking: %s", info.Lifecycle.BreakingPolicy)
+		ui.Info("  Use:      %s", info.Lifecycle.ProductionUse)
+	}
+
 	// Release info
 	if info.Release != nil {
+		ui.Info("")
 		if info.Release.LatestStable != "" {
 			ui.Info("Latest stable:      %s", info.Release.LatestStable)
 		} else {
@@ -179,6 +212,7 @@ func printShowText(info *showInfo, catalogFound bool) {
 
 	// Language coordinates
 	if goCoords, ok := info.Languages["go"]; ok {
+		ui.Info("")
 		ui.Info("Go module:  %s", goCoords.Module)
 		ui.Info("Go import:  %s", goCoords.Import)
 	}
