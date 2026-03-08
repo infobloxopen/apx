@@ -11,6 +11,7 @@ type SearchOptions struct {
 	Lifecycle string // filter by lifecycle (experimental, preview, stable, deprecated, sunset)
 	Domain    string // filter by domain (e.g. "payments")
 	APILine   string // filter by API line (e.g. "v1")
+	Origin    string // filter by origin: "first-party", "external", "forked", or "" (all)
 }
 
 // SearchModules searches the catalog for modules matching the query and format.
@@ -33,6 +34,24 @@ func SearchModulesOpts(gen *Generator, opts SearchOptions) ([]Module, error) {
 	matches := []Module{}
 
 	for _, module := range catalog.Modules {
+		// Filter by origin
+		if opts.Origin != "" {
+			switch opts.Origin {
+			case "first-party":
+				if module.Origin != "" {
+					continue
+				}
+			case "external":
+				if module.Origin != "external" {
+					continue
+				}
+			case "forked":
+				if module.Origin != "forked" {
+					continue
+				}
+			}
+		}
+
 		// Filter by format
 		if opts.Format != "" && !strings.EqualFold(module.Format, opts.Format) {
 			continue

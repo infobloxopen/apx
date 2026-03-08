@@ -1,0 +1,47 @@
+# Test: External API versioning and lifecycle in catalog
+#
+# This scenario verifies:
+# 1. Registering an external API with --version and --lifecycle populates catalog correctly
+# 2. Stable versions set latest_stable in catalog
+# 3. Prerelease versions set latest_prerelease in catalog
+# 4. Lifecycle state persists through catalog generation
+
+# Setup: Create a canonical repo
+mkdir canonical
+cd canonical
+exec git init
+exec apx init canonical --org=testorg --repo=apis --skip-git --non-interactive
+
+# Register an external API with stable version
+exec apx external register proto/google/pubsub/v1 --managed-repo github.com/Infoblox-CTO/apis-contrib-google --managed-path google/pubsub/v1 --upstream-repo github.com/googleapis/googleapis --upstream-path google/pubsub/v1 --version v1.0.0 --lifecycle stable
+stdout 'Registered external API'
+
+# Generate catalog (which merges externals)
+exec apx catalog generate
+stdout 'external'
+
+# Verify catalog contains version and lifecycle
+exec cat catalog/catalog.yaml
+stdout 'proto/google/pubsub/v1'
+stdout 'latest_stable: v1.0.0'
+stdout 'lifecycle: stable'
+stdout 'origin: external'
+! stdout 'latest_prerelease'
+
+# Register a second external API with prerelease version
+exec apx external register proto/google/api/v1 --managed-repo github.com/Infoblox-CTO/apis-contrib-google --managed-path google/api --upstream-repo github.com/googleapis/googleapis --upstream-path google/api --version v1.1.0-beta.1 --lifecycle beta
+stdout 'Registered external API'
+
+# Regenerate catalog
+exec apx catalog generate
+
+# Verify prerelease version is tracked in latest_prerelease
+exec cat catalog/catalog.yaml
+stdout 'proto/google/api/v1'
+stdout 'latest_prerelease: v1.1.0-beta.1'
+stdout 'lifecycle: beta'
+
+# Verify the search command shows version info
+exec apx search --origin external
+stdout 'pubsub'
+stdout 'api'

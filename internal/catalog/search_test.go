@@ -687,3 +687,94 @@ func TestScanDirectoryIdentity(t *testing.T) {
 		t.Errorf("expected domain customer, got %s", accounts.Domain)
 	}
 }
+
+func TestSearchModulesOpts_OriginFilter(t *testing.T) {
+	tmpDir := t.TempDir()
+	catalogPath := filepath.Join(tmpDir, "catalog.yaml")
+
+	cat := &Catalog{
+		Version: 1,
+		Org:     "testorg",
+		Repo:    "apis",
+		Modules: []Module{
+			{
+				ID:     "proto/payments/ledger/v1",
+				Format: "proto",
+				Domain: "payments",
+				Path:   "proto/payments/ledger/v1",
+			},
+			{
+				ID:     "proto/google/pubsub/v1",
+				Format: "proto",
+				Domain: "google",
+				Path:   "google/pubsub/v1",
+				Origin: "external",
+			},
+			{
+				ID:     "proto/google/api/v1",
+				Format: "proto",
+				Domain: "google",
+				Path:   "google/api",
+				Origin: "forked",
+			},
+		},
+	}
+
+	gen := NewGenerator(catalogPath)
+	if err := gen.Save(cat); err != nil {
+		t.Fatalf("failed to save test catalog: %v", err)
+	}
+
+	tests := []struct {
+		name          string
+		origin        string
+		expectedCount int
+		expectedIDs   []string
+	}{
+		{
+			name:          "no filter returns all",
+			origin:        "",
+			expectedCount: 3,
+			expectedIDs:   []string{"proto/payments/ledger/v1", "proto/google/pubsub/v1", "proto/google/api/v1"},
+		},
+		{
+			name:          "first-party only",
+			origin:        "first-party",
+			expectedCount: 1,
+			expectedIDs:   []string{"proto/payments/ledger/v1"},
+		},
+		{
+			name:          "external only",
+			origin:        "external",
+			expectedCount: 1,
+			expectedIDs:   []string{"proto/google/pubsub/v1"},
+		},
+		{
+			name:          "forked only",
+			origin:        "forked",
+			expectedCount: 1,
+			expectedIDs:   []string{"proto/google/api/v1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results, err := SearchModulesOpts(gen, SearchOptions{Origin: tt.origin})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(results) != tt.expectedCount {
+				t.Errorf("expected %d results, got %d", tt.expectedCount, len(results))
+			}
+			foundIDs := make(map[string]bool)
+			for _, r := range results {
+				foundIDs[r.ID] = true
+			}
+			for _, id := range tt.expectedIDs {
+				if !foundIDs[id] {
+					t.Errorf("expected module %s not found in results", id)
+				}
+			}
+		})
+	}
+}

@@ -439,6 +439,30 @@ func buildV1Schema() SchemaVersion {
 				},
 			},
 		},
+		"external_apis": {
+			Name:        "external_apis",
+			Type:        TypeList,
+			Description: "Registered external API sources",
+			ItemDef: &FieldDef{
+				Name:        "external_registration",
+				Type:        TypeStruct,
+				Description: "An external API registration entry",
+				Children: map[string]FieldDef{
+					"id":            {Name: "id", Type: TypeString, Required: true, Description: "Canonical API ID (format/domain/name/line)"},
+					"managed_repo":  {Name: "managed_repo", Type: TypeString, Required: true, Description: "Internal repo hosting curated snapshots"},
+					"managed_path":  {Name: "managed_path", Type: TypeString, Required: true, Description: "Filesystem path in managed repo"},
+					"upstream_repo": {Name: "upstream_repo", Type: TypeString, Required: true, Description: "Original external repository URL"},
+					"upstream_path": {Name: "upstream_path", Type: TypeString, Required: true, Description: "Path in upstream repository"},
+					"import_mode":   {Name: "import_mode", Type: TypeString, Description: "Import path handling", EnumValues: []string{"preserve", "rewrite"}},
+					"origin":        {Name: "origin", Type: TypeString, Description: "API classification", EnumValues: []string{"external", "forked"}},
+					"description":   {Name: "description", Type: TypeString, Description: "Human-readable description"},
+					"lifecycle":     {Name: "lifecycle", Type: TypeString, Description: "Lifecycle state", EnumValues: []string{"experimental", "beta", "stable", "deprecated", "sunset"}},
+					"version":       {Name: "version", Type: TypeString, Description: "Current managed snapshot version"},
+					"owners":        {Name: "owners", Type: TypeList, Description: "Team or individual owners", ItemDef: &FieldDef{Name: "owner", Type: TypeString}},
+					"tags":          {Name: "tags", Type: TypeList, Description: "Searchable tags", ItemDef: &FieldDef{Name: "tag", Type: TypeString}},
+				},
+			},
+		},
 	}
 
 	return SchemaVersion{

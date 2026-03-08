@@ -82,6 +82,19 @@ version: 1
 | `execution` | struct | no |  |  | Execution environment settings |
 | `execution.mode` | string | no | `local` | local, container | Where tools run |
 | `execution.container_image` | string | no |  |  | Container image when mode=container |
+| `external_apis` | list | no |  |  | External API registrations |
+| `external_apis[].id` | string | yes |  |  | Canonical API identity (format/domain/name/line) |
+| `external_apis[].managed_repo` | string | yes |  |  | Internal repository hosting curated snapshots |
+| `external_apis[].managed_path` | string | yes |  |  | Filesystem path in managed repository |
+| `external_apis[].upstream_repo` | string | yes |  |  | Original external repository URL |
+| `external_apis[].upstream_path` | string | yes |  |  | Path in upstream repository |
+| `external_apis[].import_mode` | string | no | `preserve` | preserve, rewrite | Import path handling strategy |
+| `external_apis[].origin` | string | no | `external` | external, forked | Classification of the external API |
+| `external_apis[].description` | string | no |  |  | Human-readable description |
+| `external_apis[].lifecycle` | string | no |  | experimental, beta, stable, deprecated, sunset | Lifecycle state |
+| `external_apis[].version` | string | no |  |  | Current version of the managed snapshot |
+| `external_apis[].owners` | list | no |  |  | List of owners |
+| `external_apis[].tags` | list | no |  |  | List of tags |
 | `api` | struct | no |  |  | Canonical API identity |
 | `api.id` | string | no |  |  | Full API identifier (format/domain/name/line) |
 | `api.format` | string | no |  | proto, openapi, avro, jsonschema, parquet | Schema format |
@@ -198,6 +211,26 @@ execution:
 |------|-------------|
 | `local` | Run tools directly on the host machine |
 | `container` | Run tools inside a container (requires `container_image`) |
+
+### `external_apis`
+
+Registers third-party APIs for inclusion in the catalog and dependency system. See [External API Registration](../dependencies/external-apis.md) for full workflow documentation.
+
+```yaml
+external_apis:
+  - id: proto/google/pubsub/v1
+    managed_repo: github.com/acme/apis-contrib-google
+    managed_path: google/pubsub/v1
+    upstream_repo: github.com/googleapis/googleapis
+    upstream_path: google/pubsub/v1
+    import_mode: preserve
+    origin: external
+    description: Google Cloud Pub/Sub API
+    lifecycle: stable
+    version: v1.0.0
+```
+
+Each entry requires `id`, `managed_repo`, `managed_path`, `upstream_repo`, and `upstream_path`. Optional fields include `import_mode` (default: `preserve`), `origin` (default: `external`), `description`, `lifecycle`, `version`, `owners`, and `tags`.
 
 ### `api`
 

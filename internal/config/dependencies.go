@@ -28,8 +28,23 @@ func NewDependencyManager(configPath, lockPath string) *DependencyManager {
 	}
 }
 
+// ExternalProvenance holds provenance metadata for external API dependencies.
+type ExternalProvenance struct {
+	Origin       string
+	ManagedRepo  string
+	UpstreamRepo string
+	UpstreamPath string
+	ImportMode   string
+}
+
 // Add adds a dependency to apx.yaml and apx.lock
 func (dm *DependencyManager) Add(modulePath, version string) error {
+	return dm.AddWithProvenance(modulePath, version, nil)
+}
+
+// AddWithProvenance adds a dependency with optional external provenance metadata.
+// If provenance is non-nil, the lock file entry will record origin, upstream, and import mode.
+func (dm *DependencyManager) AddWithProvenance(modulePath, version string, provenance *ExternalProvenance) error {
 	// If no version specified, use "latest" placeholder
 	if version == "" {
 		version = "latest"
@@ -46,12 +61,26 @@ func (dm *DependencyManager) Add(modulePath, version string) error {
 		return fmt.Errorf("failed to load lock file: %w", err)
 	}
 
-	// Add/update dependency in the map
-	lockFile.Dependencies[modulePath] = DependencyLock{
+	// Build lock entry
+	lock := DependencyLock{
 		Repo:    "github.com/org/apis", // TODO: Get from config
 		Ref:     version,
 		Modules: []string{modulePath},
 	}
+
+	// Populate provenance for external APIs
+	if provenance != nil {
+		lock.Origin = provenance.Origin
+		lock.UpstreamRepo = provenance.UpstreamRepo
+		lock.UpstreamPath = provenance.UpstreamPath
+		lock.ImportMode = provenance.ImportMode
+		if provenance.ManagedRepo != "" {
+			lock.Repo = provenance.ManagedRepo
+		}
+	}
+
+	// Add/update dependency in the map
+	lockFile.Dependencies[modulePath] = lock
 
 	// Save lock file
 	if err := dm.saveLock(lockFile); err != nil {

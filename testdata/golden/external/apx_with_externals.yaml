@@ -1,0 +1,38 @@
+version: 1
+org: testorg
+repo: apis
+module_roots:
+  - proto
+
+external_apis:
+  - id: proto/google/api/v1
+    managed_repo: github.com/testorg/apis-contrib-google
+    managed_path: google/api
+    upstream_repo: github.com/googleapis/googleapis
+    upstream_path: google/api
+    import_mode: preserve
+    origin: external
+    description: "Google API framework protos"
+    lifecycle: stable
+    owners:
+      - platform-team
+    tags:
+      - google
+      - framework
+
+  - id: proto/google/pubsub/v1
+    managed_repo: github.com/testorg/apis-contrib-google
+    managed_path: google/pubsub/v1
+    upstream_repo: github.com/googleapis/googleapis
+    upstream_path: google/pubsub/v1
+    import_mode: preserve
+    origin: external
+    description: "Google Cloud Pub/Sub API"
+    lifecycle: stable
+    version: v1.0.0
+    owners:
+      - platform-team
+    tags:
+      - google
+      - messaging
+      - pubsub

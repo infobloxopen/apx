@@ -66,6 +66,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newInspectCmd(),
 		newExplainCmd(),
 		newWorkflowsCmd(),
+		newExternalCmd(),
 	)
 
 	return cmd

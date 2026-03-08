@@ -10,6 +10,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-21
 - Files (`apx.yaml`, `apx-lock.yaml`, `catalog/catalog.yaml`) (005-docs-cli-consistency)
 - Go 1.26.1 + cobra (CLI), gopkg.in/yaml.v3 (YAML parsing), testify (assertions), go-internal/testscript (integration tests) (006-canonical-config-schema)
 - Filesystem (`apx.yaml`, `apx.lock`) (006-canonical-config-schema)
+- Go 1.26.1 + cobra (CLI), yaml.v3 (config), golang.org/x/mod (semver), testify (testing), go-internal (testscript), charmbracelet/huh (interactive TUI) (008-external-api-registration)
+- YAML files (apx.yaml, catalog.yaml, apx.lock) (008-external-api-registration)
 
 - Go 1.24 + `github.com/urfave/cli/v2` (command wiring), `github.com/AlecAivazis/survey/v2` (interactive prompts), `github.com/infobloxopen/apx/internal/*` packages for business logic, external CLI toolchains (buf, spectral, oasdiff, etc.) (001-align-docs-experience)
 
@@ -29,9 +31,9 @@ tests/
 Go 1.24: Follow standard conventions
 
 ## Recent Changes
+- 008-external-api-registration: Added Go 1.26.1 + cobra (CLI), yaml.v3 (config), golang.org/x/mod (semver), testify (testing), go-internal (testscript), charmbracelet/huh (interactive TUI)
 - 006-canonical-config-schema: Added Go 1.26.1 + cobra (CLI), gopkg.in/yaml.v3 (YAML parsing), testify (assertions), go-internal/testscript (integration tests)
 - 005-docs-cli-consistency: Added Go 1.26.1 + cobra v1.10.2, charmbracelet/huh v0.8.0, gopkg.in/yaml.v3
-- 004-package-installers: Added Go 1.26.1 (CLI), Bash (install script), YAML (CI/GoReleaser config) + GoReleaser v2 (release automation), GitHub Actions (CI/CD), goreleaser-action@v6
 
 
 <!-- MANUAL ADDITIONS START -->

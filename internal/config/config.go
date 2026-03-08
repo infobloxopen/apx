@@ -24,6 +24,7 @@ type Config struct {
 	Source          *SourceIdentity           `yaml:"source,omitempty"`
 	Releases        *ReleaseInfo              `yaml:"releases,omitempty"`
 	Languages       map[string]LanguageCoords `yaml:"languages,omitempty"`
+	ExternalAPIs    []ExternalRegistration    `yaml:"external_apis,omitempty"`
 }
 
 // APIIdentity describes the canonical identity of an API.
@@ -126,9 +127,13 @@ type ToolchainLock struct {
 
 // DependencyLock represents a locked schema dependency
 type DependencyLock struct {
-	Repo    string   `yaml:"repo"`
-	Ref     string   `yaml:"ref"`
-	Modules []string `yaml:"modules"`
+	Repo         string   `yaml:"repo"`
+	Ref          string   `yaml:"ref"`
+	Modules      []string `yaml:"modules"`
+	Origin       string   `yaml:"origin,omitempty"`
+	UpstreamRepo string   `yaml:"upstream_repo,omitempty"`
+	UpstreamPath string   `yaml:"upstream_path,omitempty"`
+	ImportMode   string   `yaml:"import_mode,omitempty"`
 }
 
 // ErrorKind classifies the type of a validation error.

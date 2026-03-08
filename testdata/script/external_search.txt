@@ -1,0 +1,112 @@
+# Test: apx search/show/inspect with external API provenance
+#
+# This scenario verifies:
+# 1. Search with --origin flag filters by origin
+# 2. Search output shows [external]/[forked] tags
+# 3. Show command displays Provenance section for external APIs
+# 4. Inspect identity displays Origin/Import/Managed/Upstream for external APIs
+
+# Setup: Create a canonical repo and register external APIs
+mkdir canonical
+cd canonical
+exec git init
+exec apx init canonical --org=testorg --repo=apis --skip-git --non-interactive
+
+# Overwrite catalog/catalog.yaml with mixed first-party and external modules
+exec sh -c 'echo "version: 1" > catalog/catalog.yaml'
+exec sh -c 'echo "org: testorg" >> catalog/catalog.yaml'
+exec sh -c 'echo "repo: apis" >> catalog/catalog.yaml'
+exec sh -c 'echo "modules:" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - id: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    name: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    format: proto" >> catalog/catalog.yaml'
+exec sh -c 'echo "    domain: payments" >> catalog/catalog.yaml'
+exec sh -c 'echo "    api_line: v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    description: Payment ledger API" >> catalog/catalog.yaml'
+exec sh -c 'echo "    version: v1.2.3" >> catalog/catalog.yaml'
+exec sh -c 'echo "    latest_stable: v1.2.3" >> catalog/catalog.yaml'
+exec sh -c 'echo "    lifecycle: stable" >> catalog/catalog.yaml'
+exec sh -c 'echo "    path: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - id: proto/google/pubsub/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    name: proto/google/pubsub/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    format: proto" >> catalog/catalog.yaml'
+exec sh -c 'echo "    domain: google" >> catalog/catalog.yaml'
+exec sh -c 'echo "    api_line: v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    description: Google Pub/Sub API" >> catalog/catalog.yaml'
+exec sh -c 'echo "    version: v1.0.0" >> catalog/catalog.yaml'
+exec sh -c 'echo "    latest_stable: v1.0.0" >> catalog/catalog.yaml'
+exec sh -c 'echo "    lifecycle: stable" >> catalog/catalog.yaml'
+exec sh -c 'echo "    path: google/pubsub/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    origin: external" >> catalog/catalog.yaml'
+exec sh -c 'echo "    managed_repo: github.com/Infoblox-CTO/apis-contrib-google" >> catalog/catalog.yaml'
+exec sh -c 'echo "    upstream_repo: github.com/googleapis/googleapis" >> catalog/catalog.yaml'
+exec sh -c 'echo "    upstream_path: google/pubsub/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    import_mode: preserve" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - id: proto/google/api/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    name: proto/google/api/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    format: proto" >> catalog/catalog.yaml'
+exec sh -c 'echo "    domain: google" >> catalog/catalog.yaml'
+exec sh -c 'echo "    api_line: v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    description: Google Common API" >> catalog/catalog.yaml'
+exec sh -c 'echo "    version: v1.0.0" >> catalog/catalog.yaml'
+exec sh -c 'echo "    lifecycle: stable" >> catalog/catalog.yaml'
+exec sh -c 'echo "    path: google/api" >> catalog/catalog.yaml'
+exec sh -c 'echo "    origin: forked" >> catalog/catalog.yaml'
+exec sh -c 'echo "    managed_repo: github.com/Infoblox-CTO/apis-contrib-google" >> catalog/catalog.yaml'
+exec sh -c 'echo "    upstream_repo: github.com/googleapis/googleapis" >> catalog/catalog.yaml'
+exec sh -c 'echo "    upstream_path: google/api" >> catalog/catalog.yaml'
+exec sh -c 'echo "    import_mode: rewrite" >> catalog/catalog.yaml'
+
+# Search: all APIs
+exec apx search
+stdout 'ledger'
+stdout 'pubsub'
+stdout 'api'
+
+# Search: external APIs show [external] tag
+exec apx search --origin external
+stdout 'pubsub'
+stdout '\[external\]'
+! stdout 'ledger'
+! stdout '\[forked\]'
+
+# Search: forked APIs show [forked] tag
+exec apx search --origin forked
+stdout 'api'
+stdout '\[forked\]'
+! stdout 'ledger'
+! stdout 'pubsub'
+
+# Search: first-party only
+exec apx search --origin first-party
+stdout 'ledger'
+! stdout 'pubsub'
+! stdout 'api'
+
+# Show: external API displays Provenance section
+exec apx show proto/google/pubsub/v1
+stdout 'Provenance'
+stdout 'Origin:.*external'
+stdout 'Import mode:.*preserve'
+stdout 'Managed repo:.*github.com/Infoblox-CTO/apis-contrib-google'
+stdout 'Upstream repo:.*github.com/googleapis/googleapis'
+stdout 'Upstream path:.*google/pubsub/v1'
+
+# Show: first-party API does NOT display Provenance
+exec apx show proto/payments/ledger/v1
+! stdout 'Provenance'
+! stdout 'Origin'
+
+# Inspect identity: external API shows provenance lines
+exec apx inspect identity proto/google/pubsub/v1
+stdout 'Origin:.*external'
+stdout 'Import:.*preserve'
+stdout 'Managed:.*github.com/Infoblox-CTO/apis-contrib-google'
+stdout 'Upstream:.*github.com/googleapis/googleapis'
+
+# Inspect identity: first-party API does NOT show provenance
+exec apx inspect identity proto/payments/ledger/v1
+! stdout 'Origin:'
+! stdout 'Import:'
+! stdout 'Managed:'
+! stdout 'Upstream:'

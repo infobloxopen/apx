@@ -44,6 +44,7 @@ APX commands are organized into logical categories:
 - `apx config` - Configuration management
 - `apx fetch` - Download toolchain
 - `apx completion` - Shell completions
+- `apx external` - External API management
 :::
 
 :::{grid-item-card} **Global Options**

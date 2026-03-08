@@ -112,6 +112,14 @@ func catalogGenerateAction(cmd *cobra.Command, args []string) error {
 
 	cat := catalog.GenerateFromTags(tags, org, repo)
 
+	// Merge external API registrations from apx.yaml
+	cfg, cfgErr := loadConfig(cmd)
+	if cfgErr == nil && len(cfg.ExternalAPIs) > 0 {
+		if err := catalog.MergeExternalAPIs(cat, cfg.ExternalAPIs); err != nil {
+			return fmt.Errorf("failed to merge external APIs: %w", err)
+		}
+	}
+
 	// Ensure output directory exists
 	if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
@@ -133,7 +141,12 @@ func catalogGenerateAction(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	ui.Success("Catalog generated: %s (%d APIs discovered)", output, len(cat.Modules))
+	firstParty, external := catalog.ExternalModuleCount(cat)
+	if external > 0 {
+		ui.Success("Catalog generated: %d modules (%d first-party, %d external)", len(cat.Modules), firstParty, external)
+	} else {
+		ui.Success("Catalog generated: %s (%d APIs discovered)", output, len(cat.Modules))
+	}
 	for _, m := range cat.Modules {
 		version := m.Version
 		if version == "" {

@@ -1,0 +1,55 @@
+# Test: apx external transition command
+#
+# This scenario verifies:
+# 1. Transitioning external → forked changes origin and import_mode
+# 2. Reverse transition forked → external restores import_mode
+# 3. Transitioning a non-external API fails
+# 4. Transitioning to current state fails (already at target)
+
+# Setup: Create a canonical repo and register external APIs
+mkdir canonical
+cd canonical
+exec git init
+exec apx init canonical --org=testorg --repo=apis --skip-git --non-interactive
+
+# Register an external API
+exec apx external register proto/google/pubsub/v1 --managed-repo github.com/Infoblox-CTO/apis-contrib-google --managed-path google/pubsub/v1 --upstream-repo github.com/googleapis/googleapis --upstream-path google/pubsub/v1 --lifecycle stable
+stdout 'Registered external API'
+
+# Verify initial state
+exec apx external list
+stdout 'external'
+stdout 'preserve'
+
+# Transition external → forked
+exec apx external transition proto/google/pubsub/v1 --to forked
+stdout 'Transitioned'
+stdout 'forked'
+
+# Verify state changed
+exec apx external list
+stdout 'forked'
+stdout 'rewrite'
+
+# Verify apx.yaml updated
+exec cat apx.yaml
+stdout 'origin: forked'
+stdout 'import_mode: rewrite'
+
+# Reverse transition forked → external
+exec apx external transition proto/google/pubsub/v1 --to external
+stdout 'Transitioned'
+stdout 'external'
+
+# Verify state restored
+exec apx external list
+stdout 'external'
+stdout 'preserve'
+
+# Error: transition to current state (already external)
+! exec apx external transition proto/google/pubsub/v1 --to external
+stderr 'already'
+
+# Error: transition a non-existent API
+! exec apx external transition proto/payments/ledger/v1 --to forked
+stderr 'not found'

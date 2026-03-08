@@ -1,0 +1,46 @@
+# Test: apx external register and list commands
+#
+# This scenario verifies:
+# 1. Registering an external API adds it to apx.yaml
+# 2. Listing external APIs shows the registered APIs
+# 3. Re-registering a duplicate ID is rejected
+# 4. Filtering list by origin works
+
+# Setup: Create a canonical repo
+mkdir canonical
+cd canonical
+exec git init
+exec apx init canonical --org=testorg --repo=apis --skip-git --non-interactive
+
+# Register an external API
+exec apx external register proto/google/pubsub/v1 --managed-repo github.com/Infoblox-CTO/apis-contrib-google --managed-path google/pubsub/v1 --upstream-repo github.com/googleapis/googleapis --upstream-path google/pubsub/v1 --description 'Google Pub/Sub API' --lifecycle stable
+stdout 'Registered external API: proto/google/pubsub/v1'
+stdout 'Managed:'
+stdout 'Upstream:'
+stdout 'preserve'
+stdout 'external'
+
+# Register a second external API
+exec apx external register proto/google/api/v1 --managed-repo github.com/Infoblox-CTO/apis-contrib-google --managed-path google/api --upstream-repo github.com/googleapis/googleapis --upstream-path google/api --import-mode preserve
+stdout 'Registered external API: proto/google/api/v1'
+
+# List all external APIs
+exec apx external list
+stdout 'External APIs'
+stdout 'proto/google/pubsub/v1'
+stdout 'proto/google/api/v1'
+
+# Try to register a duplicate - should fail
+! exec apx external register proto/google/pubsub/v1 --managed-repo github.com/other/repo --managed-path other/path --upstream-repo github.com/googleapis/googleapis --upstream-path google/pubsub/v1
+
+# List with origin filter
+exec apx external list --origin external
+stdout 'proto/google/pubsub/v1'
+stdout 'proto/google/api/v1'
+
+# Verify apx.yaml contains external_apis section
+exec cat apx.yaml
+stdout 'external_apis'
+stdout 'proto/google/pubsub/v1'
+stdout 'managed_repo'
+stdout 'upstream_repo'

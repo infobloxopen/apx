@@ -1,0 +1,63 @@
+# Test: apx dep add with external API provenance
+#
+# This scenario verifies:
+# 1. Adding a dependency on an external API populates provenance in lock file
+# 2. The dep add output shows external source info
+# 3. First-party dependencies do NOT get provenance fields
+
+# Setup: Create an app repo with a catalog containing external APIs
+mkdir app
+cd app
+exec git init
+exec apx init app --org=testorg --repo=myapp --non-interactive internal/apis/proto/services/users
+
+# Create catalog with mixed modules
+mkdir -p catalog
+exec sh -c 'echo "version: 1" > catalog/catalog.yaml'
+exec sh -c 'echo "org: testorg" >> catalog/catalog.yaml'
+exec sh -c 'echo "repo: apis" >> catalog/catalog.yaml'
+exec sh -c 'echo "modules:" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - id: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    name: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    format: proto" >> catalog/catalog.yaml'
+exec sh -c 'echo "    domain: payments" >> catalog/catalog.yaml'
+exec sh -c 'echo "    path: proto/payments/ledger/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    latest_stable: v1.2.3" >> catalog/catalog.yaml'
+exec sh -c 'echo "    lifecycle: stable" >> catalog/catalog.yaml'
+exec sh -c 'echo "  - id: proto/google/pubsub/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    name: proto/google/pubsub/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    format: proto" >> catalog/catalog.yaml'
+exec sh -c 'echo "    domain: google" >> catalog/catalog.yaml'
+exec sh -c 'echo "    path: google/pubsub/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    latest_stable: v1.0.0" >> catalog/catalog.yaml'
+exec sh -c 'echo "    lifecycle: stable" >> catalog/catalog.yaml'
+exec sh -c 'echo "    origin: external" >> catalog/catalog.yaml'
+exec sh -c 'echo "    managed_repo: github.com/Infoblox-CTO/apis-contrib-google" >> catalog/catalog.yaml'
+exec sh -c 'echo "    upstream_repo: github.com/googleapis/googleapis" >> catalog/catalog.yaml'
+exec sh -c 'echo "    upstream_path: google/pubsub/v1" >> catalog/catalog.yaml'
+exec sh -c 'echo "    import_mode: preserve" >> catalog/catalog.yaml'
+
+# Add first-party dependency - no provenance in output
+exec apx add proto/payments/ledger/v1@v1.2.3
+stdout 'Added dependency: proto/payments/ledger/v1@v1.2.3'
+! stdout 'Source:'
+
+# Verify lock file has no provenance for first-party
+exec cat apx.lock
+stdout 'proto/payments/ledger/v1'
+! stdout 'origin'
+! stdout 'upstream_repo'
+
+# Add external API dependency - shows provenance in output
+exec apx add proto/google/pubsub/v1@v1.0.0
+stdout 'Added dependency: proto/google/pubsub/v1@v1.0.0'
+stdout 'Source:.*github.com/Infoblox-CTO/apis-contrib-google'
+stdout 'external'
+stdout 'preserve'
+
+# Verify lock file contains provenance fields for external API
+exec cat apx.lock
+stdout 'origin: external'
+stdout 'upstream_repo: github.com/googleapis/googleapis'
+stdout 'upstream_path: google/pubsub/v1'
+stdout 'import_mode: preserve'

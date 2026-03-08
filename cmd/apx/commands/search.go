@@ -29,6 +29,7 @@ Examples:
 	cmd.Flags().StringP("lifecycle", "l", "", "Filter by lifecycle (experimental, beta, stable, deprecated, sunset)")
 	cmd.Flags().StringP("domain", "d", "", "Filter by domain (e.g. payments, billing)")
 	cmd.Flags().String("api-line", "", "Filter by API line (e.g. v1, v2)")
+	cmd.Flags().String("origin", "", "Filter by origin: first-party, external, forked")
 	cmd.Flags().StringP("catalog", "c", "catalog/catalog.yaml", "Path to catalog file")
 	return cmd
 }
@@ -42,6 +43,7 @@ func searchAction(cmd *cobra.Command, args []string) error {
 	lifecycle, _ := cmd.Flags().GetString("lifecycle")
 	domain, _ := cmd.Flags().GetString("domain")
 	apiLine, _ := cmd.Flags().GetString("api-line")
+	origin, _ := cmd.Flags().GetString("origin")
 	catalogPath, _ := cmd.Flags().GetString("catalog")
 
 	gen := catalog.NewGenerator(catalogPath)
@@ -51,6 +53,7 @@ func searchAction(cmd *cobra.Command, args []string) error {
 		Lifecycle: lifecycle,
 		Domain:    domain,
 		APILine:   apiLine,
+		Origin:    origin,
 	})
 	if err != nil {
 		ui.Error("Failed to search catalog: %v", err)
@@ -75,7 +78,11 @@ func searchAction(cmd *cobra.Command, args []string) error {
 	ui.Info("Found %d API(s):", len(modules))
 	fmt.Println()
 	for _, module := range modules {
-		fmt.Printf("  %s\n", module.DisplayName())
+		if module.Origin != "" {
+			fmt.Printf("  %-40s [%s]\n", module.DisplayName(), module.Origin)
+		} else {
+			fmt.Printf("  %s\n", module.DisplayName())
+		}
 		if module.Description != "" {
 			fmt.Printf("    Description: %s\n", module.Description)
 		}
@@ -97,6 +104,10 @@ func searchAction(cmd *cobra.Command, args []string) error {
 		}
 		if module.LatestPrerelease != "" {
 			fmt.Printf("    Latest prerelease: %s\n", module.LatestPrerelease)
+		}
+		if module.Origin != "" && module.ManagedRepo != "" {
+			fmt.Printf("    Managed: %s\n", module.ManagedRepo)
+			fmt.Printf("    Import: %s\n", module.ImportMode)
 		}
 		if len(module.Owners) > 0 {
 			fmt.Printf("    Owners: %v\n", module.Owners)

@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"path/filepath"
 	"strings"
 
+	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/spf13/cobra"
@@ -39,7 +41,27 @@ func addAction(cmd *cobra.Command, args []string) error {
 
 	mgr := config.NewDependencyManager("apx.yaml", "apx.lock")
 
-	if err := mgr.Add(modulePath, version); err != nil {
+	// Look up the catalog to see if this is an external API
+	var provenance *config.ExternalProvenance
+	catalogPath := filepath.Join("catalog", "catalog.yaml")
+	gen := catalog.NewGenerator(catalogPath)
+	cat, err := gen.Load()
+	if err == nil {
+		for _, m := range cat.Modules {
+			if m.ID == modulePath && m.Origin != "" {
+				provenance = &config.ExternalProvenance{
+					Origin:       m.Origin,
+					ManagedRepo:  m.ManagedRepo,
+					UpstreamRepo: m.UpstreamRepo,
+					UpstreamPath: m.UpstreamPath,
+					ImportMode:   m.ImportMode,
+				}
+				break
+			}
+		}
+	}
+
+	if err := mgr.AddWithProvenance(modulePath, version, provenance); err != nil {
 		ui.Error("Failed to add dependency: %v", err)
 		return err
 	}
@@ -48,6 +70,10 @@ func addAction(cmd *cobra.Command, args []string) error {
 		ui.Success("Added dependency: %s@%s", modulePath, version)
 	} else {
 		ui.Success("Added dependency: %s (latest version)", modulePath)
+	}
+
+	if provenance != nil {
+		ui.Info("  Source: %s (%s, %s)", provenance.ManagedRepo, provenance.Origin, provenance.ImportMode)
 	}
 
 	return nil

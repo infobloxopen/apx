@@ -164,3 +164,4 @@ internal/gen/
 3. [Set up code generation](code-generation.md)
 4. [Understand update strategies](updates-and-upgrades.md)
 5. [Review versioning best practices](versioning-strategy.md)
+6. [Register and manage external APIs](external-apis.md)

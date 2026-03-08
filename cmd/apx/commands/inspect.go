@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/spf13/cobra"
@@ -83,6 +84,26 @@ func inspectIdentityAction(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Check if this is an external API via catalog lookup
+	catalogPath := "catalog/catalog.yaml"
+	var extModule *catalog.Module
+	gen := catalog.NewGenerator(catalogPath)
+	cat, catErr := gen.Load()
+	if catErr == nil {
+		for i, m := range cat.Modules {
+			if m.ID == apiID && m.Origin != "" {
+				extModule = &cat.Modules[i]
+				// Override source for external APIs
+				source.Repo = m.ManagedRepo
+				source.Path = m.Path
+				if api.Lifecycle == "" && m.Lifecycle != "" {
+					api.Lifecycle = m.Lifecycle
+				}
+				break
+			}
+		}
+	}
+
 	jsonOut, _ := cmd.Root().PersistentFlags().GetBool("json")
 	if jsonOut {
 		return printIdentityJSON(api, source, release, langs)
@@ -90,6 +111,15 @@ func inspectIdentityAction(cmd *cobra.Command, args []string) error {
 
 	report := config.FormatIdentityReport(api, source, release, langs)
 	fmt.Print(report)
+
+	// Print external provenance if applicable
+	if extModule != nil {
+		fmt.Printf("Origin:     %s\n", extModule.Origin)
+		fmt.Printf("Import:     %s\n", extModule.ImportMode)
+		fmt.Printf("Managed:    %s/%s\n", extModule.ManagedRepo, extModule.Path)
+		fmt.Printf("Upstream:   %s/%s\n", extModule.UpstreamRepo, extModule.UpstreamPath)
+	}
+
 	return nil
 }
 

@@ -29,6 +29,12 @@ type Module struct {
 	Path             string   `yaml:"path"`
 	Tags             []string `yaml:"tags,omitempty"`
 	Owners           []string `yaml:"owners,omitempty"`
+	// External API provenance fields (empty for first-party APIs)
+	Origin       string `yaml:"origin,omitempty"`        // "external" or "forked"
+	ManagedRepo  string `yaml:"managed_repo,omitempty"`  // internal curating repository
+	UpstreamRepo string `yaml:"upstream_repo,omitempty"` // original external repository
+	UpstreamPath string `yaml:"upstream_path,omitempty"` // path in upstream repository
+	ImportMode   string `yaml:"import_mode,omitempty"`   // "preserve" or "rewrite"
 }
 
 // DisplayName returns the best identifier for display: ID if set, otherwise Name.

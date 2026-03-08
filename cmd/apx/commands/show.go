@@ -44,12 +44,13 @@ Examples:
 
 // showInfo holds everything we know about an API for display or JSON output.
 type showInfo struct {
-	API       *config.APIIdentity              `json:"api"`
-	Source    *config.SourceIdentity           `json:"source"`
-	Release   *showRelease                     `json:"release,omitempty"`
-	Languages map[string]config.LanguageCoords `json:"languages,omitempty"`
-	Catalog   *showCatalog                     `json:"catalog,omitempty"`
-	Lifecycle *showLifecycle                   `json:"lifecycle,omitempty"`
+	API        *config.APIIdentity              `json:"api"`
+	Source     *config.SourceIdentity           `json:"source"`
+	Release    *showRelease                     `json:"release,omitempty"`
+	Languages  map[string]config.LanguageCoords `json:"languages,omitempty"`
+	Catalog    *showCatalog                     `json:"catalog,omitempty"`
+	Lifecycle  *showLifecycle                   `json:"lifecycle,omitempty"`
+	Provenance *showProvenance                  `json:"provenance,omitempty"`
 }
 
 type showRelease struct {
@@ -70,6 +71,15 @@ type showLifecycle struct {
 	CompatibilitySummary string `json:"compatibility_summary"`
 	BreakingPolicy       string `json:"breaking_policy"`
 	ProductionUse        string `json:"production_use"`
+}
+
+type showProvenance struct {
+	Origin       string `json:"origin"`
+	ImportMode   string `json:"import_mode"`
+	ManagedRepo  string `json:"managed_repo"`
+	ManagedPath  string `json:"managed_path"`
+	UpstreamRepo string `json:"upstream_repo"`
+	UpstreamPath string `json:"upstream_path"`
 }
 
 func showAction(cmd *cobra.Command, args []string) error {
@@ -131,6 +141,21 @@ func showAction(cmd *cobra.Command, args []string) error {
 					Version:   m.Version,
 				}
 
+				// Add provenance for external APIs
+				if m.Origin != "" {
+					info.Provenance = &showProvenance{
+						Origin:       m.Origin,
+						ImportMode:   m.ImportMode,
+						ManagedRepo:  m.ManagedRepo,
+						ManagedPath:  m.Path,
+						UpstreamRepo: m.UpstreamRepo,
+						UpstreamPath: m.UpstreamPath,
+					}
+					// Override source for external APIs
+					source.Repo = m.ManagedRepo
+					source.Path = m.Path
+				}
+
 				// Enrich API lifecycle from catalog if not set
 				if api.Lifecycle == "" && m.Lifecycle != "" {
 					api.Lifecycle = m.Lifecycle
@@ -181,6 +206,18 @@ func printShowText(info *showInfo, catalogFound bool) {
 
 	if api.Lifecycle != "" {
 		ui.Info("Lifecycle:  %s", config.NormalizeLifecycle(api.Lifecycle))
+	}
+
+	// Provenance section for external APIs
+	if info.Provenance != nil {
+		ui.Info("")
+		ui.Info("Provenance")
+		ui.Info("  Origin:         %s", info.Provenance.Origin)
+		ui.Info("  Import mode:    %s", info.Provenance.ImportMode)
+		ui.Info("  Managed repo:   %s", info.Provenance.ManagedRepo)
+		ui.Info("  Managed path:   %s", info.Provenance.ManagedPath)
+		ui.Info("  Upstream repo:  %s", info.Provenance.UpstreamRepo)
+		ui.Info("  Upstream path:  %s", info.Provenance.UpstreamPath)
 	}
 
 	if source != nil {

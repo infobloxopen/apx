@@ -81,6 +81,17 @@ func DeriveSourcePath(apiID string) string {
 	return apiID
 }
 
+// EffectiveSourcePath returns the filesystem path for an API.
+// For first-party APIs, this equals the API ID (via DeriveSourcePath).
+// For external APIs with a managed_path, the managed_path is used instead,
+// since their filesystem layout differs from the canonical ID.
+func EffectiveSourcePath(apiID, managedPath string) string {
+	if managedPath != "" {
+		return managedPath
+	}
+	return DeriveSourcePath(apiID)
+}
+
 // DeriveGoModule computes the Go module path for the given API line.
 //
 // Rules (per Go module versioning):
