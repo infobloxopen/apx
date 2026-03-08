@@ -500,6 +500,7 @@ document.getElementById('mf').submit();
 // the org's installations list.
 func checkAppInstalled(org string, appID int) bool {
 	out, err := GHRun("api", fmt.Sprintf("orgs/%s/installations", org),
+		"--paginate",
 		"--jq", fmt.Sprintf(".installations[] | select(.app_id == %d) | .id", appID))
 	if err != nil {
 		return false
