@@ -1,7 +1,6 @@
 package apx_test
 
 import (
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -120,23 +119,23 @@ func setupTestScript(env *testscript.Env) error {
 	return nil
 }
 
-// copyFile copies a file from src to dst
+// copyFile copies a file from src to dst using atomic rename to avoid
+// "text file busy" (ETXTBSY) errors on Linux when the binary is executed
+// immediately after being written.
 func copyFile(src, dst string) error {
-	srcFile, err := os.Open(src)
+	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	defer srcFile.Close()
 
-	// Read entire file into memory first to avoid holding file open
-	data, err := io.ReadAll(srcFile)
-	if err != nil {
+	// Write to a temp file in the same directory, then rename atomically.
+	// This ensures the destination inode is never open for writing when
+	// another goroutine tries to exec it.
+	tmp := dst + ".tmp"
+	if err := os.WriteFile(tmp, data, 0755); err != nil {
 		return err
 	}
-	srcFile.Close()
-
-	// Write to destination atomically
-	return os.WriteFile(dst, data, 0755)
+	return os.Rename(tmp, dst)
 }
 
 // buildBinary builds the apx binary to the specified path
