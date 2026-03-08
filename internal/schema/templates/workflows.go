@@ -22,13 +22,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.26.x"
-
       - name: Install APX
-        run: go install github.com/infobloxopen/apx/cmd/apx@latest
+        uses: infobloxopen/apx@v1
 
       - name: Lint schemas
         run: apx lint
@@ -66,13 +61,8 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.26.x"
-
       - name: Install APX
-        run: go install github.com/infobloxopen/apx/cmd/apx@latest
+        uses: infobloxopen/apx@v1
 
       - name: Validate schemas
         run: apx lint
@@ -128,13 +118,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.26.x"
-
       - name: Install APX
-        run: go install github.com/infobloxopen/apx/cmd/apx@latest
+        uses: infobloxopen/apx@v1
 
       - name: Parse tag
         id: tag

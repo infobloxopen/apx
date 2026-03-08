@@ -402,13 +402,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26'
-
       - name: Install APX
-        run: go install github.com/infobloxopen/apx/cmd/apx@latest
+        uses: infobloxopen/apx@v1
 
       - name: Lint Schemas
         run: apx lint internal/apis
@@ -426,13 +421,8 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.CANONICAL_REPO_TOKEN }}
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26'
-
       - name: Install APX
-        run: go install github.com/infobloxopen/apx/cmd/apx@latest
+        uses: infobloxopen/apx@v1
 
       - name: Publish to Canonical Repo
         run: |

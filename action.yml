@@ -1,0 +1,98 @@
+name: "Setup APX"
+description: "Install the APX CLI from GitHub Releases"
+author: "Infoblox"
+
+branding:
+  icon: "package"
+  color: "blue"
+
+inputs:
+  version:
+    description: >
+      APX version to install. Use "latest" (default) for the most recent
+      release, or pin to a specific version like "1.2.3" (no "v" prefix).
+    required: false
+    default: "latest"
+  token:
+    description: >
+      GitHub token for downloading release assets. Defaults to the
+      built-in GITHUB_TOKEN. Only needed when hitting API rate limits.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  version:
+    description: "The version of APX that was installed"
+    value: ${{ steps.install.outputs.version }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install APX
+      id: install
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+
+        # ── Resolve version ──────────────────────────────────────────────
+        REPO="infobloxopen/apx"
+        if [[ "${INPUT_VERSION}" == "latest" ]]; then
+          VERSION=$(curl -fsSL -H "Authorization: token ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${REPO}/releases/latest" \
+            | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
+        else
+          VERSION="${INPUT_VERSION#v}"
+        fi
+        echo "Installing APX v${VERSION}..."
+
+        # ── Detect OS / arch ─────────────────────────────────────────────
+        OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+        ARCH="$(uname -m)"
+        case "${ARCH}" in
+          x86_64)  ARCH="amd64" ;;
+          aarch64) ARCH="arm64" ;;
+          arm64)   ARCH="arm64" ;;
+        esac
+
+        # ── Download + extract ───────────────────────────────────────────
+        ARCHIVE="apx_${VERSION}_${OS}_${ARCH}.tar.gz"
+        URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ARCHIVE}"
+        CHECKSUM_URL="https://github.com/${REPO}/releases/download/v${VERSION}/checksums.txt"
+
+        TMPDIR="$(mktemp -d)"
+        trap 'rm -rf "${TMPDIR}"' EXIT
+
+        echo "Downloading ${URL}..."
+        curl -fsSL -H "Authorization: token ${GITHUB_TOKEN}" \
+          -o "${TMPDIR}/${ARCHIVE}" -L "${URL}"
+
+        echo "Downloading checksums..."
+        curl -fsSL -H "Authorization: token ${GITHUB_TOKEN}" \
+          -o "${TMPDIR}/checksums.txt" -L "${CHECKSUM_URL}"
+
+        # Verify checksum
+        EXPECTED=$(grep "${ARCHIVE}" "${TMPDIR}/checksums.txt" | awk '{print $1}')
+        if [[ -n "${EXPECTED}" ]]; then
+          ACTUAL=$(sha256sum "${TMPDIR}/${ARCHIVE}" | awk '{print $1}')
+          if [[ "${EXPECTED}" != "${ACTUAL}" ]]; then
+            echo "::error::Checksum mismatch for ${ARCHIVE}: expected ${EXPECTED}, got ${ACTUAL}"
+            exit 1
+          fi
+          echo "Checksum verified."
+        fi
+
+        # Extract and install
+        tar -xzf "${TMPDIR}/${ARCHIVE}" -C "${TMPDIR}" apx
+        INSTALL_DIR="${HOME}/.local/bin"
+        mkdir -p "${INSTALL_DIR}"
+        mv "${TMPDIR}/apx" "${INSTALL_DIR}/apx"
+        chmod +x "${INSTALL_DIR}/apx"
+
+        # Ensure it's on PATH
+        echo "${INSTALL_DIR}" >> "${GITHUB_PATH}"
+
+        echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+        echo "APX v${VERSION} installed to ${INSTALL_DIR}/apx"
