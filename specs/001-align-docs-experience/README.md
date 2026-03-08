@@ -22,7 +22,7 @@ Align the APX CLI experience with the `/docs` getting-started workflows, ensurin
 
 ### Go Workspace Overlays
 
-The overlay mechanism enables applications to use **canonical import paths** (e.g., `github.com/org/apis-go/proto/payments/ledger/v1`) during local development while transparently resolving them to locally generated code in `internal/gen/`. When ready, developers remove the overlay and fetch the published module - the same import paths now resolve to the published package **without any code changes**.
+The overlay mechanism enables applications to use **canonical import paths** (e.g., `github.com/org/apis/proto/payments/ledger/v1`) during local development while transparently resolving them to locally generated code in `internal/gen/`. When ready, developers remove the overlay and fetch the published module - the same import paths now resolve to the published package **without any code changes**.
 
 See [overlays.md](./overlays.md) for complete design documentation including:
 - Problem statement and solution approach

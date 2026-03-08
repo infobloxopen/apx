@@ -83,6 +83,15 @@ func lintAction(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// For proto files, check go_package for deprecated apis-go import root.
+	if format == validator.FormatProto {
+		if warnings := validator.CheckGoPackageCanonical(absPath); len(warnings) > 0 {
+			for _, w := range warnings {
+				ui.Warning("%s", w)
+			}
+		}
+	}
+
 	ui.Success("\u2713 All files passed lint checks")
 	return nil
 }

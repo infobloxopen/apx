@@ -30,7 +30,7 @@ exists go.work
 ! exists internal/gen/go/proto/payments/ledger/v1
 
 # Note: After unlinking, user would run:
-# go get github.com/testorg/apis-go/proto/payments/ledger/v1
+# go get github.com/testorg/apis/proto/payments/ledger/v1
 # to add the published module to go.mod
 
 # Try unlinking non-existent dependency

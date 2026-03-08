@@ -3,7 +3,7 @@
 // # Overview
 //
 // Overlays enable applications to use canonical import paths (e.g.,
-// github.com/org/apis-go/proto/payments/ledger/v1) while transparently
+// github.com/org/apis/proto/payments/ledger/v1) while transparently
 // resolving them to locally generated code during development. This allows
 // seamless transitions from local development to published module consumption
 // without changing any import statements.
@@ -14,19 +14,19 @@
 //     internal/gen/go/proto/payments/ledger@v1.2.3/
 //
 //  2. Each overlay contains a go.mod with the canonical module path:
-//     module github.com/org/apis-go/proto/payments/ledger
+//     module github.com/org/apis/proto/payments/ledger
 //
 //  3. The workspace's go.work file maps canonical paths to local overlays:
 //     use ./internal/gen/go/proto/payments/ledger@v1.2.3
 //
 //  4. Application code imports canonical paths:
-//     import ledgerv1 "github.com/org/apis-go/proto/payments/ledger/v1"
+//     import ledgerv1 "github.com/org/apis/proto/payments/ledger/v1"
 //
 // 5. Go resolves imports to local overlays during development via go.work
 //
 //  6. When ready, remove overlay and fetch published module:
 //     apx unlink proto/payments/ledger/v1
-//     go get github.com/org/apis-go/proto/payments/ledger@v1.2.3
+//     go get github.com/org/apis/proto/payments/ledger@v1.2.3
 //
 // Same imports now resolve to published module - zero code changes!
 //
@@ -73,7 +73,7 @@ import (
 // Overlay represents a generated code overlay that shadows a canonical module path.
 //
 // During development, overlays allow applications to import canonical paths
-// (e.g., github.com/org/apis-go/proto/payments/ledger/v1) which resolve to
+// (e.g., github.com/org/apis/proto/payments/ledger/v1) which resolve to
 // locally generated code via go.work mappings. When ready to consume the
 // published module, the overlay is removed and the application fetches the
 // real module - without changing any imports.
@@ -194,7 +194,7 @@ func (m *Manager) Sync() error {
 // After removing the overlay, fetch the published module:
 //
 //	mgr.Remove("proto/payments/ledger/v1")
-//	// Then run: go get github.com/org/apis-go/proto/payments/ledger@v1.2.3
+//	// Then run: go get github.com/org/apis/proto/payments/ledger@v1.2.3
 //
 // The modulePath should match the schema path in the canonical repository,
 // not the full overlay path. This removes all language variants of the overlay

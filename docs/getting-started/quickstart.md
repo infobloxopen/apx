@@ -14,6 +14,23 @@ APX uses a **canonical import path approach** with two types of repos:
 - **go.work overlays** - seamless local development with canonical paths
 - **No replace gymnastics** - clean dependency management
 
+## Path Mapping Reference
+
+Every API in the canonical repo maps to a deterministic set of coordinates:
+
+| Coordinate | Example |
+|------------|---------|
+| **API ID** | `proto/payments/ledger/v1` |
+| **Source path** | `proto/payments/ledger/v1` |
+| **Proto package** | `myorg.payments.ledger.v1` |
+| **Go module (v1)** | `github.com/myorg/apis/proto/payments/ledger` |
+| **Go import (v1)** | `github.com/myorg/apis/proto/payments/ledger/v1` |
+| **Go module (v2)** | `github.com/myorg/apis/proto/payments/ledger/v2` |
+| **Go import (v2)** | `github.com/myorg/apis/proto/payments/ledger/v2` |
+| **Git tag** | `proto/payments/ledger/v1/v1.2.3` |
+
+**One canonical repo. One default import root. One path model.**
+
 ## 1. Bootstrap the Canonical API Repo
 
 First, create your organization's canonical API repository:
@@ -189,10 +206,10 @@ your-app/
 ├── internal/
 │   ├── gen/
 │   │   └── go/proto/<domain>/<api>@v1.2.3/
-│   │       ├── go.mod        # module github.com/<org>/apis-go/proto/<domain>/<api>
+│   │       ├── go.mod        # module github.com/<org>/apis/proto/<domain>/<api>
 │   │       └── v1/*.pb.go    # imports canonical path above
 │   └── apis/...              # your proto sources
-└── main.go                   # imports github.com/<org>/apis-go/proto/<domain>/<api>/v1
+└── main.go                   # imports github.com/<org>/apis/proto/<domain>/<api>/v1
 ```
 
 **Concrete example:**
@@ -204,13 +221,13 @@ payment-service/
 ├── internal/
 │   ├── gen/
 │   │   ├── go/proto/payments/ledger@v1.2.3/
-│   │   │   ├── go.mod        # module github.com/myorg/apis-go/proto/payments/ledger
+│   │   │   ├── go.mod        # module github.com/myorg/apis/proto/payments/ledger
 │   │   │   └── v1/*.pb.go    # package ledgerv1
 │   │   └── go/proto/users/profile@v1.0.1/
-│   │       ├── go.mod        # module github.com/myorg/apis-go/proto/users/profile
+│   │       ├── go.mod        # module github.com/myorg/apis/proto/users/profile
 │   │       └── v1/*.pb.go    # package profilev1
 │   └── apis/...              # your proto sources
-└── main.go                   # imports github.com/myorg/apis-go/proto/payments/ledger/v1
+└── main.go                   # imports github.com/myorg/apis/proto/payments/ledger/v1
 ```
 
 **go.work overlay:**
@@ -233,9 +250,9 @@ package main
 import (
     "context"
     
-    // Pattern: github.com/<org>/apis-go/proto/<domain>/<api>/v1
-    ledgerv1 "github.com/myorg/apis-go/proto/payments/ledger/v1"
-    usersv1 "github.com/myorg/apis-go/proto/users/profile/v1"
+    // Pattern: github.com/<org>/apis/proto/<domain>/<api>/v1
+    ledgerv1 "github.com/myorg/apis/proto/payments/ledger/v1"
+    usersv1 "github.com/myorg/apis/proto/users/profile/v1"
     "google.golang.org/grpc"
 )
 
@@ -265,7 +282,7 @@ func main() {
 
 ```
 internal/gen/go/proto/payments/ledger@v1.2.3/
-├── go.mod                          # module github.com/myorg/apis-go/proto/payments/ledger
+├── go.mod                          # module github.com/myorg/apis/proto/payments/ledger
 ├── v1/
 │   ├── ledger.pb.go               # package ledgerv1
 │   └── ledger_grpc.pb.go          # imports canonical path
@@ -341,8 +358,8 @@ import (
     "context"
     
     // Canonical import - resolved to local overlay during development
-    ledgerv1 "github.com/myorg/apis-go/proto/payments/ledger/v1"
-    usersv1 "github.com/myorg/apis-go/proto/users/profile/v1"
+    ledgerv1 "github.com/myorg/apis/proto/payments/ledger/v1"
+    usersv1 "github.com/myorg/apis/proto/users/profile/v1"
 )
 
 type PaymentService struct {
@@ -382,13 +399,13 @@ For now, re-add the dependency at the new version: `apx add proto/payments/ledge
 ```bash
 # Once the canonical module is published, seamlessly switch:
 apx unlink proto/payments/ledger/v1     # remove go.work overlay
-go get github.com/myorg/apis-go/proto/payments/ledger@v1.2.3
+go get github.com/myorg/apis/proto/payments/ledger@v1.2.3
 
 # Your application code remains completely unchanged:
-# import ledgerv1 "github.com/myorg/apis-go/proto/payments/ledger/v1"
+# import ledgerv1 "github.com/myorg/apis/proto/payments/ledger/v1"
 # 
 # Before: resolved to ./internal/gen/go/proto/payments/ledger@v1.2.3 via go.work
-# After:  resolved to published module github.com/myorg/apis-go/proto/payments/ledger@v1.2.3
+# After:  resolved to published module github.com/myorg/apis/proto/payments/ledger@v1.2.3
 #
 # No find/replace, no import rewrites, no replace directives needed!
 ```
@@ -408,14 +425,14 @@ module github.com/mycompany/payment-service
 go 1.22
 
 require (
-+    github.com/myorg/apis-go/proto/payments/ledger v1.2.3
-+    github.com/myorg/apis-go/proto/users/profile v1.0.1
++    github.com/myorg/apis/proto/payments/ledger v1.2.3
++    github.com/myorg/apis/proto/users/profile v1.0.1
 )
 
 // service.go - application code UNCHANGED
 import (
-    ledgerv1 "github.com/myorg/apis-go/proto/payments/ledger/v1"  // same import!
-    usersv1 "github.com/myorg/apis-go/proto/users/profile/v1"    // same import!
+    ledgerv1 "github.com/myorg/apis/proto/payments/ledger/v1"  // same import!
+    usersv1 "github.com/myorg/apis/proto/users/profile/v1"    // same import!
 )
 ```
 

@@ -19,7 +19,7 @@ When developing microservices that consume API schemas (Protocol Buffers, OpenAP
 import ledgerv1 "github.com/mycompany/my-service/internal/gen/go/proto/payments/ledger/v1"
 
 // After schema is published, imports must be rewritten
-import ledgerv1 "github.com/mycompany/apis-go/proto/payments/ledger/v1"
+import ledgerv1 "github.com/mycompany/apis/proto/payments/ledger/v1"
 ```
 
 **Problems**:
@@ -33,10 +33,10 @@ import ledgerv1 "github.com/mycompany/apis-go/proto/payments/ledger/v1"
 
 ```go
 // SAME import path works for both local development AND published consumption
-import ledgerv1 "github.com/mycompany/apis-go/proto/payments/ledger/v1"
+import ledgerv1 "github.com/mycompany/apis/proto/payments/ledger/v1"
 
 // During development: resolved to ./internal/gen/go/proto/payments/ledger@v1.2.3 via go.work
-// After publishing:   resolved to published module github.com/mycompany/apis-go/proto/payments/ledger@v1.2.3
+// After publishing:   resolved to published module github.com/mycompany/apis/proto/payments/ledger@v1.2.3
 ```
 
 **Benefits**:
@@ -58,12 +58,12 @@ your-service/
 ├── internal/
 │   ├── gen/                                  # ALL generated code (git-ignored)
 │   │   ├── go/proto/payments/ledger@v1.2.3/ # overlay for payments ledger v1.2.3
-│   │   │   ├── go.mod                       # module github.com/myorg/apis-go/proto/payments/ledger
+│   │   │   ├── go.mod                       # module github.com/myorg/apis/proto/payments/ledger
 │   │   │   └── v1/
 │   │   │       ├── ledger.pb.go             # generated protobuf code
 │   │   │       └── ledger_grpc.pb.go        # generated gRPC stubs
 │   │   ├── go/proto/users/profile@v1.0.1/   # overlay for users profile v1.0.1
-│   │   │   ├── go.mod                       # module github.com/myorg/apis-go/proto/users/profile
+│   │   │   ├── go.mod                       # module github.com/myorg/apis/proto/users/profile
 │   │   │   └── v1/
 │   │   │       └── profile.pb.go
 │   │   ├── python/proto/payments/ledger/    # Python overlays (language-specific subdir)
@@ -95,11 +95,11 @@ use (
 ```
 
 **How Go Resolves Imports**:
-1. Application imports `github.com/myorg/apis-go/proto/payments/ledger/v1`
+1. Application imports `github.com/myorg/apis/proto/payments/ledger/v1`
 2. Go checks `go.work` and finds `use ./internal/gen/go/proto/payments/ledger@v1.2.3`
 3. Go reads `./internal/gen/go/proto/payments/ledger@v1.2.3/go.mod`:
    ```go
-   module github.com/myorg/apis-go/proto/payments/ledger
+   module github.com/myorg/apis/proto/payments/ledger
    ```
 4. Go resolves the import to the local overlay directory
 5. Application compiles using locally generated code
@@ -164,7 +164,7 @@ apx unlink proto/payments/ledger/v1
 3. APX prompts user to fetch published module:
    ```
    Overlay removed. Run:
-     go get github.com/myorg/apis-go/proto/payments/ledger@v1.2.3
+     go get github.com/myorg/apis/proto/payments/ledger@v1.2.3
    ```
 4. User runs `go get` to add published module to `go.mod`
 5. Application now uses published module instead of local overlay
@@ -302,7 +302,7 @@ apx gen go
 
 # 4. Write application code using canonical imports
 cat > service.go <<EOF
-import ledgerv1 "github.com/myorg/apis-go/proto/payments/ledger/v1"
+import ledgerv1 "github.com/myorg/apis/proto/payments/ledger/v1"
 
 func createLedgerEntry() {
     client := ledgerv1.NewLedgerServiceClient(conn)
@@ -342,7 +342,7 @@ apx unlink proto/payments/ledger/v1
 # → Regenerates go.work without this overlay
 
 # 2. Fetch published module
-go get github.com/myorg/apis-go/proto/payments/ledger@v1.2.3
+go get github.com/myorg/apis/proto/payments/ledger@v1.2.3
 # → Adds to go.mod dependencies
 
 # 3. Verify (no code changes!)
@@ -356,7 +356,7 @@ go build ./...
 
 **Replace Directives** (`go.mod`):
 ```go
-replace github.com/myorg/apis-go/proto/payments/ledger => ./internal/gen/go/proto/payments/ledger
+replace github.com/myorg/apis/proto/payments/ledger => ./internal/gen/go/proto/payments/ledger
 ```
 
 **Problems**:
@@ -436,7 +436,7 @@ apx sync
 
 **Good**:
 ```go
-import ledgerv1 "github.com/myorg/apis-go/proto/payments/ledger/v1"
+import ledgerv1 "github.com/myorg/apis/proto/payments/ledger/v1"
 ```
 
 **Bad**:
@@ -470,7 +470,7 @@ go test ./...
 
 **Symptom**:
 ```
-package github.com/myorg/apis-go/proto/payments/ledger/v1: cannot find package
+package github.com/myorg/apis/proto/payments/ledger/v1: cannot find package
 ```
 
 **Solutions**:
@@ -491,7 +491,7 @@ package github.com/myorg/apis-go/proto/payments/ledger/v1: cannot find package
 
 **Symptom**:
 ```
-ambiguous import: multiple modules provide github.com/myorg/apis-go/proto/payments/ledger
+ambiguous import: multiple modules provide github.com/myorg/apis/proto/payments/ledger
 ```
 
 **Solution**:
@@ -569,7 +569,7 @@ git commit -m "fix: remove generated code, add to gitignore"
 ## Glossary
 
 - **Overlay**: A local directory containing generated code that shadows a canonical module path
-- **Canonical Import Path**: The permanent import path used in application code (e.g., `github.com/org/apis-go/proto/domain/api/v1`)
+- **Canonical Import Path**: The permanent import path used in application code (e.g., `github.com/org/apis/proto/domain/api/v1`)
 - **go.work**: Go workspace file that maps canonical paths to local overlay directories
 - **Module Path**: The schema's path in the canonical repository (e.g., `proto/payments/ledger/v1`)
 - **Overlay Directory**: Physical location of generated code (e.g., `internal/gen/go/proto/payments/ledger@v1.2.3/`)

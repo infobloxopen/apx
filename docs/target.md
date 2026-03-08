@@ -69,11 +69,11 @@ APX uses a **single canonical import path** approach that eliminates import rewr
 your-app/
   go.mod                     # module github.com/mycompany/payment-service
   go.work                    # managed by apx
-  main.go                    # imports github.com/<org>/apis-go/proto/<domain>/<api>/v1
+  main.go                    # imports github.com/<org>/apis/proto/<domain>/<api>/v1
   internal/
     gen/
       go/proto/<domain>/<api>@v1.2.3/
-        go.mod               # module github.com/<org>/apis-go/proto/<domain>/<api>
+        go.mod               # module github.com/<org>/apis/proto/<domain>/<api>
         v1/
           *.pb.go            # package <api>v1, canonical imports
           *.pb_grpc.go       # imports canonical paths
@@ -87,11 +87,11 @@ your-app/
 your-app/
   go.mod                     # module github.com/mycompany/payment-service
   go.work                    # managed by apx
-  main.go                    # imports github.com/myorg/apis-go/proto/payments/ledger/v1
+  main.go                    # imports github.com/myorg/apis/proto/payments/ledger/v1
   internal/
     gen/
       go/proto/payments/ledger@v1.2.3/
-        go.mod               # module github.com/myorg/apis-go/proto/payments/ledger
+        go.mod               # module github.com/myorg/apis/proto/payments/ledger
         v1/
           *.pb.go            # package ledgerv1, canonical imports
           *.pb_grpc.go       # imports canonical paths
@@ -130,15 +130,15 @@ apx add proto/inventory/products/v2@v2.1.0
 apx gen go          # generates canonical-import stubs into internal/gen/...
 apx sync            # (re)writes go.work overlays to those local stubs
 
-# Your code imports: github.com/<org>/apis-go/proto/<domain>/<api>/v1
+# Your code imports: github.com/<org>/apis/proto/<domain>/<api>/v1
 # Go resolves to local stubs via go.work overlay
 go test ./...       
 
 # Later, when canonical module exists:
 # Pattern: apx unlink proto/<domain>/<api>/v1
 apx unlink proto/payments/ledger/v1    # remove overlay
-# Pattern: go get github.com/<org>/apis-go/proto/<domain>/<api>@v1.2.3
-go get github.com/myorg/apis-go/proto/payments/ledger@v1.2.3
+# Pattern: go get github.com/<org>/apis/proto/<domain>/<api>@v1.2.3
+go get github.com/myorg/apis/proto/payments/ledger@v1.2.3
 ```
 
 **Application code example:**
@@ -150,10 +150,10 @@ package main
 import (
     "context"
     
-    // Pattern: github.com/<org>/apis-go/proto/<domain>/<api>/v1
-    ledgerv1 "github.com/myorg/apis-go/proto/payments/ledger/v1"
-    usersv1 "github.com/myorg/apis-go/proto/users/profile/v1"
-    productsv2 "github.com/myorg/apis-go/proto/inventory/products/v2"
+    // Pattern: github.com/<org>/apis/proto/<domain>/<api>/v1
+    ledgerv1 "github.com/myorg/apis/proto/payments/ledger/v1"
+    usersv1 "github.com/myorg/apis/proto/users/profile/v1"
+    productsv2 "github.com/myorg/apis/proto/inventory/products/v2"
 )
 
 func main() {  
@@ -176,10 +176,10 @@ func main() {
 ```
 
 **Domain/API mapping examples:**
-- `payments/ledger` → `github.com/<org>/apis-go/proto/payments/ledger/v1`
-- `users/profile` → `github.com/<org>/apis-go/proto/users/profile/v1`
-- `inventory/products` → `github.com/<org>/apis-go/proto/inventory/products/v2`
-- `billing/invoices` → `github.com/<org>/apis-go/proto/billing/invoices/v1`
+- `payments/ledger` → `github.com/<org>/apis/proto/payments/ledger/v1`
+- `users/profile` → `github.com/<org>/apis/proto/users/profile/v1`
+- `inventory/products` → `github.com/<org>/apis/proto/inventory/products/v2`
+- `billing/invoices` → `github.com/<org>/apis/proto/billing/invoices/v1`
 
 **Versioning rules**
 
@@ -199,7 +199,7 @@ func main() {
 2. Tag & publish schemas (no generated code)
 
    * Tag from app or directly in the monorepo (your process), open PR to `/<org>/apis`.
-   * Canonical CI: re-checks, creates **subdirectory tag**, optionally triggers language package builds (e.g., Go module in `apis-go`, Maven, wheels).
+   * Canonical CI: re-checks, creates **subdirectory tag**, optionally triggers language package builds (e.g., Go module in `apis`, Maven, wheels).
 
 3. Switch app off overlay once published
 
@@ -213,12 +213,12 @@ func main() {
 * **Fast path: just `go get` the published module(s).**
 
   ```bash
-  go get github.com/myorg/apis-go/proto/payments/ledger@v1.2.3
+  go get github.com/myorg/apis/proto/payments/ledger@v1.2.3
   ```
 
   ```go
   // your-service/main.go
-  import ledgerv1 "github.com/myorg/apis-go/proto/payments/ledger/v1"
+  import ledgerv1 "github.com/myorg/apis/proto/payments/ledger/v1"
   ```
 
 * **If you need a producer's unreleased change:**
@@ -231,14 +231,14 @@ func main() {
 
   ```go
   // your-service/main.go - same import, resolved to local overlay
-  import ledgerv1 "github.com/myorg/apis-go/proto/payments/ledger/v1"
+  import ledgerv1 "github.com/myorg/apis/proto/payments/ledger/v1"
   ```
 
   **When the official release is available:**
 
   ```bash
   apx unlink proto/payments/ledger/v1          # remove overlay  
-  go get github.com/myorg/apis-go/proto/payments/ledger@v1.3.0  # get published
+  go get github.com/myorg/apis/proto/payments/ledger@v1.3.0  # get published
   # No code changes needed - same import path!
   ```
 

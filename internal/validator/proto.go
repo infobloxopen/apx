@@ -124,3 +124,34 @@ func GlobProtoFiles(dir string) ([]string, error) {
 	})
 	return files, err
 }
+
+// CheckGoPackageCanonical scans proto files under dir and returns warnings for
+// any go_package option that contains "apis-go" instead of the canonical "apis"
+// import root. Returns a slice of human-readable warning strings (empty if all
+// files are clean).
+func CheckGoPackageCanonical(dir string) []string {
+	files, err := GlobProtoFiles(dir)
+	if err != nil || len(files) == 0 {
+		return nil
+	}
+
+	var warnings []string
+	for _, f := range files {
+		importPath, _, err := ExtractGoPackage(f)
+		if err != nil || importPath == "" {
+			continue
+		}
+		if strings.Contains(importPath, "/apis-go/") {
+			rel, _ := filepath.Rel(dir, f)
+			if rel == "" {
+				rel = f
+			}
+			warnings = append(warnings, fmt.Sprintf(
+				"%s: go_package uses deprecated 'apis-go' import root (%s). "+
+					"Use 'apis' instead: replace '/apis-go/' with '/apis/' in go_package.",
+				rel, importPath,
+			))
+		}
+	}
+	return warnings
+}

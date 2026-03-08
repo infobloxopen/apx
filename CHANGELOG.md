@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+#### Single Canonical Import Root
+- **Breaking**: APX no longer uses or documents `apis-go` as a default distribution repo.
+  The canonical repo `github.com/<org>/apis` is now the single default source **and** Go
+  distribution root.
+  - All docs, specs, code comments, and templates updated from `apis-go` → `apis`
+  - `apx lint` now warns if a proto file's `go_package` contains the deprecated `/apis-go/` path
+  - Overlay `go.mod` module paths and `apx unlink` hints now reference `apis` directly
+  - **Migration**: update `go_package` options, generated overlay config, and imports from
+    `github.com/<org>/apis-go/...` to `github.com/<org>/apis/...`
+  - Added "Path Mapping" reference table to Quick Start and Canonical Repo Structure docs
+
 ### Added
 
 #### Repository Initialization Commands

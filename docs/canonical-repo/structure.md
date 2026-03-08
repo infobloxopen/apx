@@ -86,6 +86,24 @@ directories:
 
 ## Versioning & Go Modules
 
+### Path Mapping
+
+Every API has a deterministic set of coordinates derived from its canonical repo identity:
+
+| Coordinate | Example |
+|------------|---------|
+| **API ID** | `proto/payments/ledger/v1` |
+| **Source path** | `proto/payments/ledger/v1` |
+| **Proto package** | `myorg.payments.ledger.v1` |
+| **Go module (v1)** | `github.com/myorg/apis/proto/payments/ledger` |
+| **Go import (v1)** | `github.com/myorg/apis/proto/payments/ledger/v1` |
+| **Go module (v2+)** | `github.com/myorg/apis/proto/payments/ledger/v2` |
+| **Go import (v2+)** | `github.com/myorg/apis/proto/payments/ledger/v2` |
+| **Git tag** | `proto/payments/ledger/v1/v1.2.3` |
+
+All paths derive from the single canonical repo `github.com/<org>/apis`. There is no
+separate Go distribution repo.
+
 ### Semantic Import Versioning
 
 APX follows Go's semantic import versioning:

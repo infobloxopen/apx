@@ -58,6 +58,6 @@ func updateGoModForPublished(modulePath string) error {
 		return nil
 	}
 
-	ui.Info("Note: Run 'go get github.com/<org>/apis-go/%s' to add published module", modulePath)
+	ui.Info("Note: Run 'go get github.com/<org>/apis/%s' to add published module", modulePath)
 	return nil
 }

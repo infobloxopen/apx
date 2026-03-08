@@ -75,12 +75,15 @@ apx publish proto/payments/ledger/v0 --version 0.3.0 --lifecycle experimental
 
 ## One Canonical Repository
 
-APX uses a single canonical repository (`github.com/<org>/apis`) as the source of truth for all API schemas. This repository:
+APX uses a single canonical repository (`github.com/<org>/apis`) as both the source of truth and the default Go distribution root for all API schemas. There is no separate `apis-go` or language-specific distribution repo. This repository:
 
 - Contains all API definitions organized by format and domain
 - Hosts generated code alongside schemas
 - Uses subdirectory-scoped tags for independent versioning
 - Serves as the Go module root for consumers
+- Is the sole target of `apx publish`
+
+Release artifacts and tags belong to this one repo. Local overlays (`go.work`) are a development convenience — they do not represent a distinct public distribution identity.
 
 See [Tagging Strategy](tagging-strategy.md) for details on how tags are constructed.
 

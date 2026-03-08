@@ -81,7 +81,7 @@ apx sync         # updates go.work overlays
 
 # Switch from overlay to published module
 apx unlink proto/payments/ledger/v1
-go get github.com/myorg/apis-go/proto/payments/ledger@v1.2.3
+go get github.com/myorg/apis/proto/payments/ledger@v1.2.3
 
 # Publish from app repo
 apx publish --module-path=internal/apis/proto/domain/api/v1 \
@@ -95,10 +95,10 @@ apx publish --module-path=internal/apis/proto/domain/api/v1 \
 package service
 
 import (
-    // Pattern: github.com/<org>/apis-go/proto/<domain>/<api>/v1
-    ledgerv1 "github.com/myorg/apis-go/proto/payments/ledger/v1"  
-    usersv1 "github.com/myorg/apis-go/proto/users/profile/v1"
-    productsv2 "github.com/myorg/apis-go/proto/inventory/products/v2"
+    // Pattern: github.com/<org>/apis/proto/<domain>/<api>/v1
+    ledgerv1 "github.com/myorg/apis/proto/payments/ledger/v1"  
+    usersv1 "github.com/myorg/apis/proto/users/profile/v1"
+    productsv2 "github.com/myorg/apis/proto/inventory/products/v2"
 )
 
 type Service struct {
@@ -114,10 +114,10 @@ type Service struct {
 
 | APX API Path | Go Module Path | Go Import Path |
 |--------------|----------------|----------------|
-| `proto/payments/ledger/v1` | `github.com/<org>/apis-go/proto/payments/ledger` | `github.com/<org>/apis-go/proto/payments/ledger/v1` |
-| `proto/users/profile/v1` | `github.com/<org>/apis-go/proto/users/profile` | `github.com/<org>/apis-go/proto/users/profile/v1` |
-| `proto/inventory/products/v2` | `github.com/<org>/apis-go/proto/inventory/products/v2` | `github.com/<org>/apis-go/proto/inventory/products/v2` |
-| `proto/billing/invoices/v1` | `github.com/<org>/apis-go/proto/billing/invoices` | `github.com/<org>/apis-go/proto/billing/invoices/v1` |
+| `proto/payments/ledger/v1` | `github.com/<org>/apis/proto/payments/ledger` | `github.com/<org>/apis/proto/payments/ledger/v1` |
+| `proto/users/profile/v1` | `github.com/<org>/apis/proto/users/profile` | `github.com/<org>/apis/proto/users/profile/v1` |
+| `proto/inventory/products/v2` | `github.com/<org>/apis/proto/inventory/products/v2` | `github.com/<org>/apis/proto/inventory/products/v2` |
+| `proto/billing/invoices/v1` | `github.com/<org>/apis/proto/billing/invoices` | `github.com/<org>/apis/proto/billing/invoices/v1` |
 
 **Local Overlay Paths**
 

@@ -112,7 +112,7 @@ apx lint --json
 All generated Go code MUST use canonical import paths with `go.work` overlays for local development. This enables seamless transition from local stubs to published modules.
 
 **Rules:**
-- Generated code imports ONLY canonical paths: `github.com/<org>/apis-go/proto/<domain>/<api>/v1`
+- Generated code imports ONLY canonical paths: `github.com/<org>/apis/proto/<domain>/<api>/v1`
 - Never use `replace` directives or relative paths in generated code
 - `apx sync` manages `go.work` overlays for local development
 - `/internal/gen/**` is git-ignored (never commit generated code)

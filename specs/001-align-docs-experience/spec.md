@@ -45,7 +45,7 @@ An application developer discovers an API via the catalog, generates client code
 
 **Independent Test**: Using the published ledger API, execute `apx search`, `apx add`, `apx gen <lang>`, `apx sync`, and `apx unlink` while confirming generated overlays, go.work entries, and CLI messaging match `/docs/getting-started/quickstart.md`.
 
-**Overlay Mechanism**: Go workspace overlays enable applications to use canonical import paths (e.g., `github.com/org/apis-go/proto/payments/ledger/v1`) during local development, transparently resolving them to locally generated code in `internal/gen/`. When ready, developers remove the overlay and fetch the published module - the same import paths now resolve to the published package without any code changes. See [overlays.md](./overlays.md) for complete design documentation.
+**Overlay Mechanism**: Go workspace overlays enable applications to use canonical import paths (e.g., `github.com/org/apis/proto/payments/ledger/v1`) during local development, transparently resolving them to locally generated code in `internal/gen/`. When ready, developers remove the overlay and fetch the published module - the same import paths now resolve to the published package without any code changes. See [overlays.md](./overlays.md) for complete design documentation.
 
 **Acceptance Scenarios**:
 

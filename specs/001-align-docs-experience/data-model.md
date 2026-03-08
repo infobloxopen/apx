@@ -40,7 +40,7 @@ The feature coordinates documentation-driven CLI workflows for managing canonica
   - `domain` (string, required).
   - `api` (string, required).
   - `majorVersion` (string, required): `v1`, `v2`, etc.
-  - `moduleImportPath` (string, required): Canonical Go module path, e.g., `github.com/<org>/apis-go/proto/<domain>/<api>`.
+  - `moduleImportPath` (string, required): Canonical Go module path, e.g., `github.com/<org>/apis/proto/<domain>/<api>`.
   - `owners` (array<string>): CODEOWNERS mapping.
   - `catalogEntry` (CatalogEntryRef).
 - **Relationships**:
