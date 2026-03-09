@@ -131,6 +131,19 @@ jobs:
         with:
           subject-name: ${{ env.IMAGE }}
           push-to-registry: true
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE }}:latest
+          output-file: sbom.spdx.json
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          sbom-path: sbom.spdx.json
+          push-to-registry: true
 ```
 
 **What it does:**
@@ -140,7 +153,8 @@ jobs:
 3. **Generates catalog data** — `apx catalog generate` scans all modules and git tags to build `catalog/catalog.yaml` (not committed — gitignored as a CI artifact)
 4. **Builds a Docker image** — uses the `catalog/Dockerfile` (scaffolded by `apx init canonical`) with OCI best-practice labels injected via build args
 5. **Pushes to GHCR** — tags both `:latest` (always overridden) and `:sha-<short>` (audit trail)
-6. **Attests the build** — uses GitHub's build provenance attestation for supply-chain security
+6. **Attests build provenance** — SLSA provenance attestation recording how the image was built
+7. **Generates and attests SBOM** — produces an SPDX bill of materials and attests it to the registry for supply-chain transparency
 
 :::{important}
 The catalog data (`catalog/catalog.yaml`) is gitignored and not committed. It is a CI-only artifact that is baked into the Docker image and pushed to GHCR. Consumers discover APIs by pulling the catalog image from the registry.

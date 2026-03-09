@@ -104,6 +104,19 @@ jobs:
         with:
           subject-name: ${{ env.IMAGE }}
           push-to-registry: true
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE }}:latest
+          output-file: sbom.spdx.json
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          sbom-path: sbom.spdx.json
+          push-to-registry: true
 `, org)
 }
 
