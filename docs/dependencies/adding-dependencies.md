@@ -112,9 +112,11 @@ apx add proto/payments/ledger/v1@v1.3.0
 apx gen go --clean && apx sync
 ```
 
-```{admonition} Planned
-:class: note
-`apx update` and `apx upgrade` commands will automate this workflow in a future release.
+Or use the dedicated commands:
+
+```bash
+apx update proto/payments/ledger/v1                  # latest compatible version
+apx upgrade proto/payments/ledger/v1 --to v2         # new major API line
 ```
 
 See [Updates and Upgrades](updates-and-upgrades.md) for details.

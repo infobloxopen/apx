@@ -2,12 +2,12 @@
 
 APX can be installed from pre-built binaries (GitHub Releases), Homebrew, or from source.
 
-:::{admonition} Alpha Release
+:::{admonition} Beta Release
 :class: note
-APX is currently in **alpha** (`v0.1.0-alpha`). The Homebrew formula and other package manager entries are not yet stable-released. We recommend installing from GitHub Releases or from source for the alpha period.
+APX is currently in **beta** (`v0.9.0-beta.2`). The Homebrew formula and other package manager entries are not yet stable-released. We recommend installing from GitHub Releases or from source for the beta period.
 :::
 
-## GitHub Releases (Recommended for Alpha)
+## GitHub Releases (Recommended for Beta)
 
 Download the latest binary for your platform from the [GitHub Releases page](https://github.com/infobloxopen/apx/releases).
 
@@ -29,12 +29,13 @@ curl -L https://github.com/infobloxopen/apx/releases/latest/download/apx_Linux_a
 chmod +x apx && sudo mv apx /usr/local/bin/
 ```
 
-## Homebrew (macOS — Stable Releases Only)
+## Homebrew (macOS and Linux)
 
-```{admonition} Planned — stable tap pending
-:class: note
-The Homebrew tap will be enabled when APX reaches a stable release.
+```bash
+brew install --cask infobloxopen/tap/apx
 ```
+
+This taps `infobloxopen/homebrew-tap` and installs the latest release, including shell completions for bash, zsh, and fish.
 
 ## Build from Source
 
@@ -57,7 +58,7 @@ apx --version
 
 You should see output similar to:
 ```
-apx 1.0.0 (abc1234) 2026-01-15
+apx 0.9.0-beta.2 (4b0e92a) 2026-03-09
 ```
 
 ## Toolchain Management

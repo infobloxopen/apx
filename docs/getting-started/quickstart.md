@@ -444,10 +444,12 @@ func (s *PaymentService) ProcessPayment(ctx context.Context, userID, amount stri
 
 ### Update Dependencies
 
-```{admonition} Planned — not yet available
-:class: note
-`apx update` and `apx upgrade` are on the roadmap.
-For now, re-add the dependency at the new version: `apx add proto/payments/ledger/v1@v1.3.0`
+```bash
+# Update to latest compatible version (minor/patch)
+apx update proto/payments/ledger/v1
+
+# Upgrade to a new major API line
+apx upgrade proto/payments/ledger/v1 --to v2
 ```
 
 ### Switch to Released Module (No Import Changes!)

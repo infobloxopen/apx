@@ -385,14 +385,13 @@ apx gen java     # → internal/gen/java/<api>@<ver>/...
 
 ### Update to latest compatible
 ```bash
-# Re-add the dependency at the new version (update/upgrade commands are Planned)
-apx add proto/payments/ledger/v1@v1.3.0  # pin new version
+apx update proto/payments/ledger/v1      # update to latest patch/minor
 apx gen go && apx sync                    # regenerate stubs and update go.work overlays
 ```
 
 ### Upgrade to a new major
 ```bash
-apx add proto/payments/ledger/v2@v2.0.0
+apx upgrade proto/payments/ledger/v1 --to v2
 apx gen go && apx sync
 # Update imports from .../ledger → .../ledger/v2 where applicable
 # go.work automatically resolves new canonical paths to local stubs
@@ -541,7 +540,7 @@ A: No. v2 lives in a separate module (`.../v2` with its own `go.mod`). v1 import
 A: Yes. `apx search <keywords>` queries the catalog (generated in the canonical repo). You can also browse tags.
 
 **Q: Can apx update dependencies?**  
-A: Re-add the dependency at the new version: `apx add proto/payments/ledger/v1@v1.3.0`. Automatic `apx update` / `apx upgrade` commands are planned for a future release.
+A: Yes. `apx update` checks all (or a specific) dependency for compatible newer versions. `apx upgrade <module-path> --to <line>` handles major version transitions. Both update `apx.yaml` and `apx.lock` atomically.
 
 **Q: How does APX release APIs?**
 A: APX opens a pull request against the canonical repository, copying module files to a feature branch for review and CI validation before merging.
@@ -571,5 +570,6 @@ A: `apx policy check` fails on `(gorm.*)` and unapproved generators, both in app
 - `apx unlink <api>` — remove `go.work` overlay for an API (switch to released module).
 - `apx release prepare <api-id> --version <ver>` + `apx release submit` — open PR to canonical repo.
 - `apx semver suggest --against=<ref>` — compute recommended SemVer bump based on detected changes.
-- *(Planned)* `apx update <api>` / `apx upgrade <api>@<ver>` — bump dependencies automatically.
+- `apx update [<api>]` — update dependencies to latest compatible versions within the same API line.
+- `apx upgrade <api> --to <line>` — upgrade a dependency to a new major API line.
 

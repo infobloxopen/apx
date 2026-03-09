@@ -206,7 +206,7 @@ apx gen go
 
 ## Platform Requirements (v1.0 Scope)
 
-APX 1.0 supports **GitHub** and **Gitea** as the Git hosting platform for the canonical repository. All core features — tag-based releases, PR-based submissions, branch/tag protection, and the GitHub App bot identity — are designed and tested against these two platforms.
+APX 1.0 will support **GitHub** and **Gitea** as the Git hosting platform for the canonical repository. All core features — tag-based releases, PR-based submissions, branch/tag protection, and the GitHub App bot identity — are designed and tested against these two platforms.
 
 **Supported hosting platforms:**
 

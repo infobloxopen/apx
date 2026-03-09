@@ -14,7 +14,7 @@ Common questions about APX usage, configuration, and best practices.
 **A**: Yes. `apx search <query>` queries the catalog (generated in the canonical repo). Use a single keyword: `apx search payments`.
 
 ### Q: Can APX update dependencies automatically?
-**A**: `apx update` and `apx upgrade` are **planned** for a future release. For now, re-add the dependency at the new version: `apx add proto/payments/ledger/v1@v1.3.0`.
+**A**: Yes. `apx update` checks dependencies for compatible newer versions (minor/patch). `apx upgrade <module-path> --to <line>` handles major version transitions. Both update `apx.yaml` and `apx.lock` atomically.
 
 ### Q: How does APX release APIs?
 **A**: APX opens a pull request against the canonical repository, copying module files to a feature branch for review and CI validation before merging.
