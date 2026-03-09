@@ -272,20 +272,16 @@ CI regenerates code from `apx.lock` during each pipeline run, ensuring consisten
 
 ## Workflow Integration
 
-### Local Development — Go
-
-```bash
-apx gen go && apx sync
-go test ./...
+```{include} ../_generated/dev-workflow-go.md
 ```
 
-### Local Development — Python
+```{include} ../_generated/dev-workflow-python.md
+```
 
-```bash
-apx gen python
-source .venv/bin/activate
-apx link python
-pytest
+```{include} ../_generated/dev-workflow-java.md
+```
+
+```{include} ../_generated/dev-workflow-typescript.md
 ```
 
 ### CI Pipeline
