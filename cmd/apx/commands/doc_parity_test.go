@@ -252,7 +252,7 @@ func TestDocParity_AllCommandsExist(t *testing.T) {
 		{"lint"}, {"breaking"},
 		{"semver"}, {"semver", "suggest"},
 		{"gen"}, {"policy"}, {"policy", "check"},
-		{"catalog"}, {"catalog", "build"},
+		{"catalog"},
 		{"publish"}, {"search"}, {"add"},
 		{"sync"}, {"unlink"},
 		{"config"}, {"config", "init"}, {"config", "validate"},

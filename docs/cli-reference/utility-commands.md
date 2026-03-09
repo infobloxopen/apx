@@ -265,14 +265,6 @@ apx catalog generate
 
 Scans git tags matching `<format>/<domain>/<name>/<line>/v<semver>` and generates a structured catalog. Typically run by `on-merge.yml` in the canonical repo.
 
-### `apx catalog build`
-
-Build the module catalog (stub — reserved for future use).
-
-```bash
-apx catalog build
-```
-
 ## See Also
 
 - [Global Options](global-options.md) — flags available on every command
