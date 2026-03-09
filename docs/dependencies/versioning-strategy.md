@@ -40,13 +40,13 @@ The lifecycle field communicates maturity and support level **independently** fr
 | State | Meaning | Compatibility | Production use |
 |-------|---------|---------------|----------------|
 | `experimental` | Early exploration, API still forming | No guarantee | Not recommended |
-| `preview` | API surface is stabilizing | Stabilizing — minor breaking changes possible | Use with caution |
+| `beta` | API surface is stabilizing | Stabilizing — minor breaking changes possible | Use with caution |
 | `stable` | Production-ready, fully supported | Full backward compatibility within the line | Recommended |
 | `deprecated` | Superseded, maintained for existing users | Maintained — no new features | Migrate away |
 | `sunset` | End of life, no further releases | End of life | Do not use |
 
 :::{note}
-`beta` is accepted as a backward-compatible alias for `preview`.  New projects should prefer `preview`.
+`preview` is accepted as a backward-compatible alias for `beta`.
 :::
 
 ### Why separate layers?
@@ -133,9 +133,9 @@ APX derives a **compatibility promise** from the API line and lifecycle:
 | API Line | Lifecycle | Compatibility Level | Promise |
 |----------|-----------|-------------------|---------|
 | `v0` | `experimental` | None | No backward-compatibility guarantee; anything may change |
-| `v0` | `preview` | None | No backward-compatibility guarantee; breaking changes expected |
+| `v0` | `beta` | None | No backward-compatibility guarantee; breaking changes expected |
 | `v1+` | `experimental` | None | No backward-compatibility guarantee |
-| `v1+` | `preview` | Stabilizing | API surface is stabilizing; minor breaking changes possible |
+| `v1+` | `beta` | Stabilizing | API surface is stabilizing; minor breaking changes possible |
 | `v1+` | `stable` | Full | Full backward compatibility within the major version line |
 | any | `deprecated` | Maintenance | Bug fixes only; no new features; migrate to successor |
 | any | `sunset` | End of life | No further releases |

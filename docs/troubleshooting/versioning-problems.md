@@ -15,7 +15,7 @@ The compatibility matrix:
 | Lifecycle | Allowed versions |
 |-----------|------------------|
 | `experimental` | `-alpha.*` prerelease only |
-| `preview` | `-alpha.*`, `-beta.*`, or `-rc.*` |
+| `beta` | `-alpha.*`, `-beta.*`, or `-rc.*` |
 | `stable` | Stable only (no prerelease suffix) |
 | `deprecated` | Any version |
 | `sunset` | No new releases |
@@ -74,13 +74,13 @@ Breaking changes are **allowed** in v0 with a minor version bump (e.g. `v0.1.0` 
 ### `backward lifecycle transition`
 
 ```
-Error: cannot transition from "stable" to "preview"
+Error: cannot transition from "stable" to "beta"
 ```
 
 Lifecycle must progress forward:
 
 ```
-experimental → preview → stable → deprecated → sunset
+experimental → beta → stable → deprecated → sunset
 ```
 
 Backward transitions are rejected. If you need to revert a lifecycle:
@@ -131,7 +131,7 @@ APX tags follow the pattern `<api-id>/v<major>.<minor>.<patch>[-prerelease]`:
 
 ```
 proto/payments/ledger/v1/v1.0.0          ✔ stable
-proto/payments/ledger/v1/v1.1.0-beta.1   ✔ preview
+proto/payments/ledger/v1/v1.1.0-beta.1   ✔ beta
 v1.0.0                                    ✘ missing API ID prefix
 proto/payments/ledger/1.0.0               ✘ missing "v" prefix
 ```

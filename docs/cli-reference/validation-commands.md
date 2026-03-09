@@ -135,7 +135,7 @@ apx semver suggest [path] --against <ref>
 | Lifecycle | Prerelease format |
 |-----------|------------------|
 | `experimental` | `-alpha.<n>` |
-| `preview` | `-beta.<n>` |
+| `beta` | `-beta.<n>` |
 | `stable` | *(none)* |
 
 ### Examples

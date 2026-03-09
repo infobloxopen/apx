@@ -19,9 +19,9 @@ func TestInferLifecycleFromVersion(t *testing.T) {
 		{"v1.2.3", "stable"},
 		{"v1.0.0-alpha.1", "experimental"},
 		{"v1.0.0-alpha.2+build", "experimental"},
-		{"v1.0.0-beta.1", "preview"},
-		{"v1.0.0-beta.3", "preview"},
-		{"v1.0.0-rc.1", "preview"},
+		{"v1.0.0-beta.1", "beta"},
+		{"v1.0.0-beta.3", "beta"},
+		{"v1.0.0-rc.1", "beta"},
 		{"v1.0.0-dev.1", ""}, // dev is unknown
 		{"not-a-version", ""},
 	}

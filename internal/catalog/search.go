@@ -8,7 +8,7 @@ import (
 type SearchOptions struct {
 	Query     string // free-text match on ID/Name/Description
 	Format    string // filter by schema format
-	Lifecycle string // filter by lifecycle (experimental, preview, stable, deprecated, sunset)
+	Lifecycle string // filter by lifecycle (experimental, beta, stable, deprecated, sunset)
 	Domain    string // filter by domain (e.g. "payments")
 	APILine   string // filter by API line (e.g. "v1")
 	Origin    string // filter by origin: "first-party", "external", "forked", or "" (all)

@@ -1122,7 +1122,7 @@ func inferLifecycleFromVersion(version string) string {
 		return "experimental"
 	}
 	if strings.HasPrefix(sv.Prerelease, "beta") || strings.HasPrefix(sv.Prerelease, "rc") {
-		return "preview"
+		return "beta"
 	}
 	return ""
 }
@@ -1237,7 +1237,7 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 					version = fmt.Sprintf("v%d.%d.%d", sv.Major, sv.Minor, sv.Patch+1)
 				}
 			}
-		} else if targetLifecycle == "beta" || targetLifecycle == "preview" {
+		} else if targetLifecycle == "beta" {
 			latest, _ := config.LatestVersion(versions, promoteLineMajor)
 			if latest != "" {
 				sv, err := config.ParseSemVer(latest)
