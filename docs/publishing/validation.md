@@ -25,9 +25,9 @@ Runs format-specific linting on all schema files:
 |--------|------|--------|
 | Protocol Buffers | `buf lint` | Naming conventions, package structure, field numbering |
 | OpenAPI | Spectral | Endpoint definitions, response formats, schema structure |
-| Avro | avro-tools | Record structure, field defaults |
-| JSON Schema | json-schema-diff | Schema validity, reference resolution |
-| Parquet | built-in | Column definitions, type constraints |
+| Avro | Native Go | Record structure, type validity, required fields |
+| JSON Schema | Native Go | JSON syntax, `$schema` URI, `type`, `properties`, `required` |
+| Parquet | Native Go | Message-notation syntax, physical type validity, repetition levels |
 
 ### Breaking Changes
 
@@ -37,9 +37,9 @@ Detects backward-incompatible changes:
 |--------|------|---------|
 | Protocol Buffers | `buf breaking` | Field removal/renumbering, type changes, service removal |
 | OpenAPI | `oasdiff breaking` | Endpoint removal, required field additions |
-| Avro | avro-tools | Field removal, type narrowing |
-| JSON Schema | json-schema-diff | Property removal, type restrictions |
-| Parquet | built-in | Column removal, type changes |
+| Avro | Native Go | New fields without defaults, type changes (configurable compatibility mode) |
+| JSON Schema | `jsonschema-diff` | Property removal, type restrictions, required additions |
+| Parquet | Native Go | New required columns, removed columns, type/annotation changes |
 
 ---
 
