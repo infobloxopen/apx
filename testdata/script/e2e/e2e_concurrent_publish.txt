@@ -1,5 +1,5 @@
-# Test: Concurrent Publish (Edge Case)
-# Validates that multiple apps publishing to the same canonical module path
+# Test: Concurrent Release (Edge Case)
+# Validates that multiple apps releasing to the same canonical module path
 # are handled correctly with dry-run.
 #
 # Prerequisites: k3d and Gitea running (handled by TestE2E)
@@ -32,14 +32,14 @@ exec git commit -m 'App2 shared module'
 exec git tag proto/shared/v1/v1.0.0
 cd ..
 
-# Step 2: Both apps attempt to publish to same canonical (dry-run)
+# Step 2: Both apps attempt to release to same canonical (dry-run)
 cd app1
-exec apx publish --module-path=internal/apis/proto/shared/v1 --canonical-repo=github.com/testorg/shared-test --version=v1.0.0 --dry-run
+exec apx release prepare --module-path=internal/apis/proto/shared/v1 --canonical-repo=github.com/testorg/shared-test --version=v1.0.0 --dry-run
 stdout 'Dry-run mode'
 cd ..
 
 cd app2
-exec apx publish --module-path=internal/apis/proto/shared/v1 --canonical-repo=github.com/testorg/shared-test --version=v1.0.0 --dry-run
+exec apx release prepare --module-path=internal/apis/proto/shared/v1 --canonical-repo=github.com/testorg/shared-test --version=v1.0.0 --dry-run
 stdout 'Dry-run mode'
 cd ..
 
@@ -54,7 +54,7 @@ exec git log --oneline
 stdout 'App2 shared'
 cd ..
 
-# Success: Concurrent publish scenario validated
+# Success: Concurrent release scenario validated
 # - Multiple apps with same module path can exist independently
-# - Both can publish (conflict resolution happens at PR review level)
-# - Local state is not corrupted by multiple publish operations
+# - Both can release (conflict resolution happens at PR review level)
+# - Local state is not corrupted by multiple release operations

@@ -84,10 +84,10 @@ jobs:
 `)
 }
 
-// GenerateAppPublish generates .github/workflows/apx-publish.yml for app
-// repos. On tag push matching the APX tag pattern it publishes to canonical.
-func GenerateAppPublish(org, canonicalRepo string) string {
-	return fmt.Sprintf(`name: APX Publish
+// GenerateAppRelease generates .github/workflows/apx-release.yml for app
+// repos. On tag push matching the APX tag pattern it releases to canonical.
+func GenerateAppRelease(org, canonicalRepo string) string {
+	return fmt.Sprintf(`name: APX Release
 
 on:
   push:
@@ -102,7 +102,7 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Generate App Token
@@ -132,11 +132,11 @@ jobs:
           apx lint
           apx breaking --against HEAD^ || true
 
-      - name: Publish to canonical repo
+      - name: Release to canonical repo
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          apx publish \
+          apx release submit \
             --tag="${{ steps.tag.outputs.tag }}" \
             --canonical-repo=github.com/%s/%s
 `, org, canonicalRepo, org, canonicalRepo)

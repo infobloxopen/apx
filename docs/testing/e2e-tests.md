@@ -1,15 +1,15 @@
 # End-to-End Testing Guide
 
-The APX E2E test suite validates the complete schema publishing workflow against a real git server, using **k3d** (lightweight Kubernetes) to host a **Gitea** instance.
+The APX E2E test suite validates the complete schema release workflow against a real git server, using **k3d** (lightweight Kubernetes) to host a **Gitea** instance.
 
 ## What It Tests
 
 | Area | Scenarios | Description |
 |------|-----------|-------------|
-| Complete Workflow | 2 | `apx init` → `apx publish` → PR creation |
-| Cross-Repo Deps | 2 | App2 consumes App1's schema, both publish independently |
+| Complete Workflow | 2 | `apx init` → `apx release prepare` + `submit` → PR creation |
+| Cross-Repo Deps | 2 | App2 consumes App1's schema, both release independently |
 | Breaking Changes | 3 | Detection, non-breaking allowance, major version bumps |
-| Git History | 1 | Commit preservation through PR-based publishing |
+| Git History | 1 | Commit preservation through PR-based releasing |
 | Edge Cases | 8 | Error handling, concurrency, cleanup |
 
 **Total: 16 testscript scenarios** covering all 18 functional requirements.

@@ -42,7 +42,7 @@ All path operations MUST work identically on Unix (Linux/macOS) and Windows syst
 // ❌ WRONG - hardcoded separator
 strings.Split(path, "/")
 strings.TrimPrefix(absPath, repoPath + "/")
-branchName := "publish/" + moduleDir  // fails on Windows
+branchName := "release/" + moduleDir  // fails on Windows
 
 // ✅ CORRECT - normalize then manipulate
 path = filepath.ToSlash(path)
@@ -52,7 +52,7 @@ relPath, _ := filepath.Rel(repoPath, absPath)
 relPath = filepath.ToSlash(relPath)  // for git operations
 
 normalizedPath := filepath.ToSlash(moduleDir)
-branchName := "publish/" + normalizedPath
+branchName := "release/" + normalizedPath
 ```
 
 **Rationale:** APX must work on developer machines across all platforms. Windows uses backslashes for file paths but git operations require forward slashes. Inconsistent path handling causes failures in schema detection, git operations, and configuration generation.
@@ -68,7 +68,7 @@ Every feature follows strict TDD: Tests written → User/reviewer approval → T
 - Code without tests is not merged
 - Minimum coverage: 80% for business logic packages
 
-**Rationale:** APX orchestrates critical workflows (schema publishing, versioning, breaking change detection). Testing first ensures correctness, prevents regressions, and documents expected behavior.
+**Rationale:** APX orchestrates critical workflows (schema releasing, versioning, breaking change detection). Testing first ensures correctness, prevents regressions, and documents expected behavior.
 
 ### III. Code Quality & Maintainability
 Code must be clean, well-organized, and maintainable following Go best practices.
@@ -120,16 +120,16 @@ All generated Go code MUST use canonical import paths with `go.work` overlays fo
 
 **Rationale:** This pattern eliminates import path rewrites when switching from local to published dependencies, matching the user experience documented in `/docs/getting-started/quickstart.md`.
 
-### VI. Git Subtree Publishing Strategy
-APX MUST use **git subtree** (not copy/snapshot) for publishing to canonical repos, preserving commit history and authorship.
+### VI. Git Subtree Release Strategy
+APX MUST use **git subtree** (not copy/snapshot) for releasing to canonical repos, preserving commit history and authorship.
 
 **Rules:**
-- `apx publish` uses `git subtree split` to extract schema subdirectories
+- `apx release` uses `git subtree split` to extract schema subdirectories
 - Commit history, authors, and timestamps are preserved in canonical repo
 - PRs to canonical repo show full git history for auditability
 - Tag format: both app and canonical repos use `proto/<domain>/<api>/v1/v1.2.3` (5-segment: format/domain/api/line/version)
 
-**Rationale:** History preservation enables debugging API evolution, maintains authorship credit, and provides transparent audit trails. This aligns with documented publishing workflow in `/docs/publishing/`.
+**Rationale:** History preservation enables debugging API evolution, maintains authorship credit, and provides transparent audit trails. This aligns with documented release workflow in `/docs/publishing/`.
 
 ### VII. Multi-Format Schema Support with Consistent Tooling
 Protocol Buffers are primary, but APX MUST support OpenAPI, Avro, JSON Schema, and Parquet with format-specific validation.
@@ -167,7 +167,7 @@ CLI commands MUST have testscript-based integration tests:
 **Required coverage:**
 - All CLI commands with common flag combinations
 - Error handling and validation failures
-- File system operations (init, gen, publish workflows)
+- File system operations (init, gen, release workflows)
 - Configuration loading and validation
 
 **Location:** `testdata/script/*.txt`
@@ -184,7 +184,7 @@ grep 'package.*payment.v1' internal/apis/proto/payment/v1/*.proto
 APX MUST validate GitHub workflows using Gitea as a test double:
 
 **Required scenarios:**
-- Create PR to canonical repo via `apx publish`
+- Create PR to canonical repo via `apx release submit`
 - Tag creation and validation in both app and canonical repos
 - CODEOWNERS enforcement
 - Protected branch/tag patterns
@@ -208,7 +208,7 @@ cmd/apx/
 │   ├── init.go         # ~150 lines max
 │   ├── lint.go
 │   ├── breaking.go
-│   ├── publish.go
+│   ├── release.go
 │   ├── gen.go
 │   ├── config.go
 │   ├── semver.go
@@ -226,7 +226,7 @@ internal/
 │   └── config.go       # apx.yaml parsing
 ├── ui/                 # User interface
 │   └── ui.go           # Output formatting
-└── publisher/          # Publishing logic (TODO)
+└── publisher/          # Release logic (TODO)
     ├── subtree.go      # Git subtree operations
     └── pr.go           # GitHub PR creation
 ```
@@ -283,7 +283,7 @@ internal/
 ### Release Criteria
 - All quality gates passed
 - Integration tests validated against real GitHub (staging)
-- Documentation generated and published
+- Documentation generated and released
 - CHANGELOG.md updated with user-facing changes
 - Backward compatibility verified (unless major version bump)
 

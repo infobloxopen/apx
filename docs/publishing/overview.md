@@ -1,9 +1,9 @@
-# Publishing Overview
+# Releasing Overview
 
-APX's publishing model is built on a **canonical identity** system that separates three concerns:
+APX's release model is built on a **canonical identity** system that separates three concerns:
 
 1. **API identity** — what contract you are talking about (`proto/payments/ledger/v1`)
-2. **Artifact version** — which published build you want (`v1.0.0-beta.1`, `v1.2.3`)
+2. **Artifact version** — which released build you want (`v1.0.0-beta.1`, `v1.2.3`)
 3. **Lifecycle state** — how much confidence/support it has (`experimental`, `beta`, `stable`, `deprecated`, `sunset`)
 
 ## The Identity Model
@@ -50,27 +50,31 @@ The `lifecycle` field signals maturity and support level independently from the 
 
 See [Lifecycle Reference](lifecycle.md) for detailed lifecycle rules, the compatibility promise model, and enforcement policies.
 
-## Publishing Flow
+## Release Flow
 
-When you run `apx publish`, APX:
+When you run `apx release prepare`, APX:
 
 1. Reads or parses the API ID
 2. Derives the canonical source path
 3. Derives language-specific coordinates (Go module/import paths)
 4. Validates `go_package` and module path consistency
 5. Enforces lifecycle policy rules (v0 line restrictions, lifecycle-version compatibility)
-6. Publishes the module via pull request: clones the canonical repo, copies the snapshot to a release branch, pushes, and opens a PR via the `gh` CLI
-7. Records lifecycle, compatibility, and version information
+6. Writes a release manifest (`.apx-release.yaml`)
+
+Then `apx release submit` releases the module via pull request: clones the canonical repo, copies the snapshot to a release branch, pushes, and opens a PR via the `gh` CLI. Finally, `apx release finalize` records lifecycle, compatibility, and version information.
 
 ```bash
-# Publish a beta release on an upcoming stable line
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
+# Release a beta on an upcoming stable line
+apx release prepare proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
+apx release submit
 
-# Publish GA
-apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+# Release GA
+apx release prepare proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+apx release submit
 
-# Publish a rolling preview on v0
-apx publish proto/payments/ledger/v0 --version 0.3.0 --lifecycle experimental
+# Release a rolling preview on v0
+apx release prepare proto/payments/ledger/v0 --version 0.3.0 --lifecycle experimental
+apx release submit
 ```
 
 ## One Canonical Repository
@@ -81,7 +85,7 @@ APX uses a single canonical repository (`github.com/<org>/apis`) as both the sou
 - Hosts generated code alongside schemas
 - Uses subdirectory-scoped tags for independent versioning
 - Serves as the Go module root for consumers
-- Is the sole target of `apx publish`
+- Is the sole target of `apx release submit`
 
 Release artifacts and tags belong to this one repo. Local overlays (`go.work`) are a development convenience — they do not represent a distinct public distribution identity.
 
@@ -95,7 +99,7 @@ configure outside APX.
 |------|-----|------|
 | Schema validation | APX | `lint`, `breaking`, `policy check` |
 | Identity & coordinates | APX | API ID → paths, Go module, tag pattern |
-| PR to canonical | APX | `publish` or `release submit` |
+| PR to canonical | APX | `release submit` |
 | Tag creation | APX (finalize) | Annotated subdirectory git tag |
 | Catalog update | APX (finalize) | `catalog.yaml` entry |
 | Go module availability | Git + Go proxy | Automatic once the tag exists |
@@ -108,15 +112,13 @@ The `--skip-packages` flag on `release finalize` controls whether Go module
 artifact metadata is _recorded_ in the release record — it does not build or
 publish packages to any registry.
 
-## Two Publishing Paths
+## The Release Pipeline
 
-APX provides two ways to get an API into the canonical repository:
-
-### Release Pipeline (`apx release`) — Recommended
+APX provides one path to get an API into the canonical repository: the
+`apx release` pipeline.
 
 A multi-step workflow with explicit phases, manifest persistence, idempotency
-checks, and immutable audit records.  Best for CI pipelines and production
-releases.
+checks, and immutable audit records.
 
 ```bash
 # 1. Validate and create a release manifest
@@ -138,51 +140,9 @@ apx release submit
 
 See [Release Commands](../cli-reference/release-commands.md) for full usage.
 
-### Quick Publish (`apx publish`)
-
-A single fire-and-forget command that validates, pushes a snapshot branch, and
-opens a PR.  Best for local development and quick iterations.
-
-```bash
-apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
-```
-
-Quick publish does **not** write a manifest, update the catalog, or emit a
-release record.  Tagging happens after merge in canonical CI.
-
-See [Publish Command](publish-command.md) for full usage.
-
 See [Tagging Strategy](tagging-strategy.md) for details on how tags are constructed.
 
-## Which Path Should I Use?
-
-`apx publish` is a **convenience wrapper** — a single fire-and-forget command.
-`apx release` is the **canonical enterprise workflow** — a multi-step pipeline
-with validation gates, manifest persistence, and immutable audit records.
-
-| Scenario | Recommended path | Why |
-|----------|-----------------|-----|
-| Solo dev, quick iteration | `apx publish` | One command, minimal ceremony |
-| Team CI pipeline | `apx release` | Manifest tracks state across CI steps |
-| Production / GA release | `apx release` | Audit trail, catalog update, policy enforcement |
-| Org-wide governance | `apx release` | Immutable release records, CI provenance, policy gates |
-| Lifecycle promotion | `apx release promote` | Only the release pipeline supports promotions |
-
-**Quick decision rule:** If you need an audit trail, catalog update, or policy
-enforcement, use `apx release`. For everything else, `apx publish` works.
-
-| Feature | `apx publish` | `apx release` |
-|---------|:-------------:|:--------------:|
-| Single command | ✅ | ❌ (3 steps) |
-| Manifest persistence | ❌ | ✅ |
-| Idempotency (SHA-256) | ❌ | ✅ |
-| Catalog update | ❌ | ✅ |
-| Release record | ❌ | ✅ |
-| Policy enforcement | ❌ | ✅ |
-| Lifecycle promotions | ❌ | ✅ |
-| CI provenance | ❌ | ✅ |
-
-## Publishing by Lifecycle Stage
+## Releasing by Lifecycle Stage
 
 Lifecycle and version work together: the lifecycle declares the maturity signal while
 the SemVer prerelease tag encodes the release phase.  APX enforces their consistency
@@ -202,13 +162,10 @@ automatically.
 
 ### Experimental — early exploration
 
-Publish under `experimental` when the API is still forming.  No compatibility
+Release under `experimental` when the API is still forming.  No compatibility
 guarantee; anything may change.
 
 ```bash
-apx publish proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
-
-# Or with the release pipeline
 apx release prepare proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
 apx release submit
 ```
@@ -216,30 +173,34 @@ apx release submit
 For APIs that will break frequently, use a `v0` line instead:
 
 ```bash
-apx publish proto/payments/ledger/v0 --version v0.1.0 --lifecycle experimental
+apx release prepare proto/payments/ledger/v0 --version v0.1.0 --lifecycle experimental
+apx release submit
 ```
 
 ### Beta — stabilizing toward GA
 
-Publish under `beta` when the API design is mostly settled but still
+Release under `beta` when the API design is mostly settled but still
 converging.  Consumers can start integrating, but minor breaking changes remain
 possible.
 
 ```bash
 # Beta release
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
+apx release prepare proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
+apx release submit
 
 # Release candidate
-apx publish proto/payments/ledger/v1 --version v1.0.0-rc.1 --lifecycle beta
+apx release prepare proto/payments/ledger/v1 --version v1.0.0-rc.1 --lifecycle beta
+apx release submit
 ```
 
 ### Stable — production-ready (GA)
 
-Publish under `stable` for general availability.  Full backward compatibility
+Release under `stable` for general availability.  Full backward compatibility
 within the API line.  Version must not have a prerelease tag.
 
 ```bash
-apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+apx release prepare proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+apx release submit
 
 # Or promote from beta to stable
 apx release promote proto/payments/ledger/v1 --to stable --version v1.0.0
@@ -249,10 +210,11 @@ apx release submit
 ### Deprecated — superseded
 
 Mark an API as `deprecated` when a successor exists.  Maintenance continues, but
-no new features.  APX prints a warning on every publish.
+no new features.  APX prints a warning on every release.
 
 ```bash
-apx publish proto/payments/ledger/v1 --version v1.2.1 --lifecycle deprecated
+apx release prepare proto/payments/ledger/v1 --version v1.2.1 --lifecycle deprecated
+apx release submit
 ```
 
 ### Sunset — end of life
@@ -262,7 +224,7 @@ consumers must migrate.
 
 ```bash
 # This will fail:
-apx publish proto/payments/ledger/v1 --version v1.2.2 --lifecycle sunset
+apx release prepare proto/payments/ledger/v1 --version v1.2.2 --lifecycle sunset
 # Error: lifecycle "sunset" blocks new releases; use --force to override
 ```
 
@@ -272,22 +234,28 @@ A typical API moves through these stages over its lifetime:
 
 ```bash
 # 1. Experimental — early exploration
-apx publish proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
+apx release prepare proto/payments/ledger/v1 --version v1.0.0-alpha.1 --lifecycle experimental
+apx release submit
 
 # 2. Beta — stabilizing, beta out to early adopters
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1  --lifecycle beta
+apx release prepare proto/payments/ledger/v1 --version v1.0.0-beta.1  --lifecycle beta
+apx release submit
 
 # 3. Stable — GA
-apx publish proto/payments/ledger/v1 --version v1.0.0          --lifecycle stable
+apx release prepare proto/payments/ledger/v1 --version v1.0.0          --lifecycle stable
+apx release submit
 
 # 4. Stable updates
-apx publish proto/payments/ledger/v1 --version v1.1.0          --lifecycle stable
+apx release prepare proto/payments/ledger/v1 --version v1.1.0          --lifecycle stable
+apx release submit
 
 # 5. Deprecated — new line exists
 apx release promote proto/payments/ledger/v1 --to deprecated
+apx release submit
 
 # 6. Sunset — end of life
 apx release promote proto/payments/ledger/v1 --to sunset
+apx release submit
 ```
 
 Throughout this entire progression, consumers use the same import path:
@@ -300,3 +268,5 @@ Only the resolved module version changes.
 
 See [Lifecycle Reference](lifecycle.md) for the full lifecycle model, transition
 rules, v0 line policy, and compatibility promise tables.
+
+See [Release Commands](../cli-reference/release-commands.md) for full usage.

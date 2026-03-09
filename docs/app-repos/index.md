@@ -1,6 +1,6 @@
 # App Repository Setup
 
-App repositories are where teams author schemas day-to-day and generate code with canonical import paths. They publish via tag + PR to the canonical repository, enabling distributed authoring with centralized governance and seamless local-to-published transitions.
+App repositories are where teams author schemas day-to-day and generate code with canonical import paths. They release via tag + PR to the canonical repository, enabling distributed authoring with centralized governance and seamless local-to-released transitions.
 
 ```{toctree}
 :maxdepth: 2
@@ -31,23 +31,23 @@ App repos handle the development lifecycle:
 ^^^
 - No local `go.mod` required for authoring
 - Buf workspace configuration
-- APX synthesizes canonical `go.mod` on publish
+- APX synthesizes canonical `go.mod` on release
 - Clean separation of concerns
 :::
 
-:::{grid-item-card} **Automated Publishing**
+:::{grid-item-card} **Automated Releasing**
 ^^^
 - Tag releases in app repo
 - CI automatically opens canonical repo PR
-- PR-based publish to canonical repo
-- Validation before and after publish
+- PR-based release to canonical repo
+- Validation before and after release
 :::
 
 :::{grid-item-card} **Canonical Import Paths**
 ^^^
 - Generated code uses canonical import paths
 - `go.work` overlays for local development
-- Seamless switch to published modules
+- Seamless switch to released modules
 - No import rewrites or replace directives
 :::
 
@@ -59,9 +59,9 @@ App repos handle the development lifecycle:
 - **Canonical Import Paths**: Single import path from local dev to production
 - **Local Testing**: Full validation and code generation with canonical imports
 - **go.work Overlays**: Seamless local development without import gymnastics  
-- **Automated Publishing**: No manual canonical repo management
+- **Automated Releasing**: No manual canonical repo management
 - **Clean History**: PR-based workflow with full audit trail in canonical repo
-- **Policy Enforcement**: APX validates schemas before publishing
+- **Policy Enforcement**: APX validates schemas before releasing
 
 ## Directory Structure
 
@@ -103,7 +103,7 @@ module_roots:
 language_targets:
   go:
     enabled: true
-publishing:
+release:
   tag_format: "{subdir}/v{version}"
   ci_only: true
 ```
@@ -123,5 +123,5 @@ directories:
 
 1. [Set up the directory layout](layout.md)
 2. [Configure local development](local-development.md)
-3. [Implement publishing workflow](publishing-workflow.md)
+3. [Implement release workflow](publishing-workflow.md)
 4. [Add CI integration](ci-integration.md)

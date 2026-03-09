@@ -1,8 +1,7 @@
 # Canonical Pull Request
 
-Both `apx publish` and `apx release submit` open a pull request against the
-canonical repository (`github.com/<org>/apis`).  This page describes the
-end-to-end flow.
+`apx release submit` opens a pull request against the canonical repository
+(`github.com/<org>/apis`).  This page describes the end-to-end flow.
 
 ## Prerequisites
 
@@ -17,24 +16,26 @@ end-to-end flow.
 ```
 App repo                          Canonical repo
 ────────                          ──────────────
- 1. apx publish  (or)
-    apx release submit
+ 1. apx release prepare
+    (validate, write manifest)
+
+ 2. apx release submit
     ├─ shallow-clone canonical
-    ├─ checkout -b apx/{publish,release}/<api>/<ver>
+    ├─ checkout -b apx/release/<api>/<ver>
     ├─ copy module files
     ├─ generate go.mod (if missing)
     ├─ git commit + push
     └─ gh pr create ───────────►  PR opened
                                    │
                                    ▼
-                                  2. Canonical CI validates
+                                  3. Canonical CI validates
                                      (lint, breaking, policy)
                                    │
                                    ▼
-                                  3. Reviewer merges PR
+                                  4. Reviewer merges PR
                                    │
                                    ▼
-                                  4. apx release finalize
+                                  5. apx release finalize
                                      (tag, catalog, release record)
 ```
 
@@ -43,8 +44,7 @@ App repo                          Canonical repo
 Feature branches follow the pattern:
 
 ```
-apx/release/<api-id-dashes>/<version>    # apx release submit
-apx/publish/<api-id-dashes>/<version>    # apx publish
+apx/release/<api-id-dashes>/<version>
 ```
 
 For example, `apx/release/proto-payments-ledger-v1/v1.0.0-beta.1`.
@@ -53,8 +53,8 @@ For example, `apx/release/proto-payments-ledger-v1/v1.0.0-beta.1`.
 
 | Field | Value |
 |-------|-------|
-| **Title** | `publish: <api-id>@<version>` |
-| **Body** | `Automated publish of API \`<api-id>\` at version \`<version>\`.` |
+| **Title** | `release: <api-id>@<version>` |
+| **Body** | `Automated release of API \`<api-id>\` at version \`<version>\`.` |
 | **Base** | `main` |
 | **Head** | the feature branch above |
 
@@ -73,8 +73,6 @@ proto/payments/ledger/
 
 ## Example
 
-### Using the release pipeline
-
 ```bash
 # From your app repo
 apx release prepare proto/payments/ledger/v1 \
@@ -86,22 +84,6 @@ apx release submit
 # Output:
 #   Submitting release proto/payments/ledger/v1 @ v1.0.0-beta.1
 #   ✓ Release submitted successfully
-#   PR: https://github.com/acme/apis/pull/42
-```
-
-### Using quick publish
-
-```bash
-# From your app repo
-apx publish proto/payments/ledger/v1 \
-  --version v1.0.0-beta.1 \
-  --lifecycle beta
-
-# Output:
-#   Publishing API: proto/payments/ledger/v1
-#   Version: v1.0.0-beta.1
-#   Creating pull request on acme/apis …
-#   ✓ Pull request created
 #   PR: https://github.com/acme/apis/pull/42
 ```
 
@@ -120,7 +102,7 @@ Run `gh auth login` and follow the prompts.
 You need write access to the canonical repo.  Ask an org admin to grant
 you the **Write** or **Maintainer** role on the repo.
 
-### "no changes to publish"
+### "no changes to release"
 
 The canonical repo already contains identical content for this module.
-Verify you have new changes to publish.
+Verify you have new changes to release.

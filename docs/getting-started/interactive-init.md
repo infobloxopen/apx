@@ -20,9 +20,9 @@ APX supports two distinct initialization patterns:
 :::{grid-item-card} **App Repository**  
 ^^^
 - Daily schema authoring by teams
-- Publishes to canonical via PRs
+- Releases to canonical via PRs
 - Local development and testing
-- Tag-based publishing workflow
+- Tag-based release workflow
 :::
 
 ::::
@@ -126,7 +126,7 @@ APX scans for project indicators:
 ```
 ? What type of repository are you setting up?
 ❯ canonical - Organization-wide API source of truth (github.com/org/apis)
-  app - Team repository for authoring schemas (publishes to canonical)
+  app - Team repository for authoring schemas (releases to canonical)
 ```
 
 ### Canonical Repository Prompts
@@ -239,7 +239,7 @@ apis/                           # github.com/org/apis
 ├── .github/
 │  └── workflows/
 │     ├── validate.yml          # PR validation
-│     └── release.yml           # tag creation & publishing
+│     └── release.yml           # tag creation & releasing
 ├── catalog/
 │  └── catalog.yaml            # generated API index
 ├── proto/                     # Protocol Buffers
@@ -273,7 +273,7 @@ apis/                           # github.com/org/apis
 ├── .gitignore                # excludes internal/gen/
 └── .github/
    └── workflows/
-      └── publish-api.yml      # tag-based publishing
+      └── apx-release.yml      # tag-based releasing
 ```
 
 ### Key Configuration Files
@@ -301,7 +301,7 @@ codegen:
   out: internal/gen
   languages: [go, python]
 
-publishing:
+release:
   canonical_repo: github.com/mycompany/apis
   strategy: pr
 ```
@@ -320,7 +320,7 @@ publishing:
 
 1. **Internal directory**: Use `internal/apis/` to prevent vendoring
 2. **Version directories**: Separate v1/, v2/ for major version evolution
-3. **No local go.mod**: Let APX synthesize canonical go.mod on publish
+3. **No local go.mod**: Let APX synthesize canonical go.mod on release
 4. **Buf workspace**: Include all version directories in `buf.work.yaml`
 5. **Generated code**: Never commit `internal/gen/` - use `.gitignore`
 
@@ -348,7 +348,7 @@ proto/payments/ledger/v1/
 
 1. **Start with app repos**: Teams author in familiar repositories
 2. **Tag-based releases**: Use `proto/domain/api/v1/v1.2.3` tag format
-3. **CI automation**: Let CI handle canonical repo publishing
+3. **CI automation**: Let CI handle canonical repo releasing
 4. **Review process**: CODEOWNERS approval for all canonical changes
 
 ## Troubleshooting
@@ -409,24 +409,26 @@ apx lint && apx gen go
 
 ### CI/CD Integration
 
-#### App Repository CI (Publishing)
+#### App Repository CI (Releasing)
 ```yaml
-# .github/workflows/publish-api.yml
-name: Publish API
+# .github/workflows/apx-release.yml
+name: Release API
 on:
   push:
     tags: ['proto/*/*/v*/v*']
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - run: apx fetch
       - run: apx lint && apx breaking --against=origin/main
-      - run: apx publish --module-path=internal/apis/${GITHUB_REF_NAME%/v*} \
+      - run: |
+          apx release prepare --module-path=internal/apis/${GITHUB_REF_NAME%/v*} \
                --canonical-repo=github.com/mycompany/apis
+          apx release submit
 ```
 
 #### Canonical Repository CI (Validation & Release)

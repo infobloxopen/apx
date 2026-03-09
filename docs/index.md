@@ -8,7 +8,7 @@ getting-started/index
 canonical-repo/index
 app-repos/index
 dependencies/index
-publishing/index
+releasing/index
 cli-reference/index
 troubleshooting/index
 ```
@@ -48,7 +48,7 @@ Set up the organization-wide source of truth for all API schemas.
 � **App Repos**
 ^^^
 
-Author and publish schemas from your application repositories.
+Author and release schemas from your application repositories.
 
 :::
 
@@ -65,14 +65,14 @@ Discover, add, and update API dependencies with versioning.
 :::
 
 :::{grid-item-card}
-:link: publishing/index
+:link: releasing/index
 :link-type: doc
 :class-header: bg-light
 
-� **Publishing**
+� **Releasing**
 ^^^
 
-Tag-based publishing workflow from app repos to canonical repo.
+Tag-based release workflow from app repos to canonical repo.
 
 :::
 
@@ -91,12 +91,12 @@ View source code, report issues, and contribute to APX.
 
 ## What is APX?
 
-**APX** is a tiny CLI and repo pattern for publishing, discovering, and consuming organization-wide API schemas. **Primary: Protobuf**. Also: **OpenAPI**, **Avro**, **JSON Schema**, **Parquet**. No long-running service. Canonical distribution via a single GitHub repo and Go modules, with CI-only releases.
+**APX** is a tiny CLI and repo pattern for releasing, discovering, and consuming organization-wide API schemas. **Primary: Protobuf**. Also: **OpenAPI**, **Avro**, **JSON Schema**, **Parquet**. No long-running service. Canonical distribution via a single GitHub repo and Go modules, with CI-only releases.
 
 ### Key Ideas
 
 - **Canonical source of truth**: `github.com/<org>/apis` (one repo, many submodules)
-- **App teams tag releases** in their app repo; `apx publish` opens a PR to the canonical repo (files are copied to a feature branch and submitted for review)
+- **App teams tag releases** in their app repo; `apx release prepare` + `apx release submit` opens a PR to the canonical repo (files are copied to a feature branch and submitted for review)
 - **Only CI** in the canonical repo creates tags; Go modules are available automatically via the tag, while other language packages (Maven, wheels, OCI) require CI plugins teams configure separately
 - **Protobuf is primary**; OpenAPI/Avro/JSONSchema/Parquet supported at varying maturity levels (see [Format Maturity Matrix](testing/format-maturity.md))
 
@@ -109,8 +109,8 @@ View source code, report issues, and contribute to APX.
 ^^^
 - Teams author schemas locally
 - Tag releases in app repo
-- `apx publish` opens PRs
-- CI validates before publish
+- `apx release prepare` + `submit` opens PRs
+- CI validates before release
 :::
 
 :::{grid-item-card} **Canonical Repo**
@@ -203,4 +203,4 @@ apx gen go
 
 ---
 
-*APX standardizes how teams author, publish, and consume versioned APIs across your organization.*
+*APX standardizes how teams author, release, and consume versioned APIs across your organization.*

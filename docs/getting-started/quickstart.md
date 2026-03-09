@@ -7,10 +7,10 @@ Get up and running with APX's canonical repo pattern using canonical import path
 APX uses a **canonical import path approach** with two types of repos:
 
 1. **Canonical Repo** (`github.com/<org>/apis`) - Single source of truth for all organization APIs
-2. **App Repos** - Where teams author schemas, generate stubs with canonical import paths, and publish to canonical repo
+2. **App Repos** - Where teams author schemas, generate stubs with canonical import paths, and release to canonical repo
 
 **Key Benefits:**
-- **One import path everywhere** - no rewrites when switching from local to published
+- **One import path everywhere** - no rewrites when switching from local to released
 - **go.work overlays** - seamless local development with canonical paths
 - **No replace gymnastics** - clean dependency management
 
@@ -73,7 +73,7 @@ apis/
 - **Protect `main` branch** - require PR reviews
 - **Protect tag patterns**: `proto/**/v*`, `openapi/**/v*` - only CI can create tags
 
-## 2. Bootstrap an App Repo (Author & Publish)
+## 2. Bootstrap an App Repo (Author & Release)
 
 Now set up an app repository where teams author schemas:
 
@@ -160,8 +160,8 @@ The identity fields you see in `apx.yaml` drive every command in this guide:
 | Field | Where it shows up |
 |-------|-------------------|
 | `api.id` | Git tag prefix (`proto/payments/ledger/v1/v1.2.3`), overlay directory name, `apx search` results |
-| `api.lifecycle` | SemVer guardrails — `beta` APIs may only publish `0.x` or pre-release versions |
-| `source.repo` + `source.path` | Target for `apx publish` PRs; base path in the canonical repo |
+| `api.lifecycle` | SemVer guardrails — `beta` APIs may only release `0.x` or pre-release versions |
+| `source.repo` + `source.path` | Target for `apx release` PRs; base path in the canonical repo |
 | `languages.go.module` | `go.mod` synthesised during `apx gen go` and overlay setup |
 | `languages.go.import` | The import path your application code uses — unchanged from local dev through production |
 
@@ -216,7 +216,7 @@ message GetEntryResponse {
 ```
 
 :::{note}
-**No local `go.mod` required** for authoring. Buf ignores it. `apx publish` synthesizes the correct `go.mod` in the PR to canonical repo.
+**No local `go.mod` required** for authoring. Buf ignores it. `apx release` synthesizes the correct `go.mod` in the PR to canonical repo.
 :::
 
 ## 4. Local Development with Canonical Import Paths
@@ -337,32 +337,33 @@ internal/gen/go/proto/payments/ledger@v1.2.3/
 **Policy**: `/internal/gen/**` is git-ignored. Never commit generated code. Commit `apx.lock` instead. Generated Go code uses canonical import paths resolved via go.work overlays.
 :::
 
-## 5. Publishing Workflow
+## 5. Release Workflow
 
-When ready to publish your schema:
+When ready to release your schema:
 
 ### 1. Validate Locally
 ```bash
 apx lint && apx breaking --against=HEAD^ && apx semver suggest --against=HEAD^
 ```
 
-### 2. Publish via PR
+### 2. Release via PR
 
-The simplest path for teams: `apx publish` copies your module into
-the canonical repo on a feature branch and opens a pull request via the `gh` CLI.
+The simplest path for teams: `apx release prepare` copies your module into
+the canonical repo on a feature branch, and `apx release submit` opens a pull request via the `gh` CLI.
 
 ```bash
 # One-time: gh auth login
-apx publish proto/payments/ledger/v1 \
+apx release prepare proto/payments/ledger/v1 \
   --version v1.0.0-beta.1 \
-  --lifecycle beta
+  --lifecycle beta \
+&& apx release submit
 ```
 
 APX will:
 1. Shallow-clone the canonical repo
 2. Copy your module files into `proto/payments/ledger/v1/`
 3. Generate `go.mod` if missing
-4. Push a feature branch `apx/publish/proto-payments-ledger-v1/v1.0.0-beta.1`
+4. Push a feature branch `apx/release/proto-payments-ledger-v1/v1.0.0-beta.1`
 5. Open a PR on the canonical repo
 
 ### 3. Canonical Repo CI
@@ -375,7 +376,7 @@ On PR merge, canonical CI:
 
 ## 6. Consuming APIs with Canonical Import Paths
 
-Other teams can now discover and use your published API with seamless local-to-published transitions:
+Other teams can now discover and use your released API with seamless local-to-released transitions:
 
 ### Discover APIs
 ```bash
@@ -444,9 +445,9 @@ func (s *PaymentService) ProcessPayment(ctx context.Context, userID, amount stri
 For now, re-add the dependency at the new version: `apx add proto/payments/ledger/v1@v1.3.0`
 ```
 
-### Switch to Published Module (No Import Changes!)
+### Switch to Released Module (No Import Changes!)
 ```bash
-# Once the canonical module is published, seamlessly switch:
+# Once the canonical module is released, seamlessly switch:
 apx unlink proto/payments/ledger/v1     # remove go.work overlay
 go get github.com/myorg/apis/proto/payments/ledger@v1.2.3
 
@@ -454,7 +455,7 @@ go get github.com/myorg/apis/proto/payments/ledger@v1.2.3
 # import ledgerv1 "github.com/myorg/apis/proto/payments/ledger/v1"
 # 
 # Before: resolved to ./internal/gen/go/proto/payments/ledger@v1.2.3 via go.work
-# After:  resolved to published module github.com/myorg/apis/proto/payments/ledger@v1.2.3
+# After:  resolved to released module github.com/myorg/apis/proto/payments/ledger@v1.2.3
 #
 # No find/replace, no import rewrites, no replace directives needed!
 ```
@@ -487,15 +488,15 @@ import (
 
 ## Common CI/CD Patterns
 
-### App Repo CI (Publish on Tag)
+### App Repo CI (Release on Tag)
 ```yaml
-name: Publish API from App Repo
+name: Release API from App Repo
 on:
   push:
     tags: ['proto/*/*/v*/v*']   # e.g., proto/payments/ledger/v1/v1.2.3
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     permissions: { contents: read, pull-requests: write }
     steps:
@@ -509,7 +510,7 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           API_ID="${TAG%/v*}"                    # proto/payments/ledger/v1
           VERSION="${TAG##*/}"                   # v1.2.3
-          apx publish "$API_ID" --version "$VERSION"
+          apx release prepare "$API_ID" --version "$VERSION" && apx release submit
 ```
 
 ### Canonical Repo CI (Validate & Release)
@@ -529,9 +530,9 @@ jobs:
       - run: apx fetch
       - run: apx lint && apx breaking --against=origin/main
 
-  # NOTE: For automated tag creation and package publishing,
+  # NOTE: For automated tag creation and package releasing,
   # use `apx release prepare` + `apx release submit` + `apx release finalize`
-  # See the publishing docs for the full release pipeline.
+  # See the release docs for the full release pipeline.
 ```
 
 ## Troubleshooting

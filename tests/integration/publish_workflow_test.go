@@ -9,14 +9,14 @@ import (
 	"github.com/infobloxopen/apx/internal/publisher"
 )
 
-func TestPublishWorkflow(t *testing.T) {
+func TestReleaseWorkflow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
 
 	// Check if we're in a CI environment or have Gitea available
 	if os.Getenv("CI") == "" && os.Getenv("GITEA_URL") == "" {
-		t.Skip("Skipping publish workflow test (requires Gitea or CI environment)")
+		t.Skip("Skipping release workflow test (requires Gitea or CI environment)")
 	}
 
 	// Create temporary directories for test repos

@@ -37,9 +37,9 @@ func (a *APXCommand) Init(ctx context.Context, repoType, name string, extraArgs 
 	return a.run(ctx, args...)
 }
 
-// Publish runs apx publish command
-func (a *APXCommand) Publish(ctx context.Context, extraArgs ...string) (string, error) {
-	args := append([]string{"publish"}, extraArgs...)
+// Release runs apx release command
+func (a *APXCommand) Release(ctx context.Context, extraArgs ...string) (string, error) {
+	args := append([]string{"release"}, extraArgs...)
 	return a.run(ctx, args...)
 }
 

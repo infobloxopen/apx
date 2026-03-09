@@ -52,8 +52,8 @@ func TestDefaultConfig_RoundTrip(t *testing.T) {
 	assert.Equal(t, cfg.Org, loaded.Org)
 	assert.Equal(t, cfg.Repo, loaded.Repo)
 	assert.Equal(t, cfg.ModuleRoots, loaded.ModuleRoots)
-	assert.Equal(t, cfg.Publishing.TagFormat, loaded.Publishing.TagFormat)
-	assert.Equal(t, cfg.Publishing.CIOnly, loaded.Publishing.CIOnly)
+	assert.Equal(t, cfg.Release.TagFormat, loaded.Release.TagFormat)
+	assert.Equal(t, cfg.Release.CIOnly, loaded.Release.CIOnly)
 	assert.Equal(t, cfg.Execution.Mode, loaded.Execution.Mode)
 	assert.Equal(t, cfg.Tools.Buf.Version, loaded.Tools.Buf.Version)
 }
@@ -86,7 +86,7 @@ func TestGenerateSchemaDoc_CoversAllFields(t *testing.T) {
 
 	// Must contain nested fields
 	for _, field := range []string{
-		"module_roots", "language_targets", "policy", "publishing", "tools", "execution",
+		"module_roots", "language_targets", "policy", "release", "tools", "execution",
 		"tag_format", "ci_only", "mode", "container_image",
 		"forbidden_proto_options", "allowed_proto_plugins",
 		"spectral_ruleset", "compatibility", "breaking_mode", "allow_additive_nullable_only",

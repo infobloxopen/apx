@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// GenerateGoMod creates a minimal go.mod file for a published API module.
+// GenerateGoMod creates a minimal go.mod file for a released API module.
 //
 // The generated go.mod contains only the module directive and go version.
 // CI should run `go mod tidy` to populate require directives.

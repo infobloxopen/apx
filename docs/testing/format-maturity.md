@@ -9,7 +9,7 @@ this page documents exactly which capabilities are available today.
 |------------|:-----:|:-------:|:----:|:-----------:|:-------:|
 | **Linting** | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **Breaking-change detection** | ✅ | ✅ | ❌ | ✅ | ❌ |
-| **Release / publish** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Release** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Code generation** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Catalog / discovery** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Policy enforcement** | ✅ | Partial | Partial | Partial | ❌ |
@@ -27,7 +27,7 @@ All six capabilities are implemented and tested.
 |---------|----------------|
 | Lint | Delegates to `buf lint` via toolchain resolver |
 | Breaking | Delegates to `buf breaking --against` |
-| Release | Full pipeline with `go_package` validation, `go.mod` generation |
+| Release | Full release pipeline with `go_package` validation, `go.mod` generation |
 | Codegen | `apx gen go` with overlay system and `buf generate` |
 | Catalog | Tag-based discovery (`proto/<domain>/<name>/<line>/v<semver>`) |
 | Policy | Scans `.proto` files for forbidden options, validates `buf.gen.yaml` plugin allowlist |
@@ -41,7 +41,7 @@ ruleset file existence.
 |---------|----------------|
 | Lint | Delegates to Spectral (`spectral lint`) |
 | Breaking | Delegates to oasdiff (`oasdiff breaking`) |
-| Release | Format-agnostic identity and publish pipeline |
+| Release | Format-agnostic identity and release pipeline |
 | Codegen | Overlay system (format-agnostic) |
 | Catalog | Tag-based discovery |
 | Policy | Checks that the configured Spectral ruleset file exists (does not run Spectral) |

@@ -1,6 +1,6 @@
 # Local Development
 
-This page covers the day-to-day development workflow in an app repository — authoring schemas, validating them, generating code with canonical import paths, and testing locally before publishing.
+This page covers the day-to-day development workflow in an app repository — authoring schemas, validating them, generating code with canonical import paths, and testing locally before releasing.
 
 ## Prerequisites
 
@@ -58,10 +58,10 @@ service LedgerService {
 }
 ```
 
-APX validates this during `apx lint`, `apx publish`, and `apx release prepare`, warning if the `go_package` doesn't match the canonical path derived from the API ID.
+APX validates this during `apx lint` and `apx release prepare`, warning if the `go_package` doesn't match the canonical path derived from the API ID.
 
 :::{note}
-**No local `go.mod` is needed** for the schema directory. Buf ignores `go.mod`. APX synthesizes the correct `go.mod` when publishing to the canonical repo.
+**No local `go.mod` is needed** for the schema directory. Buf ignores `go.mod`. APX synthesizes the correct `go.mod` when releasing to the canonical repo.
 :::
 
 ---
@@ -187,7 +187,7 @@ apx sync --clean
 
 ### Using Canonical Imports
 
-Your application code imports canonical paths as if using the published module:
+Your application code imports canonical paths as if using the released module:
 
 ```go
 package main
@@ -210,13 +210,13 @@ func main() {
 }
 ```
 
-During local development, Go resolves these imports via `go.work` to the local overlay. After publishing, you can switch to the real published module with no import changes.
+During local development, Go resolves these imports via `go.work` to the local overlay. After releasing, you can switch to the real released module with no import changes.
 
 ---
 
 ## Adding Dependencies
 
-To use schemas published by other teams:
+To use schemas released by other teams:
 
 ```bash
 # Add a dependency at a specific version
@@ -236,19 +236,19 @@ See [Adding Dependencies](../dependencies/adding-dependencies.md) for details.
 
 ---
 
-## Switching to Published Modules
+## Switching to Released Modules
 
-When the schema is published to the canonical repo and you're ready to consume the real module instead of the local overlay:
+When the schema is released to the canonical repo and you're ready to consume the real module instead of the local overlay:
 
 ```bash
 # Remove the overlay
 apx unlink proto/payments/ledger/v1
 
-# Add the published module to go.mod
+# Add the released module to go.mod
 go get github.com/acme-corp/apis/proto/payments/ledger@v1.2.3
 ```
 
-Your application code stays **exactly the same** — the import path `github.com/acme-corp/apis/proto/payments/ledger/v1` now resolves to the published module instead of the local overlay.
+Your application code stays **exactly the same** — the import path `github.com/acme-corp/apis/proto/payments/ledger/v1` now resolves to the released module instead of the local overlay.
 
 ```diff
 # go.work (after unlink)
@@ -319,7 +319,7 @@ apx gen go --clean && apx sync
 go test ./...
 ```
 
-### Consuming a Team's Published API
+### Consuming a Team's Released API
 
 ```bash
 # Discover available APIs
@@ -350,7 +350,7 @@ apx gen go && apx sync
 
 ## Next Steps
 
-- [Publishing Workflow](publishing-workflow.md) — publish to the canonical repo
-- [CI Integration](ci-integration.md) — automate validation and publishing
+- [Release Workflow](publishing-workflow.md) — release to the canonical repo
+- [CI Integration](ci-integration.md) — automate validation and releasing
 - [Code Generation](../dependencies/code-generation.md) — multi-language generation details
 - [Versioning Strategy](../dependencies/versioning-strategy.md) — SemVer and API line conventions

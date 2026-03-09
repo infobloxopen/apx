@@ -1,6 +1,6 @@
 # Versioning Strategy
 
-APX uses a three-layer versioning model that keeps API identity, release versioning, and lifecycle metadata cleanly separated.  Understanding these three layers is essential for publishing, consuming, and governing APIs across your organization.
+APX uses a three-layer versioning model that keeps API identity, release versioning, and lifecycle metadata cleanly separated.  Understanding these three layers is essential for releasing, consuming, and governing APIs across your organization.
 
 ## The Three Layers
 
@@ -83,7 +83,7 @@ APX supports `v0` API lines for APIs that are still taking shape.  SemVer define
 0.3.0   ← another breaking change
 ```
 
-When the API is ready for production, create the `v1` line and publish `v1.0.0` with lifecycle `stable`.
+When the API is ready for production, create the `v1` line and release `v1.0.0` with lifecycle `stable`.
 
 ## Two Beta Workflows
 

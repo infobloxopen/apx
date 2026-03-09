@@ -105,7 +105,7 @@ func LifecycleAllowsRelease(lifecycle string) bool {
 	return NormalizeLifecycle(lifecycle) != LifecycleSunset
 }
 
-// LifecycleRequiresWarning returns true if publishing under this lifecycle
+// LifecycleRequiresWarning returns true if releasing under this lifecycle
 // should emit a deprecation warning.
 func LifecycleRequiresWarning(lifecycle string) bool {
 	return NormalizeLifecycle(lifecycle) == LifecycleDeprecated

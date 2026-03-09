@@ -5,7 +5,7 @@ Common questions about APX usage, configuration, and best practices.
 ## Architecture & Design
 
 ### Q: Do I need a `go.mod` in my app repo for authoring?
-**A**: No. Buf ignores `go.mod` during schema authoring. `apx publish` will add a canonical `go.mod` in the PR to the canonical repo. If you do keep one locally, ensure it's canonical (no `replace` directives) and uses the correct module path, and it will be imported verbatim.
+**A**: No. Buf ignores `go.mod` during schema authoring. `apx release prepare` will add a canonical `go.mod` in the PR to the canonical repo. If you do keep one locally, ensure it's canonical (no `replace` directives) and uses the correct module path, and it will be imported verbatim.
 
 ### Q: Will v2 code leak into v1 consumers?
 **A**: No. v2 lives in a separate Go module (`.../v2` with its own `go.mod`). v1 imports never see v2 unless explicitly referenced. This follows Go's semantic import versioning.
@@ -16,7 +16,7 @@ Common questions about APX usage, configuration, and best practices.
 ### Q: Can APX update dependencies automatically?
 **A**: `apx update` and `apx upgrade` are **planned** for a future release. For now, re-add the dependency at the new version: `apx add proto/payments/ledger/v1@v1.3.0`.
 
-### Q: How does APX publish APIs?
+### Q: How does APX release APIs?
 **A**: APX opens a pull request against the canonical repository, copying module files to a feature branch for review and CI validation before merging.
 
 ## Governance & Policy
@@ -52,7 +52,7 @@ Common questions about APX usage, configuration, and best practices.
 ## Development Workflow
 
 ### Q: Can I use APX on a fork of the canonical repo?
-**A**: Yes, for **consumption and authoring** (lint, breaking, gen, show, inspect). APX auto-detects forks by checking for an `upstream` git remote and uses the upstream org for canonical import paths. However, **publishing from a fork is not supported** — `apx publish` and `apx release tag` require write access to the canonical repo. The recommended pattern is to author on your fork, open a PR to the canonical repo, and let the canonical repo's post-merge CI handle publishing. See [Working with Forks](../app-repos/working-with-forks.md) for details.
+**A**: Yes, for **consumption and authoring** (lint, breaking, gen, show, inspect). APX auto-detects forks by checking for an `upstream` git remote and uses the upstream org for canonical import paths. However, **releasing from a fork is not supported** — `apx release submit` and `apx release tag` require write access to the canonical repo. The recommended pattern is to author on your fork, open a PR to the canonical repo, and let the canonical repo's post-merge CI handle releasing. See [Working with Forks](../app-repos/working-with-forks.md) for details.
 
 ### Q: Why are generated files not committed?
 **A**: Generated code is deterministic based on `apx.lock`. Not committing it:
@@ -97,8 +97,8 @@ Each entry is a directory tree that `apx` traverses for schema files.
 2. Delete and recreate the tag
 3. Push the corrected tag to trigger CI again
 
-### Q: Can we customize the PR created by `apx publish`?
-**A**: Use `apx release prepare` + `apx release submit` for the full PR workflow with customizable release manifests. The `apx publish` convenience command creates a PR with auto-generated metadata. For full control, see the [release pipeline](../publishing/release-commands.md).
+### Q: Can we customize the PR created by `apx release`?
+**A**: Use `apx release prepare` + `apx release submit` for the full PR workflow with customizable release manifests. For full control, see the [release pipeline](../cli-reference/release-commands.md).
 
 ## Schema Formats
 
@@ -150,7 +150,7 @@ Each entry is a directory tree that `apx` traverses for schema files.
 ### Q: How does APX handle large repositories?
 **A**: 
 - **PR-based workflow** provides complete audit trail and review process
-- **Selective publishing** only processes changed APIs
+- **Selective releasing** only processes changed APIs
 - **Cache optimization** for tools and dependencies
 - **Incremental processing** to handle repository scale efficiently
 
@@ -167,12 +167,12 @@ apx fetch  # uses proxy for downloads
 
 ## Troubleshooting
 
-### Q: What if `apx publish` fails with merge conflicts?
-**A**: 
+### Q: What if `apx release submit` fails with merge conflicts?
+**A**:
 1. Ensure canonical repo is up to date
 2. Resolve conflicts manually if needed
 3. Contact API governance team for assistance
-4. Consider rebasing your changes before publishing
+4. Consider rebasing your changes before releasing
 
 ### Q: How do we debug schema validation failures?
 **A**: 

@@ -1,6 +1,6 @@
 # Configuration Reference
 
-The APX configuration file (`apx.yaml`) defines your organization's schema management settings. It controls validation policies, publishing behavior, tool versions, and code generation targets.
+The APX configuration file (`apx.yaml`) defines your organization's schema management settings. It controls validation policies, release behavior, tool versions, and code generation targets.
 
 ## Overview
 
@@ -65,9 +65,9 @@ version: 1
 | `policy.jsonschema.breaking_mode` | string | no | `strict` | strict, lenient | Breaking change detection mode |
 | `policy.parquet` | struct | no |  |  | Parquet policy |
 | `policy.parquet.allow_additive_nullable_only` | boolean | no | `true` |  | Whether to restrict to additive nullable columns |
-| `publishing` | struct | no |  |  | Publishing configuration |
-| `publishing.tag_format` | string | no | `{subdir}/v{version}` |  | Tag pattern; must contain {version} |
-| `publishing.ci_only` | boolean | no | `true` |  | Restrict publishing to CI environments |
+| `releasing` | struct | no |  |  | Release configuration |
+| `releasing.tag_format` | string | no | `{subdir}/v{version}` |  | Tag pattern; must contain {version} |
+| `releasing.ci_only` | boolean | no | `true` |  | Restrict releasing to CI environments |
 | `tools` | struct | no |  |  | Pinned tool versions |
 | `tools.buf` | struct | no |  |  | Buf CLI settings |
 | `tools.buf.version` | string | no |  |  | Buf CLI version |
@@ -167,17 +167,17 @@ policy:
     allow_additive_nullable_only: true
 ```
 
-### `publishing`
+### `releasing`
 
-Controls how schema versions are tagged and published.
+Controls how schema versions are tagged and released.
 
 ```yaml
-publishing:
+releasing:
   tag_format: "{subdir}/v{version}"
   ci_only: true
 ```
 
-The `tag_format` must contain `{version}`. The `ci_only` flag restricts publishing to CI environments (recommended for production use).
+The `tag_format` must contain `{version}`. The `ci_only` flag restricts releasing to CI environments (recommended for production use).
 
 ### `tools`
 
@@ -358,7 +358,7 @@ policy:
   parquet:
     allow_additive_nullable_only: true
 
-publishing:
+releasing:
   tag_format: "{subdir}/v{version}"
   ci_only: true
 
@@ -399,7 +399,7 @@ Validation checks include:
 - **Required fields**: `version`, `org`, `repo` must be present
 - **Type checking**: Each field must match the expected type (string, boolean, integer, list, map)
 - **Enum validation**: Fields with allowed values are checked (e.g., `execution.mode` must be `local` or `container`)
-- **Pattern validation**: `publishing.tag_format` must contain `{version}`
+- **Pattern validation**: `releasing.tag_format` must contain `{version}`
 - **Unknown keys**: Any field not in the schema is reported as an error
 - **Deprecated fields**: Fields marked as deprecated emit warnings (not errors)
 

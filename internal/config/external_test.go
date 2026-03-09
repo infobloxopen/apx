@@ -423,7 +423,7 @@ func TestSaveConfig(t *testing.T) {
 		Version:    1,
 		Org:        "testorg",
 		Repo:       "apis",
-		Publishing: Publishing{TagFormat: "{api}/{version}"},
+		Release: ReleaseConfig{TagFormat: "{api}/{version}"},
 		Execution:  Execution{Mode: "local"},
 		ExternalAPIs: []ExternalRegistration{
 			{

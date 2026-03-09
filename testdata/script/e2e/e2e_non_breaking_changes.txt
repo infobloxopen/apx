@@ -36,8 +36,8 @@ exec git tag proto/nonbreak/v1/v1.1.0
 # Step 3: Verify the new field is present
 exec grep 'optional_description' internal/apis/proto/nonbreak/v1/nonbreak.proto
 
-# Step 4: Verify publish dry-run succeeds with non-breaking change
-exec apx publish --module-path=internal/apis/proto/nonbreak/v1 --canonical-repo=github.com/testorg/nonbreak-test --version=v1.1.0 --dry-run
+# Step 4: Verify release prepare dry-run succeeds with non-breaking change
+exec apx release prepare --module-path=internal/apis/proto/nonbreak/v1 --canonical-repo=github.com/testorg/nonbreak-test --version=v1.1.0 --dry-run
 stdout 'Dry-run mode'
 stdout 'v1.1.0'
 
@@ -50,5 +50,5 @@ cd ..
 
 # Success: Non-breaking changes validated
 # - Adding optional fields is allowed
-# - Publish dry-run succeeds for non-breaking changes
+# - Release prepare dry-run succeeds for non-breaking changes
 # - Schema versioning follows semver conventions

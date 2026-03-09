@@ -21,7 +21,7 @@ const (
 	// This is the output of `apx release prepare`.
 	StatePrepared ReleaseState = "prepared"
 
-	// StateSubmitted means the publish request has been sent (PR created)
+	// StateSubmitted means the release request has been sent (PR created)
 	// to the canonical repo.
 	StateSubmitted ReleaseState = "submitted"
 

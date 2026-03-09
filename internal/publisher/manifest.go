@@ -65,7 +65,7 @@ type ReleaseManifest struct {
 	FinalizedAt string `yaml:"finalized_at,omitempty" json:"finalized_at,omitempty"`
 
 	// Error info (populated when state == StateFailed)
-	Error *ReleaseError `yaml:"error,omitempty" json:"error,omitempty"`
+	Error *ManifestError `yaml:"error,omitempty" json:"error,omitempty"`
 }
 
 // ValidationResults records which validation steps passed or failed.
@@ -86,15 +86,15 @@ const (
 	ValidationSkipped ValidationStatus = "skipped"
 )
 
-// ReleaseError captures failure details in the manifest.
-type ReleaseError struct {
+// ManifestError captures failure details in the manifest.
+type ManifestError struct {
 	Code    string `yaml:"code" json:"code"`
 	Message string `yaml:"message" json:"message"`
 	Phase   string `yaml:"phase,omitempty" json:"phase,omitempty"`
 }
 
-// NewManifest creates a ReleaseManifest from the existing identity types
-// populated during publish. The manifest starts in StateDraft.
+// NewManifest creates a ReleaseManifest from the existing identity types.
+// The manifest starts in StateDraft.
 func NewManifest(
 	api *config.APIIdentity,
 	source *config.SourceIdentity,
@@ -151,7 +151,7 @@ func (m *ReleaseManifest) SetState(next ReleaseState) error {
 // Fail transitions the manifest to StateFailed with error details.
 func (m *ReleaseManifest) Fail(code, message, phase string) {
 	m.State = StateFailed
-	m.Error = &ReleaseError{
+	m.Error = &ManifestError{
 		Code:    code,
 		Message: message,
 		Phase:   phase,

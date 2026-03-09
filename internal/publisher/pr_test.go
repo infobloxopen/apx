@@ -58,7 +58,7 @@ func TestCreatePR_Success(t *testing.T) {
 		return "https://github.com/acme/apis/pull/42", nil
 	}
 
-	resp, err := CreatePR("acme/apis", "apx/publish/test", "main", "title", "body")
+	resp, err := CreatePR("acme/apis", "apx/release/test", "main", "title", "body")
 	require.NoError(t, err)
 	assert.Equal(t, "https://github.com/acme/apis/pull/42", resp.HTMLURL)
 }

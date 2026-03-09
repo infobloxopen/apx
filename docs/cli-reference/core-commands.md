@@ -68,10 +68,6 @@ Explain how APX derives language-specific paths.
 apx explain go-path <api-id>    # Explain Go module/import path derivation
 ```
 
-## `apx publish`
-
-Publish an API module. See [Publishing Commands](publishing-commands.md).
-
 ## `apx search`
 
 Search the API catalog. Supports local file paths and remote URLs.
@@ -171,7 +167,7 @@ import_root: go.acme.dev/apis   # custom Go module prefix
 ```
 
 With this configuration, `apx inspect`, `apx show`, `apx explain go-path`,
-`apx publish`, and `apx release` all use the custom root:
+and `apx release` all use the custom root:
 
 ```
 Go module:  go.acme.dev/apis/proto/payments/ledger

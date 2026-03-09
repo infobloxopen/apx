@@ -1,6 +1,6 @@
-# Publishing Failures
+# Release Failures
 
-Troubleshooting guide for errors during `apx publish`, `apx release`, and canonical CI.
+Troubleshooting guide for errors during `apx release` and canonical CI.
 
 ## Authentication & Permissions
 
@@ -10,7 +10,7 @@ Troubleshooting guide for errors during `apx publish`, `apx release`, and canoni
 Error: gh: not authenticated. Run "gh auth login" to authenticate.
 ```
 
-**Cause:** The GitHub CLI is required for PR-based publishing but is not authenticated.
+**Cause:** The GitHub CLI is required for PR-based releasing but is not authenticated.
 
 **Fix:**
 ```bash
@@ -58,7 +58,7 @@ GraphQL: Validation Failed (422)
 **Cause:** A PR with the same branch name already exists, or the branch is empty.
 
 **Fix:**
-- Check for existing open PRs: `gh pr list --repo org/apis --head apx/proto/payments/ledger/v1/v1.0.0`
+- Check for existing open PRs: `gh pr list --repo org/apis --head apx/release/proto/payments/ledger/v1/v1.0.0`
 - If a stale PR exists, close it and retry
 - Verify the snapshot actually contains file changes
 
@@ -71,19 +71,19 @@ The canonical repo's `ci.yml` re-validates schemas in the canonical context.
 - **Inconsistent `buf.yaml`** — the canonical repo's `buf.yaml` has different lint rules
 - **Breaking changes detected** — `apx breaking --against origin/main` fails because the baseline in the canonical repo differs from the app repo
 
-**Fix:** Fix the issue locally, bump the version or correct the schema, and re-publish.
+**Fix:** Fix the issue locally, bump the version or correct the schema, and re-release.
 
 ---
 
 ## Version & Release Errors
 
-### `version already published`
+### `version already released`
 
 ```
 Release proto/payments/ledger/v1@v1.0.0 already exists with identical content (SHA-256 match)
 ```
 
-This is an **informational message**, not an error. APX's idempotency check detected that the exact same content was already published at this version. No action is needed.
+This is an **informational message**, not an error. APX's idempotency check detected that the exact same content was already released at this version. No action is needed.
 
 ### `version v2.0.0 is incompatible with API line v1`
 
@@ -93,13 +93,13 @@ The SemVer major version must match the declared API line. To release v2.0.0, cr
 proto/payments/ledger/v2/
 ```
 
-Then publish with `proto/payments/ledger/v2` as the API ID.
+Then release with `proto/payments/ledger/v2` as the API ID.
 
 ### `lifecycle "stable" requires a stable version`
 
-Prerelease versions (e.g. `-beta.1`) cannot be published under the `stable` lifecycle. Either:
+Prerelease versions (e.g. `-beta.1`) cannot be released under the `stable` lifecycle. Either:
 - Change the lifecycle to `beta` (allows prerelease versions)
-- Remove the prerelease suffix to publish a stable version
+- Remove the prerelease suffix to release a stable version
 
 ---
 
@@ -148,7 +148,7 @@ If another API was merged to the canonical repo between `submit` and merge, the 
 Error: tag proto/payments/ledger/v1/v1.0.0 already exists
 ```
 
-**Cause:** The version was previously published and tagged.
+**Cause:** The version was previously released and tagged.
 
 **Fix:** Bump the version (patch at minimum) for any new release.
 
@@ -166,16 +166,16 @@ git tag -l 'proto/payments/ledger/v1/*'
 
 ## Dry Run
 
-Use `--dry-run` to preview the full publishing flow without creating branches, PRs, or tags:
+Use `--dry-run` to preview the full release flow without creating branches, PRs, or tags:
 
 ```bash
-apx publish proto/payments/ledger/v1 --version v1.0.0 --dry-run
+apx release prepare proto/payments/ledger/v1 --version v1.0.0 --dry-run
 apx release submit --dry-run
 ```
 
 ## See Also
 
 - [Common Errors](common-errors.md) — general APX error reference
-- [Release Guardrails](../publishing/release-guardrails.md) — lifecycle and version enforcement
-- [Publish Command](../publishing/publish-command.md) — full flag reference
+- [Release Guardrails](../releasing/release-guardrails.md) — lifecycle and version enforcement
+- [Release Commands](../cli-reference/release-commands.md) — full command reference
 - [CI Integration](../app-repos/ci-integration.md) — CI workflow setup

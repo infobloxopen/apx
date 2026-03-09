@@ -1,6 +1,6 @@
 # Dependency Discovery
 
-APX provides two commands for discovering APIs published to the canonical repository: `apx search` for finding APIs by keyword or filter, and `apx show` for viewing full identity and release details of a specific API.
+APX provides two commands for discovering APIs released to the canonical repository: `apx search` for finding APIs by keyword or filter, and `apx show` for viewing full identity and release details of a specific API.
 
 Both commands accept a local file path **or** a remote URL as the catalog
 source, so you can query the canonical catalog without cloning the repo.

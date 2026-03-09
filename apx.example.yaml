@@ -61,7 +61,7 @@ policy:
     breaking_mode: "strict"
   parquet:
     allow_additive_nullable_only: true
-publishing:
+release:
   tag_format: "{subdir}/v{version}"
   ci_only: true
 tools:

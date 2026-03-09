@@ -19,7 +19,7 @@ type Config struct {
 	ModuleRoots     []string                  `yaml:"module_roots"`
 	LanguageTargets map[string]LanguageTarget `yaml:"language_targets"`
 	Policy          Policy                    `yaml:"policy"`
-	Publishing      Publishing                `yaml:"publishing"`
+	Release         ReleaseConfig             `yaml:"release"`
 	Tools           Tools                     `yaml:"tools"`
 	Execution       Execution                 `yaml:"execution"`
 	API             *APIIdentity              `yaml:"api,omitempty"`
@@ -82,8 +82,8 @@ type Policy struct {
 	} `yaml:"parquet,omitempty"`
 }
 
-// Publishing represents publishing configuration
-type Publishing struct {
+// ReleaseConfig represents release configuration
+type ReleaseConfig struct {
 	TagFormat string `yaml:"tag_format"`
 	CIOnly    bool   `yaml:"ci_only"`
 }

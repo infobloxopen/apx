@@ -17,8 +17,8 @@ exec git add .
 exec git commit -m 'Initial schema'
 exec git tag proto/tagtest/v1/v1.0.0
 
-# Step 2: Publish with v1.0.0 (dry-run)
-exec apx publish --module-path=internal/apis/proto/tagtest/v1 --canonical-repo=github.com/testorg/tag-test --version=v1.0.0 --dry-run
+# Step 2: Release prepare with v1.0.0 (dry-run)
+exec apx release prepare --module-path=internal/apis/proto/tagtest/v1 --canonical-repo=github.com/testorg/tag-test --version=v1.0.0 --dry-run
 stdout 'Dry-run mode'
 
 # Step 3: Try creating duplicate tag (git rejects this)
@@ -40,8 +40,8 @@ exec git tag -l 'proto/tagtest/v1/*'
 stdout 'v1.0.0'
 stdout 'v1.0.1'
 
-# Step 6: Publish new version succeeds
-exec apx publish --module-path=internal/apis/proto/tagtest/v1 --canonical-repo=github.com/testorg/tag-test --version=v1.0.1 --dry-run
+# Step 6: Release prepare with new version succeeds
+exec apx release prepare --module-path=internal/apis/proto/tagtest/v1 --canonical-repo=github.com/testorg/tag-test --version=v1.0.1 --dry-run
 stdout 'Dry-run mode'
 stdout 'v1.0.1'
 
@@ -51,4 +51,4 @@ cd ..
 # - Git rejects duplicate tag creation with clear error
 # - Force-overwrite tags works
 # - New version tags can be created alongside existing ones
-# - Publishing with new version succeeds
+# - Releasing with new version succeeds

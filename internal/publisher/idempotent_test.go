@@ -46,8 +46,8 @@ func TestHashDirectory_NotFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestPublishError_Error(t *testing.T) {
-	e := NewPublishError(ErrCodeVersionTaken, "version v1.0.0 already taken")
+func TestReleaseError_Error(t *testing.T) {
+	e := NewReleaseError(ErrCodeVersionTaken, "version v1.0.0 already taken")
 	assert.Contains(t, e.Error(), "VERSION_TAKEN")
 	assert.Contains(t, e.Error(), "version v1.0.0 already taken")
 
@@ -56,12 +56,12 @@ func TestPublishError_Error(t *testing.T) {
 	assert.Contains(t, eHint.Error(), "choose a different version")
 }
 
-func TestPublishError_AllCodesHaveDescriptions(t *testing.T) {
-	codes := []PublishErrorCode{
+func TestReleaseError_AllCodesHaveDescriptions(t *testing.T) {
+	codes := []ReleaseErrorCode{
 		ErrCodeVersionTaken, ErrCodeLifecycleBlocked, ErrCodeLifecycleMismatch,
 		ErrCodeValidationFailed, ErrCodeGoPackageMismatch, ErrCodeGoModMismatch,
 		ErrCodeMergeConflict, ErrCodeCanonicalMoved, ErrCodePolicyFailed,
-		ErrCodePackagePublishFailed, ErrCodeCatalogUpdateFailed,
+		ErrCodePackageReleaseFailed, ErrCodeCatalogUpdateFailed,
 		ErrCodeNotGitRepo, ErrCodeInvalidVersion, ErrCodeMissingConfig,
 		ErrCodePushFailed, ErrCodePRCreationFailed,
 	}

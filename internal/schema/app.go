@@ -73,14 +73,14 @@ func (s *AppScaffolder) Generate(baseDir string) error {
 		}
 	}
 
-	// Generate publish workflow
+	// Generate release workflow
 	workflowDir := filepath.Join(baseDir, ".github", "workflows")
 	if err := os.MkdirAll(workflowDir, 0755); err != nil {
 		return fmt.Errorf("failed to create .github/workflows: %w", err)
 	}
-	publishPath := filepath.Join(workflowDir, "apx-publish.yml")
-	if err := writeIfNotExists(publishPath, templates.GenerateAppPublish(s.org, "apis")); err != nil {
-		return fmt.Errorf("failed to write apx-publish.yml: %w", err)
+	releasePath := filepath.Join(workflowDir, "apx-release.yml")
+	if err := writeIfNotExists(releasePath, templates.GenerateAppRelease(s.org, "apis")); err != nil {
+		return fmt.Errorf("failed to write apx-release.yml: %w", err)
 	}
 
 	return nil

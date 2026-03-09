@@ -2,127 +2,127 @@ package publisher
 
 import "fmt"
 
-// PublishErrorCode is a machine-readable identifier for publish failure modes.
-type PublishErrorCode string
+// ReleaseErrorCode is a machine-readable identifier for release failure modes.
+type ReleaseErrorCode string
 
 const (
 	// ErrCodeVersionTaken means the requested version already exists with
 	// different content. Choose a different version.
-	ErrCodeVersionTaken PublishErrorCode = "VERSION_TAKEN"
+	ErrCodeVersionTaken ReleaseErrorCode = "VERSION_TAKEN"
 
 	// ErrCodeLifecycleBlocked means the lifecycle state (e.g. sunset)
 	// blocks new releases.
-	ErrCodeLifecycleBlocked PublishErrorCode = "LIFECYCLE_BLOCKED"
+	ErrCodeLifecycleBlocked ReleaseErrorCode = "LIFECYCLE_BLOCKED"
 
 	// ErrCodeLifecycleMismatch means the version prerelease tag does not
 	// match the declared lifecycle (e.g. -alpha on a stable API).
-	ErrCodeLifecycleMismatch PublishErrorCode = "LIFECYCLE_MISMATCH"
+	ErrCodeLifecycleMismatch ReleaseErrorCode = "LIFECYCLE_MISMATCH"
 
 	// ErrCodeValidationFailed means schema validation (lint/breaking/policy)
 	// did not pass.
-	ErrCodeValidationFailed PublishErrorCode = "VALIDATION_FAILED"
+	ErrCodeValidationFailed ReleaseErrorCode = "VALIDATION_FAILED"
 
 	// ErrCodeGoPackageMismatch means a proto file's go_package option does
 	// not match the derived import path.
-	ErrCodeGoPackageMismatch PublishErrorCode = "GO_PACKAGE_MISMATCH"
+	ErrCodeGoPackageMismatch ReleaseErrorCode = "GO_PACKAGE_MISMATCH"
 
 	// ErrCodeGoModMismatch means an existing go.mod has a different module
 	// path than expected.
-	ErrCodeGoModMismatch PublishErrorCode = "GO_MOD_MISMATCH"
+	ErrCodeGoModMismatch ReleaseErrorCode = "GO_MOD_MISMATCH"
 
 	// ErrCodeMergeConflict means the canonical repo has diverged and a
-	// merge conflict occurred during publish.
-	ErrCodeMergeConflict PublishErrorCode = "MERGE_CONFLICT"
+	// merge conflict occurred during the release.
+	ErrCodeMergeConflict ReleaseErrorCode = "MERGE_CONFLICT"
 
 	// ErrCodeCanonicalMoved means the canonical repo's HEAD has moved since
 	// the prepare step.
-	ErrCodeCanonicalMoved PublishErrorCode = "CANONICAL_MOVED"
+	ErrCodeCanonicalMoved ReleaseErrorCode = "CANONICAL_MOVED"
 
 	// ErrCodePolicyFailed means a canonical CI policy check failed.
-	ErrCodePolicyFailed PublishErrorCode = "POLICY_FAILED"
+	ErrCodePolicyFailed ReleaseErrorCode = "POLICY_FAILED"
 
-	// ErrCodePackagePublishFailed means language package publication failed
+	// ErrCodePackageReleaseFailed means language package publication failed
 	// after the canonical tag was created.
-	ErrCodePackagePublishFailed PublishErrorCode = "PACKAGE_PUBLISH_FAILED"
+	ErrCodePackageReleaseFailed ReleaseErrorCode = "PACKAGE_RELEASE_FAILED"
 
 	// ErrCodeCatalogUpdateFailed means the catalog update failed after
 	// canonical release.
-	ErrCodeCatalogUpdateFailed PublishErrorCode = "CATALOG_UPDATE_FAILED"
+	ErrCodeCatalogUpdateFailed ReleaseErrorCode = "CATALOG_UPDATE_FAILED"
 
 	// ErrCodeNotGitRepo means the current directory is not a git repository.
-	ErrCodeNotGitRepo PublishErrorCode = "NOT_GIT_REPO"
+	ErrCodeNotGitRepo ReleaseErrorCode = "NOT_GIT_REPO"
 
 	// ErrCodeInvalidVersion means the version string is not valid semver.
-	ErrCodeInvalidVersion PublishErrorCode = "INVALID_VERSION"
+	ErrCodeInvalidVersion ReleaseErrorCode = "INVALID_VERSION"
 
 	// ErrCodeMissingConfig means apx.yaml could not be loaded.
-	ErrCodeMissingConfig PublishErrorCode = "MISSING_CONFIG"
+	ErrCodeMissingConfig ReleaseErrorCode = "MISSING_CONFIG"
 
 	// ErrCodePushFailed means the git push to canonical repo failed.
-	ErrCodePushFailed PublishErrorCode = "PUSH_FAILED"
+	ErrCodePushFailed ReleaseErrorCode = "PUSH_FAILED"
 
 	// ErrCodeBreakingChange means breaking changes were detected on the
 	// current API line. A new major line is required.
-	ErrCodeBreakingChange PublishErrorCode = "BREAKING_CHANGE"
+	ErrCodeBreakingChange ReleaseErrorCode = "BREAKING_CHANGE"
 
 	// ErrCodeVersionLineMismatch means the version's major component does
 	// not match the API line's major version.
-	ErrCodeVersionLineMismatch PublishErrorCode = "VERSION_LINE_MISMATCH"
+	ErrCodeVersionLineMismatch ReleaseErrorCode = "VERSION_LINE_MISMATCH"
 
 	// ErrCodeIllegalTransition means a lifecycle transition is not allowed
 	// (e.g. stable → experimental).
-	ErrCodeIllegalTransition PublishErrorCode = "ILLEGAL_TRANSITION"
+	ErrCodeIllegalTransition ReleaseErrorCode = "ILLEGAL_TRANSITION"
 
 	// ErrCodePRCreationFailed means the pull request could not be created
 	// on the canonical repo.
-	ErrCodePRCreationFailed PublishErrorCode = "PR_CREATION_FAILED"
+	ErrCodePRCreationFailed ReleaseErrorCode = "PR_CREATION_FAILED"
 )
 
-// PublishError is a structured error with a machine-readable code,
+// ReleaseError is a structured error with a machine-readable code,
 // human-readable message, and optional recovery hint.
-type PublishError struct {
-	Code    PublishErrorCode `json:"code"`
+type ReleaseError struct {
+	Code    ReleaseErrorCode `json:"code"`
 	Message string           `json:"message"`
 	Hint    string           `json:"hint,omitempty"`
 }
 
-func (e *PublishError) Error() string {
+func (e *ReleaseError) Error() string {
 	if e.Hint != "" {
 		return fmt.Sprintf("[%s] %s (hint: %s)", e.Code, e.Message, e.Hint)
 	}
 	return fmt.Sprintf("[%s] %s", e.Code, e.Message)
 }
 
-// NewPublishError creates a new PublishError.
-func NewPublishError(code PublishErrorCode, message string) *PublishError {
-	return &PublishError{Code: code, Message: message}
+// NewReleaseError creates a new ReleaseError.
+func NewReleaseError(code ReleaseErrorCode, message string) *ReleaseError {
+	return &ReleaseError{Code: code, Message: message}
 }
 
 // WithHint returns a copy of the error with a recovery hint attached.
-func (e *PublishError) WithHint(hint string) *PublishError {
-	return &PublishError{Code: e.Code, Message: e.Message, Hint: hint}
+func (e *ReleaseError) WithHint(hint string) *ReleaseError {
+	return &ReleaseError{Code: e.Code, Message: e.Message, Hint: hint}
 }
 
 // ErrorCodeDescriptions maps each error code to a brief description
 // suitable for documentation and CLI help.
-var ErrorCodeDescriptions = map[PublishErrorCode]string{
-	ErrCodeVersionTaken:         "Version already exists with different content",
-	ErrCodeLifecycleBlocked:     "Lifecycle state blocks new releases",
-	ErrCodeLifecycleMismatch:    "Version prerelease tag conflicts with lifecycle",
-	ErrCodeValidationFailed:     "Schema validation did not pass",
-	ErrCodeGoPackageMismatch:    "Proto go_package does not match derived import",
-	ErrCodeGoModMismatch:        "go.mod module directive mismatch",
-	ErrCodeMergeConflict:        "Merge conflict in canonical repo",
-	ErrCodeCanonicalMoved:       "Canonical repo HEAD has moved since prepare",
-	ErrCodePolicyFailed:         "Canonical CI policy check failed",
-	ErrCodePackagePublishFailed: "Package publication failed after canonical tag",
-	ErrCodeCatalogUpdateFailed:  "Catalog update failed after release",
-	ErrCodeNotGitRepo:           "Not inside a git repository",
-	ErrCodeInvalidVersion:       "Version is not valid semver",
-	ErrCodeMissingConfig:        "apx.yaml not found or invalid",
-	ErrCodePushFailed:           "Git push to canonical repo failed",
-	ErrCodeBreakingChange:       "Breaking changes require a new API line",
-	ErrCodeVersionLineMismatch:  "Version major does not match API line",
-	ErrCodeIllegalTransition:    "Illegal lifecycle transition",
-	ErrCodePRCreationFailed:     "PR creation on canonical repo failed",
+var ErrorCodeDescriptions = map[ReleaseErrorCode]string{
+	ErrCodeVersionTaken:        "Version already exists with different content",
+	ErrCodeLifecycleBlocked:    "Lifecycle state blocks new releases",
+	ErrCodeLifecycleMismatch:   "Version prerelease tag conflicts with lifecycle",
+	ErrCodeValidationFailed:    "Schema validation did not pass",
+	ErrCodeGoPackageMismatch:   "Proto go_package does not match derived import",
+	ErrCodeGoModMismatch:       "go.mod module directive mismatch",
+	ErrCodeMergeConflict:       "Merge conflict in canonical repo",
+	ErrCodeCanonicalMoved:      "Canonical repo HEAD has moved since prepare",
+	ErrCodePolicyFailed:        "Canonical CI policy check failed",
+	ErrCodePackageReleaseFailed: "Package release failed after canonical tag",
+	ErrCodeCatalogUpdateFailed: "Catalog update failed after release",
+	ErrCodeNotGitRepo:          "Not inside a git repository",
+	ErrCodeInvalidVersion:      "Version is not valid semver",
+	ErrCodeMissingConfig:       "apx.yaml not found or invalid",
+	ErrCodePushFailed:          "Git push to canonical repo failed",
+	ErrCodeBreakingChange:      "Breaking changes require a new API line",
+	ErrCodeVersionLineMismatch: "Version major does not match API line",
+	ErrCodeIllegalTransition:   "Illegal lifecycle transition",
+	ErrCodePRCreationFailed:    "PR creation on canonical repo failed",
 }

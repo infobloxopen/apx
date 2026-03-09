@@ -9,8 +9,8 @@ import (
 func NewRootCmd(version string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apx",
-		Short: "API Publishing eXperience CLI",
-		Long:  "apx is a CLI tool for managing, publishing, and consuming API schemas across organizations.",
+		Short: "API Release eXperience CLI",
+		Long:  "apx is a CLI tool for managing, releasing, and consuming API schemas across organizations.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			quiet, _ := cmd.Flags().GetBool("quiet")
 			verbose, _ := cmd.Flags().GetBool("verbose")
@@ -54,7 +54,6 @@ func NewRootCmd(version string) *cobra.Command {
 		newGenCmd(),
 		newPolicyCmd(),
 		newCatalogCmd(),
-		newPublishCmd(),
 		newReleaseCmd(),
 		newSearchCmd(),
 		newShowCmd(),

@@ -1,13 +1,13 @@
 # End-to-End Integration Tests
 
-This directory contains the E2E integration test suite for APX, which validates the complete schema publishing workflow using a real k3d cluster and Gitea instance.
+This directory contains the E2E integration test suite for APX, which validates the complete schema release workflow using a real k3d cluster and Gitea instance.
 
 ## Overview
 
 The E2E test suite provides:
 - **k3d cluster management** - Ephemeral Kubernetes clusters for testing
 - **Gitea deployment** - Git hosting simulation in k3d
-- **Complete workflow testing** - From `apx init` through `apx publish` with PR validation
+- **Complete workflow testing** - From `apx init` through `apx release prepare` + `apx release submit` with PR validation
 - **Realistic fixtures** - Canonical and app repositories with Proto schemas
 
 ## Architecture
@@ -98,15 +98,15 @@ E2E_KEEP_FAILED=1 E2E_ENABLED=1 go test -v ./tests/e2e -run TestE2E
 
 ### Phase 3: Basic Workflow (User Story 1) ✅
 - `e2e_basic_setup.txt` - Validates k3d + Gitea are working
-- `e2e_complete_workflow.txt` - Complete publishing workflow:
+- `e2e_complete_workflow.txt` - Complete release workflow:
   - Canonical repository initialization
   - App repository creation with dependencies
-  - Schema publication (PRs to canonical)
+  - Schema release (PRs to canonical)
   - Dependency consumption (`apx add`, `apx gen`)
   - Overlay validation (import path resolution)
 
 ### Phase 4: Cross-Repository Dependencies (User Story 2) ✅
-- `e2e_cross_repo_deps.txt` - App2 consumes App1's published schema and publishes its own
+- `e2e_cross_repo_deps.txt` - App2 consumes App1's released schema and releases its own
 - `e2e_catalog_validation.txt` - `apx search` shows both payment and user APIs
 
 ### Phase 5: Breaking Change Detection (User Story 3) ✅
@@ -115,7 +115,7 @@ E2E_KEEP_FAILED=1 E2E_ENABLED=1 go test -v ./tests/e2e -run TestE2E
 - `e2e_major_version_bump.txt` - Allows breaking changes in new major version (v2)
 
 ### Phase 6: Git History Preservation (User Story 4) ✅
-- `e2e_git_history.txt` - Verifies commit history and authorship through PR-based publish
+- `e2e_git_history.txt` - Verifies commit history and authorship through PR-based release
 
 ### Phase 7: Edge Cases ✅
 - `e2e_gitea_unreachable.txt` - Gitea unavailability error handling
@@ -124,7 +124,7 @@ E2E_KEEP_FAILED=1 E2E_ENABLED=1 go test -v ./tests/e2e -run TestE2E
 - `e2e_circular_deps.txt` - Circular dependency detection
 - `e2e_duplicate_tag.txt` - Tag conflict error handling
 - `e2e_overlay_deletion.txt` - `apx sync` after manual overlay deletion
-- `e2e_concurrent_publish.txt` - Multiple apps publishing to same module path
+- `e2e_concurrent_publish.txt` - Multiple apps releasing to same module path
 - `e2e_codeowners.txt` - CODEOWNERS enforcement validation
 
 **Total: 16 testscript scenarios covering 18 functional requirements**

@@ -70,7 +70,7 @@ policy:
     breaking_mode: "strict"
   parquet:
     allow_additive_nullable_only: true
-publishing:
+release:
   tag_format: "{subdir}/v{version}"
   ci_only: true
 tools:
@@ -320,7 +320,7 @@ func TestValidateFile_PatternValidation_TagFormat(t *testing.T) {
 	yaml := `version: 1
 org: myorg
 repo: myrepo
-publishing:
+release:
   tag_format: "v{bad}"
 `
 	result, err := ValidateBytes([]byte(yaml))
@@ -330,8 +330,8 @@ publishing:
 	if result.Valid {
 		t.Fatal("expected invalid result for bad tag_format")
 	}
-	if !hasErrorForField(result.Errors, "publishing.tag_format") {
-		t.Errorf("expected error for 'publishing.tag_format', got: %v", fmtErrs(result.Errors))
+	if !hasErrorForField(result.Errors, "release.tag_format") {
+		t.Errorf("expected error for 'release.tag_format', got: %v", fmtErrs(result.Errors))
 	}
 }
 
@@ -339,7 +339,7 @@ func TestValidateFile_PatternValidation_TagFormatValid(t *testing.T) {
 	yaml := `version: 1
 org: myorg
 repo: myrepo
-publishing:
+release:
   tag_format: "{subdir}/v{version}"
 `
 	result, err := ValidateBytes([]byte(yaml))

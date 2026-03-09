@@ -260,10 +260,10 @@ func buildV1Schema() SchemaVersion {
 				},
 			},
 		},
-		"publishing": {
-			Name:        "publishing",
+		"release": {
+			Name:        "release",
 			Type:        TypeStruct,
-			Description: "Publishing configuration",
+			Description: "Release configuration",
 			Children: map[string]FieldDef{
 				"tag_format": {
 					Name:        "tag_format",
@@ -275,7 +275,7 @@ func buildV1Schema() SchemaVersion {
 				"ci_only": {
 					Name:        "ci_only",
 					Type:        TypeBool,
-					Description: "Restrict publishing to CI environments",
+					Description: "Restrict releasing to CI environments",
 					Default:     true,
 				},
 			},
@@ -512,7 +512,7 @@ func DefaultConfig() *Config {
 				AllowAdditiveNullableOnly bool `yaml:"allow_additive_nullable_only,omitempty"`
 			}{AllowAdditiveNullableOnly: true},
 		},
-		Publishing: Publishing{
+		Release: ReleaseConfig{
 			TagFormat: "{subdir}/v{version}",
 			CIOnly:    true,
 		},

@@ -1,8 +1,7 @@
 # Release Commands
 
 The `apx release` command family manages releases through an explicit state machine.
-While [`apx publish`](publishing-commands.md) is a single fire-and-forget command,
-`apx release` breaks the workflow into discrete, auditable phases — ideal for CI
+It breaks the workflow into discrete, auditable phases — ideal for CI
 pipelines and production-grade release governance.
 
 ## Overview
@@ -316,17 +315,3 @@ The immutable release record (`.apx-release-record.yaml`) is emitted by
 - **Catalog update** — whether the catalog was updated and which file
 - **CI provenance** — auto-detected CI system name, job ID, run URL
 
-## `publish` vs `release`
-
-| Aspect | `apx publish` | `apx release` |
-|--------|---------------|----------------|
-| Steps | Single command | `prepare` → `submit` → `finalize` |
-| Manifest | None | `.apx-release.yaml` persisted between steps |
-| Audit trail | Minimal | Immutable release record with CI provenance |
-| Idempotency | Best-effort | SHA-256 content hashing with explicit result codes |
-| Catalog | Not updated | Updated during `finalize` |
-| Best for | Quick iterations, local development | CI pipelines, production releases |
-
-Use `apx publish` when you want a fast, one-shot publish.  Use `apx release`
-when you need a traceable, multi-step pipeline with validation gates and audit
-records.

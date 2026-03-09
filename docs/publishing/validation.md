@@ -1,15 +1,15 @@
-# Publishing Validation
+# Release Validation
 
-APX runs a series of validation checks before any schema is published to the canonical repository. These checks ensure consistency, compatibility, and governance compliance.
+APX runs a series of validation checks before any schema is released to the canonical repository. These checks ensure consistency, compatibility, and governance compliance.
 
 ## Validation Pipeline
 
-Validation runs at multiple points in the publishing flow:
+Validation runs at multiple points in the release flow:
 
 | Stage | Commands | What's validated |
 |-------|----------|------------------|
-| **Local (pre-publish)** | `apx lint`, `apx breaking`, `apx policy check` | Schema syntax, backward compatibility, policy compliance |
-| **Publish/Prepare** | `apx publish` or `apx release prepare` | Identity consistency, lifecycle-version compatibility, go_package correctness, go.mod validity |
+| **Local (pre-release)** | `apx lint`, `apx breaking`, `apx policy check` | Schema syntax, backward compatibility, policy compliance |
+| **Prepare** | `apx release prepare` | Identity consistency, lifecycle-version compatibility, go_package correctness, go.mod validity |
 | **Canonical CI (PR)** | `ci.yml` → `apx lint` + `apx breaking` | Re-validates schemas in the canonical repo context |
 | **Finalize** | `apx release finalize` | Re-runs lint and breaking checks against the previous tag |
 
@@ -45,7 +45,7 @@ Detects backward-incompatible changes:
 
 ## Identity Validation
 
-During `apx publish` and `apx release prepare`, APX validates the full identity block:
+During `apx release prepare`, APX validates the full identity block:
 
 ### API ID Parsing
 
@@ -73,10 +73,10 @@ The SemVer major version must match the declared API line:
 
 ```bash
 # OK — v1 line, v1.x.x version
-apx publish proto/payments/ledger/v1 --version v1.2.3
+apx release prepare proto/payments/ledger/v1 --version v1.2.3
 
 # ERROR — v1 line, v2.0.0 version
-apx publish proto/payments/ledger/v1 --version v2.0.0
+apx release prepare proto/payments/ledger/v1 --version v2.0.0
 # → "version v2.0.0 is incompatible with API line v1"
 ```
 
@@ -114,7 +114,7 @@ option go_package = "github.com/acme-corp/apis/proto/payments/ledger/v1";
 By default, mismatches produce a **warning**. Use `--strict` to make them errors:
 
 ```bash
-apx publish proto/payments/ledger/v1 --version v1.0.0 --strict
+apx release prepare proto/payments/ledger/v1 --version v1.0.0 --strict
 ```
 
 ### `go.mod` Validation
@@ -132,16 +132,16 @@ Skip with `--skip-gomod` if you manage `go.mod` externally.
 
 ## Idempotency Check
 
-`apx release prepare` checks whether the exact same content was already published at the declared version by comparing SHA-256 content hashes against existing tags. If an identical release already exists, APX reports success without creating a duplicate.
+`apx release prepare` checks whether the exact same content was already released at the declared version by comparing SHA-256 content hashes against existing tags. If an identical release already exists, APX reports success without creating a duplicate.
 
 ---
 
 ## Dry Run
 
-Preview what would be validated and published without making changes:
+Preview what would be validated and released without making changes:
 
 ```bash
-apx publish proto/payments/ledger/v1 --version v1.0.0 --dry-run
+apx release prepare proto/payments/ledger/v1 --version v1.0.0 --dry-run
 apx release submit --dry-run
 ```
 
@@ -170,5 +170,5 @@ This catches issues that may not be visible in the app repo context (e.g. confli
 ## See Also
 
 - [Release Guardrails](release-guardrails.md) — lifecycle and version enforcement rules
-- [Publish Command](publish-command.md) — full flag reference
+- [Release Commands](../cli-reference/release-commands.md) — full flag reference
 - [Versioning Strategy](../dependencies/versioning-strategy.md) — the three-layer versioning model

@@ -1,5 +1,5 @@
-# Test: apx publish
-# Verifies publish workflow via PR (dry-run mode for testing)
+# Test: apx release prepare + apx release submit
+# Verifies release workflow via PR (dry-run mode for testing)
 
 # Setup app repository
 mkdir app-repo
@@ -22,16 +22,20 @@ exec git commit -m 'Add ledger API v1.0.0'
 # Create a tag for the module version
 exec git tag proto/payments/ledger/v1/v1.0.0
 
-# Test dry-run publish (should succeed without actual git operations)
-exec apx publish --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis --dry-run
+# Test dry-run release prepare (should succeed without actual git operations)
+exec apx release prepare --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis --dry-run
 stdout 'Dry-run mode'
 stdout 'internal/apis/proto/payments/ledger/v1'
 stdout 'github.com/myorg/apis'
 
+# Test dry-run release submit
+exec apx release submit --dry-run
+stdout 'Dry-run mode'
+
 # Make a second commit to test against previous version
 exec git commit --allow-empty -m 'Second commit'
 
-# Verify lint works before publishing
+# Verify lint works before releasing
 ! exec apx lint internal/apis/proto/payments/ledger/v1/ledger.proto
 stderr 'buf'
 
@@ -39,24 +43,28 @@ stderr 'buf'
 ! exec apx breaking --against=HEAD~1 internal/apis/proto/payments/ledger/v1/ledger.proto
 stderr 'buf'
 
-# Test publish with version flag
-exec apx publish --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis --version=v1.0.1 --dry-run
+# Test release prepare with version flag
+exec apx release prepare --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis --version=v1.0.1 --dry-run
 stdout 'v1.0.1'
 
+# Test release submit with dry-run
+exec apx release submit --dry-run
+stdout 'Dry-run mode'
+
 # Test with missing required flags
-! exec apx publish
+! exec apx release prepare
 stderr 'module-path'
 
-! exec apx publish --module-path=internal/apis/proto/payments/ledger/v1
+! exec apx release prepare --module-path=internal/apis/proto/payments/ledger/v1
 stderr 'canonical-repo'
 
 # Test with non-existent module path
-! exec apx publish --module-path=nonexistent/path --canonical-repo=github.com/test/apis
+! exec apx release prepare --module-path=nonexistent/path --canonical-repo=github.com/test/apis
 stderr 'does not exist'
 
-# --- Identity-based publish (dry-run) ---
-# Test positional API ID publish: apx publish <api-id> --version --lifecycle
-exec apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta --canonical-repo=github.com/myorg/apis --dry-run
+# --- Identity-based release (dry-run) ---
+# Test positional API ID release: apx release prepare <api-id> --version --lifecycle
+exec apx release prepare proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta --canonical-repo=github.com/myorg/apis --dry-run
 stdout 'Dry-run mode'
 stdout 'API ID:      proto/payments/ledger/v1'
 stdout 'Version:     v1.0.0-beta.1'
@@ -64,27 +72,27 @@ stdout 'Tag:         proto/payments/ledger/v1/v1.0.0-beta.1'
 stdout 'Go module:   github.com/myorg/apis/proto/payments/ledger'
 stdout 'Go import:   github.com/myorg/apis/proto/payments/ledger/v1'
 
-# Test identity publish GA release
-exec apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable --canonical-repo=github.com/myorg/apis --dry-run
+# Test identity release GA
+exec apx release prepare proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable --canonical-repo=github.com/myorg/apis --dry-run
 stdout 'v1.0.0'
 stdout 'stable'
 
-# Test identity publish v2 line
-exec apx publish proto/payments/ledger/v2 --version v2.0.0-alpha.1 --lifecycle experimental --canonical-repo=github.com/myorg/apis --dry-run
+# Test identity release v2 line
+exec apx release prepare proto/payments/ledger/v2 --version v2.0.0-alpha.1 --lifecycle experimental --canonical-repo=github.com/myorg/apis --dry-run
 stdout 'proto/payments/ledger/v2'
 stdout 'Go module:   github.com/myorg/apis/proto/payments/ledger/v2'
 stdout 'Tag:         proto/payments/ledger/v2/v2.0.0-alpha.1'
 
-# Test identity publish requires --version
-! exec apx publish proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis --dry-run
+# Test identity release requires --version
+! exec apx release prepare proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis --dry-run
 stderr 'version'
 
-# Test identity publish validates lifecycle
-! exec apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle alpha --canonical-repo=github.com/myorg/apis --dry-run
+# Test identity release validates lifecycle
+! exec apx release prepare proto/payments/ledger/v1 --version v1.0.0 --lifecycle alpha --canonical-repo=github.com/myorg/apis --dry-run
 stderr 'invalid lifecycle'
 
-# Test identity publish validates api-id format
-! exec apx publish invalid-api-id --version v1.0.0 --canonical-repo=github.com/myorg/apis --dry-run
+# Test identity release validates api-id format
+! exec apx release prepare invalid-api-id --version v1.0.0 --canonical-repo=github.com/myorg/apis --dry-run
 stderr 'invalid API ID'
 
 # Cleanup

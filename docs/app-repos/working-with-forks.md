@@ -1,6 +1,6 @@
 # Working with Forks
 
-When contributing to an API repository you don't own, you'll typically work on a **fork** — a personal copy of the canonical repo under your own GitHub organization or user account. APX is fork-aware and handles most of this automatically, but there are important limitations around publishing.
+When contributing to an API repository you don't own, you'll typically work on a **fork** — a personal copy of the canonical repo under your own GitHub organization or user account. APX is fork-aware and handles most of this automatically, but there are important limitations around releasing.
 
 ## How Fork Detection Works
 
@@ -53,27 +53,23 @@ All **consumption and authoring** workflows work correctly on forks:
 
 ## What Does NOT Work on a Fork
 
-**Publishing from a fork is not supported.** Several operations require write access to the canonical repository, which fork contributors typically don't have:
+**Releasing from a fork is not supported.** Several operations require write access to the canonical repository, which fork contributors typically don't have:
 
-### 1. `apx publish` — PR to Canonical Repo
+### 1. `apx release submit` — Release Submission
 
-`apx publish` clones the canonical repo, copies your snapshot onto a release branch, and opens a pull request via the `gh` CLI. This requires **push access** to the canonical repo (to push the release branch) and **pull request write** permission (to create the PR). From a fork, both will fail with a permission error.
+`apx release submit` pushes a release branch (`apx/release/<api-id>/<version>`) to the canonical repo and opens a PR. Fork contributors cannot push branches to a repo they don't own.
 
-### 2. `apx release submit` — Release Submission
-
-`apx release submit` follows the same PR-based flow as `apx publish`. It pushes a release branch (`apx/release/<api-id>/<version>`) to the canonical repo and opens a PR. Fork contributors cannot push branches to a repo they don't own.
-
-### 3. `apx release tag` — Tag Creation
+### 2. `apx release tag` — Tag Creation
 
 Release tags (e.g. `proto/payments/ledger/v1/v1.0.0`) are created on the canonical repo by post-merge CI. Fork contributors cannot create tags on a repo they don't own.
 
-### 4. CI-Triggered Publishing
+### 3. CI-Triggered Releasing
 
-CI workflows on your fork run with your fork's credentials, not the canonical repo's. Any CI step that calls `apx publish` or `apx release submit` will fail because the fork's `GITHUB_TOKEN` doesn't have write access to the upstream repo.
+CI workflows on your fork run with your fork's credentials, not the canonical repo's. Any CI step that calls `apx release submit` will fail because the fork's `GITHUB_TOKEN` doesn't have write access to the upstream repo.
 
 ## Recommended Fork Workflow
 
-The correct pattern is to **author on the fork, publish from the canonical repo's CI**:
+The correct pattern is to **author on the fork, release from the canonical repo's CI**:
 
 ```
 ┌─────────────────────────┐     ┌──────────────────────────┐
@@ -173,9 +169,9 @@ git remote -v
 git remote add upstream git@github.com:<canonical-org>/apis.git
 ```
 
-### `apx publish` fails with "permission denied"
+### `apx release submit` fails with "permission denied"
 
-You're likely running publish from a fork. Publishing must happen from the canonical repo's CI after your PR is merged. See [Recommended Fork Workflow](#recommended-fork-workflow) above.
+You're likely running the release from a fork. Releasing must happen from the canonical repo's CI after your PR is merged. See [Recommended Fork Workflow](#recommended-fork-workflow) above.
 
 ### Import paths show my fork org in generated code
 

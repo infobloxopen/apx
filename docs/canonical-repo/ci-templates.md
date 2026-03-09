@@ -8,7 +8,7 @@ APX generates GitHub Actions workflow files for both canonical and app repositor
 |----------|----------------|------|---------|
 | **Schema CI** | Canonical | `.github/workflows/ci.yml` | Pull requests to `main` |
 | **On Merge** | Canonical | `.github/workflows/on-merge.yml` | Push to `main` |
-| **Publish** | App | `.github/workflows/apx-publish.yml` | Tag push matching APX patterns |
+| **Release** | App | `.github/workflows/apx-release.yml` | Tag push matching APX patterns |
 
 ## Canonical Repository Workflows
 
@@ -128,12 +128,12 @@ The checkout uses the app token (not the default `GITHUB_TOKEN`) so the push can
 
 App repos receive one workflow file during `apx init app` or `apx workflows sync`.
 
-### `apx-publish.yml` — Publish on Tag
+### `apx-release.yml` — Release on Tag
 
-Triggered when you push a tag matching the APX naming pattern. Validates the schema and publishes to the canonical repository via PR.
+Triggered when you push a tag matching the APX naming pattern. Validates the schema and releases to the canonical repository via PR.
 
 ```yaml
-name: APX Publish
+name: APX Release
 
 on:
   push:
@@ -148,7 +148,7 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Generate App Token
@@ -188,22 +188,23 @@ jobs:
           echo "api_id=${API_ID}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Publish to canonical repo
+      - name: Release to canonical repo
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          apx publish "${{ steps.parse.outputs.api_id }}" \
+          apx release prepare "${{ steps.parse.outputs.api_id }}" \
             --version "${{ steps.parse.outputs.version }}" \
             --canonical-repo=github.com/<org>/<canonical-repo>
+          apx release submit
 ```
 
 **What it does:**
 
 1. **Matches tag patterns** — triggers on tags like `proto/payments/ledger/v1/v1.0.0` across all supported schema formats
 2. **Generates a cross-repo token** — the GitHub App token is scoped to the canonical repository (`owner` + `repositories` fields) so the workflow can push branches and open PRs there
-3. **Parses the tag** — extracts the full tag string for `apx publish`
-4. **Validates locally** — runs lint and breaking-change checks before publishing
-5. **Publishes via PR** — `apx publish` clones the canonical repo, copies module files to a release branch, and opens a pull request
+3. **Parses the tag** — extracts the full tag string for `apx release prepare`
+4. **Validates locally** — runs lint and breaking-change checks before releasing
+5. **Releases via PR** — `apx release prepare` validates and stages the release, then `apx release submit` clones the canonical repo, copies module files to a release branch, and opens a pull request
 
 :::{note}
 The `owner` and `repositories` fields in the token step are filled in by `apx init app` or `apx workflows sync` based on your `apx.yaml` configuration.
@@ -228,7 +229,7 @@ apx workflows sync --dry-run
 **How detection works:**
 
 1. If `.github/workflows/ci.yml` or `on-merge.yml` exists → canonical repo
-2. If `.github/workflows/apx-publish.yml` exists → app repo
+2. If `.github/workflows/apx-release.yml` exists → app repo
 3. Fallback: if `proto/`, `openapi/`, `avro/`, or `catalog/` directories exist → canonical repo
 4. Fallback: if `module_roots` is set in `apx.yaml` → app repo
 
@@ -239,7 +240,7 @@ The org and repo values are read from `apx.yaml`. If no config file exists, APX 
 Run `apx workflows sync` after:
 
 - **Upgrading APX** — templates may have been updated
-- **Changing org or repo** — the on-merge and publish workflows embed org/repo names
+- **Changing org or repo** — the on-merge and release workflows embed org/repo names
 - **Adding a canonical repo** — if your app repo also hosts canonical schemas
 
 ### After Syncing
@@ -264,7 +265,7 @@ All three workflows require:
 | **`APX_APP_ID` org secret** | GitHub App ID |
 | **`APX_APP_PRIVATE_KEY` org secret** | GitHub App private key (PEM) |
 
-The app publish workflow additionally requires the GitHub App to be installed on the canonical repository with `contents:write` and `pull_requests:write` permissions.
+The app release workflow additionally requires the GitHub App to be installed on the canonical repository with `contents:write` and `pull_requests:write` permissions.
 
 See [Protection](protection.md) for how to set up the GitHub App and org secrets.
 
@@ -273,8 +274,8 @@ See [Protection](protection.md) for how to set up the GitHub App and org secrets
 The generated workflows are standard GitHub Actions YAML — you can customize them after generation. Common additions:
 
 - **Additional validation steps** (e.g., custom policy checks with `apx policy check`)
-- **Notification steps** (Slack, email on publish)
-- **Language package publication** in the on-merge workflow
+- **Notification steps** (Slack, email on release)
+- **Language package releasing** in the on-merge workflow
 - **Matrix builds** for multi-format repos
 
 :::{warning}

@@ -233,7 +233,7 @@ apx/
 │   ├── detector/         # Project type detection
 │   ├── interactive/      # Interactive setup
 │   ├── overlay/          # Overlay management
-│   ├── publisher/        # Publishing workflows
+│   ├── publisher/        # Release workflows
 │   ├── schema/           # Schema scaffolding
 │   ├── validator/        # Multi-format validation
 │   └── ui/               # User interface
@@ -308,7 +308,7 @@ Releases are automated via GitHub Actions:
 
 1. Create a git tag: `git tag v1.2.3`
 2. Push the tag: `git push origin v1.2.3`
-3. GitHub Actions builds and publishes releases
+3. GitHub Actions builds and creates releases
 
 ## Getting Help
 

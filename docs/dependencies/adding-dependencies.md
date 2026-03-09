@@ -89,17 +89,17 @@ See [Discovery](discovery.md) for details.
 
 ## Removing Dependencies
 
-To remove a dependency and switch to the published module:
+To remove a dependency and switch to the released module:
 
 ```bash
 # Remove the overlay and lock entry
 apx unlink proto/payments/ledger/v1
 
-# Add the published module to go.mod
+# Add the released module to go.mod
 go get github.com/acme-corp/apis/proto/payments/ledger@v1.2.3
 ```
 
-`apx unlink` removes the dependency from `apx.lock` and deletes the overlay directory. Your import paths remain unchanged — they now resolve to the real published module instead of the local overlay.
+`apx unlink` removes the dependency from `apx.lock` and deletes the overlay directory. Your import paths remain unchanged — they now resolve to the real released module instead of the local overlay.
 
 ---
 

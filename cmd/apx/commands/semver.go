@@ -163,7 +163,7 @@ func suggestSemver(cfg *config.Config, path, against, apiID, lifecycle, apiForma
 		ui.Info("\n%s", config.FormatSuggestionReport(suggestion))
 	}
 	if suggestErr != nil {
-		return &publisher.PublishError{
+		return &publisher.ReleaseError{
 			Code:    publisher.ErrCodeBreakingChange,
 			Message: suggestErr.Error(),
 			Hint:    fmt.Sprintf("Create a new API line (e.g. apx init --line v%s)", nextLine(line)),

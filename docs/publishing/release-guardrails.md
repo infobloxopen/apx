@@ -4,7 +4,7 @@ APX enforces a set of guardrails during the release workflow to prevent invalid 
 
 ## Lifecycle-Version Compatibility
 
-APX validates that the declared lifecycle is compatible with the version being published:
+APX validates that the declared lifecycle is compatible with the version being released:
 
 | Lifecycle | Allowed versions | Rejected versions |
 |-----------|-----------------|------------------|

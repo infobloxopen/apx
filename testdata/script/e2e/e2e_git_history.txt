@@ -1,5 +1,5 @@
 # Test: Git History and Authorship Preservation (US4)
-# Validates that PR-based publishing preserves commit history and authorship.
+# Validates that PR-based releasing preserves commit history and authorship.
 # Creates multiple commits from different authors and verifies they're preserved.
 #
 # Prerequisites: k3d and Gitea running (handled by TestE2E)
@@ -85,8 +85,8 @@ exec git commit -m 'Unrelated README change'
 exec git rev-list --count HEAD
 stdout '6'
 
-# Step 7: Verify publish dry-run works with full history
-exec apx publish --module-path=internal/apis/proto/history/v1 --canonical-repo=github.com/testorg/history-test --dry-run
+# Step 7: Verify release prepare dry-run works with full history
+exec apx release prepare --module-path=internal/apis/proto/history/v1 --canonical-repo=github.com/testorg/history-test --dry-run
 stdout 'Dry-run mode'
 
 cd ..
@@ -95,4 +95,4 @@ cd ..
 # - 5 schema-related commits from 3 different authors
 # - All commit messages preserved
 # - All author names and emails preserved
-# - Unrelated commits exist but should be filtered during PR-based publish
+# - Unrelated commits exist but should be filtered during PR-based release

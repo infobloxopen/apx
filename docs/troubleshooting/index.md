@@ -8,7 +8,7 @@ Common issues and solutions when working with APX.
 common-errors
 buf-issues
 versioning-problems
-publishing-failures
+release-failures
 code-generation
 faq
 ```
@@ -32,7 +32,7 @@ faq
 - Tag format issues
 :::
 
-:::{grid-item-card} **Publishing**
+:::{grid-item-card} **Releasing**
 ^^^
 - PR creation errors
 - Permission errors
@@ -98,7 +98,7 @@ module github.com/myorg/apis/proto/payments/ledger/v2
 module github.com/myorg/apis/proto/payments/ledger/v1
 ```
 
-**Publish blocked for SemVer**:
+**Release blocked for SemVer**:
 ```bash
 # Run version suggestion to see recommended bump
 apx semver suggest --against=HEAD^
@@ -156,10 +156,10 @@ buf lint internal/apis/proto/domain/service/v1
 buf ls-files
 ```
 
-### Debug Publishing
+### Debug Releasing
 ```bash
-# Dry run publish
-apx publish --dry-run \
+# Dry run release
+apx release prepare --dry-run \
   --module-path=internal/apis/proto/domain/service/v1 \
   --canonical-repo=github.com/myorg/apis
 ```
@@ -175,12 +175,13 @@ rm -rf ~/.cache/apx/
 apx fetch
 ```
 
-### Failed Publish
+### Failed Release
 ```bash
-# Retry publishing after resolving conflicts
-apx publish \
+# Retry releasing after resolving conflicts
+apx release prepare \
   --module-path=internal/apis/proto/domain/service/v1 \
   --canonical-repo=github.com/myorg/apis
+apx release submit
 
 # Check canonical repo is up to date and resolve conflicts manually
 ```
@@ -249,8 +250,8 @@ steps:
 # Ensure proper GitHub token permissions
 permissions:
   contents: read
-  pull-requests: write  # for apx publish
-  packages: write       # for package publishing
+  pull-requests: write  # for apx release submit
+  packages: write       # for package releasing
 ```
 
 ### Container Environments
@@ -303,5 +304,5 @@ If using APX in an organization:
 - [Review common errors](common-errors.md) for your specific issue
 - [Debug Buf integration](buf-issues.md) for Protocol Buffer problems
 - [Resolve versioning problems](versioning-problems.md) for Go module issues
-- [Fix publishing failures](publishing-failures.md) for CI problems
+- [Fix release failures](release-failures.md) for CI problems
 - [Check the FAQ](faq.md) for frequently asked questions

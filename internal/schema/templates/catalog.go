@@ -33,12 +33,12 @@ Each schema format has its own directory. Schemas are organized by domain/servic
 
 ## Usage
 
-### For Producers (Publishing APIs)
+### For Producers (Releasing APIs)
 
 1. Create your schema in the appropriate format directory
 2. Run lint checks: `+"`apx lint <path/to/schema>`"+`
 3. Check for breaking changes: `+"`apx breaking <path/to/schema> --against <previous-version>`"+`
-4. Publish: `+"`apx publish <path/to/schema> --version <semver>`"+`
+4. Release: `+"`apx release prepare <path/to/schema> --version <semver>`"+` then `+"`apx release submit`"+`
 
 ### For Consumers (Using APIs)
 

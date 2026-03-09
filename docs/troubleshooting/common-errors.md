@@ -131,7 +131,7 @@ brew install bufbuild/buf/buf   # install system-wide
 Error: gh: not authenticated. Run "gh auth login" to authenticate.
 ```
 
-**Cause:** The GitHub CLI is not authenticated, required for `apx publish` and `apx release submit`.
+**Cause:** The GitHub CLI is not authenticated, required for `apx release submit`.
 
 **Fix:**
 ```bash
@@ -147,7 +147,7 @@ Error: remote: Permission to org/apis.git denied
 **Cause:** Your credentials don't have write access to the canonical repo.
 
 **Fix:**
-- For local publishing: ensure you have push access to the canonical repo
+- For local releases: ensure you have push access to the canonical repo
 - For CI: verify the GitHub App is installed and org secrets (`APX_APP_ID`, `APX_APP_PRIVATE_KEY`) are set
 
 ### `could not determine org and repo`
@@ -184,13 +184,13 @@ No results found for "nonexistent-api"
 | Code | Meaning | Common triggers |
 |------|---------|-----------------|
 | `0` | Success | — |
-| `1` | General error | Schema validation failure, publish error, tool not found |
+| `1` | General error | Schema validation failure, release error, tool not found |
 | `6` | Config validation error | Invalid `apx.yaml` |
 
 ## See Also
 
 - [Buf Issues](buf-issues.md) — Buf-specific troubleshooting
-- [Publishing Failures](publishing-failures.md) — publish and release errors
+- [Release Failures](publishing-failures.md) — release pipeline errors
 - [Versioning Problems](versioning-problems.md) — version and lifecycle issues
 - [Code Generation](code-generation.md) — generation troubleshooting
 - [FAQ](faq.md) — frequently asked questions

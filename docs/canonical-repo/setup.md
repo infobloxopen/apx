@@ -388,4 +388,4 @@ Once the canonical repo is set up:
 2. **[Set up CI templates](ci-templates.md)** — Customize validation and release workflows
 3. **[Configure branch & tag protection](protection.md)** — Deeper dive into protection rules
 4. **[Set up an app repo](../app-repos/index.md)** — Start authoring schemas with `apx init app`
-5. **[Publish your first API](../publishing/overview.md)** — Walk through the release submission flow
+5. **[Release your first API](../releasing/overview.md)** — Walk through the release submission flow

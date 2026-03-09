@@ -15,7 +15,7 @@ APX commands are organized into logical categories:
 - `apx fetch` - Download toolchain  
 - `apx gen` - Generate code with canonical imports
 - `apx sync` - Update go.work overlays
-- `apx unlink` - Remove overlays for published APIs
+- `apx unlink` - Remove overlays for released APIs
 :::
 
 :::{grid-item-card} **Dependencies**
@@ -25,10 +25,9 @@ APX commands are organized into logical categories:
 - `apx add` - Add dependencies
 :::
 
-:::{grid-item-card} **Publishing**
+:::{grid-item-card} **Releasing**
 ^^^
-- `apx publish` - Publish to canonical (one-shot)
-- `apx release` - Multi-step release pipeline
+- `apx release` - Release pipeline (prepare, submit, finalize)
 - `apx semver suggest` - Suggest version bump
 :::
 
@@ -78,14 +77,11 @@ apx semver suggest --against=HEAD^
 apx gen go       # generates stubs with canonical imports
 apx sync         # updates go.work overlays
 
-# Switch from overlay to published module
+# Switch from overlay to released module
 apx unlink proto/payments/ledger/v1
 go get github.com/myorg/apis/proto/payments/ledger@v1.2.3
 
-# Quick publish from app repo
-apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
-
-# Production release pipeline (multi-step)
+# Release pipeline (prepare -> submit -> finalize)
 apx release prepare proto/payments/ledger/v1 --version v1.0.0
 apx release submit
 apx release finalize   # run by canonical CI
@@ -202,7 +198,7 @@ language_targets:
 policy:
   forbidden_proto_options:
     - "^gorm\\."
-publishing:
+releasing:
   tag_format: "{subdir}/v{version}"
   ci_only: true
 tools:
@@ -246,8 +242,7 @@ apx completion fish > ~/.config/fish/completions/apx.fish
 ## Next Steps
 
 - [Learn core commands](core-commands.md) for project setup
-- [Master dependency commands](dependency-commands.md) for API management  
-- [Understand publishing commands](publishing-commands.md) for one-shot publishing
-- [Master release commands](release-commands.md) for production release pipelines
+- [Master dependency commands](dependency-commands.md) for API management
+- [Master release commands](release-commands.md) for the release pipeline
 - [Use validation commands](validation-commands.md) for quality assurance
 - [Explore utility commands](utility-commands.md) for daily workflows

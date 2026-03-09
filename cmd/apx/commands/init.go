@@ -383,7 +383,7 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 	ui.Success("\u2713 Generated example schema file")
 	ui.Success("\u2713 Generated .gitignore")
 	ui.Success("\u2713 Generated buf.work.yaml")
-	ui.Success("\u2713 Generated .github/workflows/apx-publish.yml")
+	ui.Success("\u2713 Generated .github/workflows/apx-release.yml")
 
 	// --setup-github: configure GitHub repo settings via gh CLI
 	setupGitHub, _ := cmd.Flags().GetBool("setup-github")
@@ -403,7 +403,7 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 	ui.Info("1. Review and customize the generated schema file")
 	ui.Info("2. Run lint checks: apx lint %s", modulePath)
 	ui.Info("3. Commit your changes: git add . && git commit")
-	ui.Info("4. Publish to canonical repo: apx publish --module-path=%s", modulePath)
+	ui.Info("4. Release to canonical repo: apx release submit --module-path=%s", modulePath)
 
 	ui.Success("\n\u2713 Application repository initialized successfully!")
 	return nil

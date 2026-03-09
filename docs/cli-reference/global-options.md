@@ -20,7 +20,7 @@ Suppresses informational messages, leaving only errors and the primary output. U
 
 ```bash
 apx lint --quiet
-apx publish proto/payments/ledger/v1 --version v1.0.0 -q
+apx release prepare proto/payments/ledger/v1 --version v1.0.0 -q
 ```
 
 ---
@@ -65,7 +65,7 @@ Disables ANSI color codes in terminal output. Automatically enabled when stdout 
 
 ```bash
 apx lint --no-color
-apx publish --no-color --dry-run proto/payments/ledger/v1 --version v1.0.0
+apx release prepare --no-color proto/payments/ledger/v1 --version v1.0.0
 ```
 
 ---

@@ -155,23 +155,6 @@ func TestDocParity_BreakingCommand(t *testing.T) {
 	}
 }
 
-// TestDocParity_PublishCommand verifies publish command and its flags
-func TestDocParity_PublishCommand(t *testing.T) {
-	root := NewRootCmd("test")
-	cmd, _, err := root.Find([]string{"publish"})
-	if err != nil || cmd.Use == "apx" {
-		t.Fatal("Doc parity failure: 'apx publish' command not found (documented in quickstart.md section 5)")
-	}
-
-	expectedFlags := []string{"module-path", "canonical-repo"}
-	for _, flagName := range expectedFlags {
-		f := cmd.Flags().Lookup(flagName)
-		if f == nil {
-			t.Errorf("Doc parity failure: publish command missing --%s flag (documented in quickstart.md)", flagName)
-		}
-	}
-}
-
 // TestDocParity_ConsumerCommands verifies consumer workflow commands match docs (section 6)
 func TestDocParity_ConsumerCommands(t *testing.T) {
 	root := NewRootCmd("test")
@@ -253,7 +236,7 @@ func TestDocParity_AllCommandsExist(t *testing.T) {
 		{"semver"}, {"semver", "suggest"},
 		{"gen"}, {"policy"}, {"policy", "check"},
 		{"catalog"},
-		{"publish"}, {"search"}, {"add"},
+		{"release"}, {"search"}, {"add"},
 		{"sync"}, {"unlink"}, {"update"}, {"upgrade"},
 		{"config"}, {"config", "init"}, {"config", "validate"},
 		{"fetch"},
@@ -287,7 +270,6 @@ func TestDocParity_AllFlagsExist(t *testing.T) {
 		{[]string{"breaking"}, []string{"against", "format"}},
 		{[]string{"semver", "suggest"}, []string{"against"}},
 		{[]string{"gen"}, []string{"out", "clean", "manifest"}},
-		{[]string{"publish"}, []string{"module-path", "canonical-repo", "version", "dry-run", "create-pr"}},
 		{[]string{"search"}, []string{"format", "catalog", "lifecycle", "domain", "api-line", "origin", "tag"}},
 		{[]string{"sync"}, []string{"clean", "dry-run"}},
 		{[]string{"fetch"}, []string{"config", "output", "verify"}},

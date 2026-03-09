@@ -1,6 +1,6 @@
 # Test: Cross-Repository Dependency Chain (US2)
 # Validates that schema dependencies work across multiple application repositories.
-# App2 (user service) consumes App1's (payment service) published schema and publishes its own.
+# App2 (user service) consumes App1's (payment service) released schema and releases its own.
 #
 # Prerequisites: k3d and Gitea running (handled by TestE2E)
 # Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
@@ -73,14 +73,14 @@ exec git commit -m 'User service with payment and common dependencies'
 exec git tag proto/users/profile/v1/v1.0.0
 cd ..
 
-# Step 4: Verify both apps can independently publish (dry-run)
+# Step 4: Verify both apps can independently release (dry-run)
 cd app1-payment
-exec apx publish --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/testorg/cross-deps-canonical --dry-run
+exec apx release prepare --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/testorg/cross-deps-canonical --dry-run
 stdout 'Dry-run mode'
 cd ..
 
 cd app2-user
-exec apx publish --module-path=internal/apis/proto/users/profile/v1 --canonical-repo=github.com/testorg/cross-deps-canonical --dry-run
+exec apx release prepare --module-path=internal/apis/proto/users/profile/v1 --canonical-repo=github.com/testorg/cross-deps-canonical --dry-run
 stdout 'Dry-run mode'
 cd ..
 
@@ -104,7 +104,7 @@ cd ..
 # Success: Cross-repository dependency chain validated
 # - App1 depends on canonical common schemas
 # - App2 depends on both canonical and app1 schemas
-# - Both apps can publish independently
+# - Both apps can release independently
 # - Dependency versions are locked correctly
 
 -- common.proto --

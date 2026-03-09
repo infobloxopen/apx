@@ -1,22 +1,16 @@
-# Publishing Workflow
+# Release Workflow
 
 APX implements a **PR-first release model**: every API change reaches the
 canonical repository through a pull request that is validated before merge
 and tagged after merge.
 
-Two paths lead to that PR — choose the one that fits your workflow:
+The `apx release` pipeline is the single path to get an API into the
+canonical repository.  It validates the API, pushes a snapshot to the
+canonical repo, opens a pull request via the `gh` CLI, and provides
+manifest persistence, idempotency checks, catalog updates, and an
+immutable release record.
 
-| Path | Best for | Steps |
-|------|----------|-------|
-| **Release pipeline** (`apx release`) | CI pipelines, production releases, audit trails | `prepare` → `submit` → `finalize` |
-| **Quick publish** (`apx publish`) | Local development, quick iterations | Single command |
-
-Both paths perform the same core operations: validate the API, push a
-snapshot to the canonical repo, and open a pull request via the `gh` CLI.
-The release pipeline adds a manifest, idempotency checks, catalog updates,
-and an immutable release record.
-
-## The Release Pipeline (Recommended)
+## The Release Pipeline
 
 ::::{grid} 1 1 3 3
 :gutter: 2
@@ -81,30 +75,14 @@ apx release submit
 
 See [Lifecycle Reference](lifecycle.md) for the full lifecycle model.
 
-## Quick Publish (Convenience Path)
-
-For fast, one-shot publishing — ideal during local development:
-
-```bash
-apx publish proto/payments/ledger/v1 \
-  --version v1.0.0-beta.1 \
-  --lifecycle beta
-```
-
-This single command validates, pushes a snapshot branch, and opens a PR.
-It does **not** write a manifest, update the catalog, or emit a release
-record.
-
-See [Publish Command](publish-command.md) for full usage.
-
 ## Validation Pipeline
 
-Every publish or release goes through validation at multiple stages:
+Every release goes through validation at multiple stages:
 
 ::::{grid} 1 1 2 2
 :gutter: 3
 
-:::{grid-item-card} **Pre-Publish (Local / App CI)**
+:::{grid-item-card} **Pre-Release (Local / App CI)**
 ^^^
 - `apx lint` — schema linting
 - `apx breaking` — backward compatibility
@@ -112,13 +90,13 @@ Every publish or release goes through validation at multiple stages:
 - `apx policy check` — organizational policy
 :::
 
-:::{grid-item-card} **Prepare / Publish**
+:::{grid-item-card} **Prepare**
 ^^^
 - API ID parsing and identity derivation
 - Lifecycle-version compatibility
 - `go_package` consistency (proto)
 - `go.mod` module path validation
-- Idempotency check (release pipeline)
+- Idempotency check (SHA-256 content hash)
 :::
 
 :::{grid-item-card} **Canonical CI (PR)**
@@ -138,7 +116,7 @@ Every publish or release goes through validation at multiple stages:
 
 ::::
 
-See [Publishing Validation](validation.md) for the full validation matrix.
+See [Release Validation](validation.md) for the full validation matrix.
 
 ## Subdirectory Tagging
 
@@ -157,8 +135,7 @@ proto/payments/ledger/v1/v1.0.0
 proto/users/profile/v1/v1.1.0
 ```
 
-Tags are created by `apx release finalize` (or by canonical CI after
-an `apx publish` PR is merged).
+Tags are created by `apx release finalize` after the PR is merged.
 
 See [Tagging Strategy](tagging-strategy.md) for full details.
 
@@ -202,7 +179,7 @@ catalog, and writes the release record.
 
 ## Error Handling
 
-Common publishing errors and solutions:
+Common release errors and solutions:
 
 | Error | Cause | Solution |
 |-------|-------|----------|
@@ -214,18 +191,16 @@ Common publishing errors and solutions:
 
 ## Best Practices
 
-- **Use the release pipeline for CI** — it provides audit trails and idempotency
-- **Use quick publish for local iteration** — faster feedback loop
-- **Run `apx lint` and `apx breaking` before publish** — catch issues early
+- **Use `apx release` for all releases** — it provides audit trails, idempotency, and catalog updates
+- **Run `apx lint` and `apx breaking` before releasing** — catch issues early
 - **Follow lifecycle conventions** — `experimental` for alpha, `beta` for beta/rc, `stable` for GA
 - **Coordinate major versions** across teams — new API lines (`v2`) affect all consumers
 
 ## Next Steps
 
 - [Release Commands](../cli-reference/release-commands.md) — full release state machine reference
-- [Publish Command](publish-command.md) — quick publish CLI reference
-- [Publishing Overview](overview.md) — identity model and two-path architecture
+- [Releasing Overview](overview.md) — identity model and release pipeline architecture
 - [Lifecycle Reference](lifecycle.md) — lifecycle states, transitions, and compatibility promises
 - [Tagging Strategy](tagging-strategy.md) — subdirectory tag format
 - [Release Guardrails](release-guardrails.md) — policy enforcement during releases
-- [Publishing Validation](validation.md) — validation pipeline details
+- [Release Validation](validation.md) — validation pipeline details

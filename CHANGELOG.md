@@ -51,12 +51,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Auto-detects format or accepts `--format` flag
   - Reports breaking changes with detailed context
 
-#### Schema Publishing Commands
-- **`apx publish`**: Publish schema modules to canonical repository
+#### Schema Release Commands
+- **`apx release`**: Release schema modules to canonical repository
   - Uses git subtree to extract module-specific history
   - Creates GitHub/Gitea pull requests automatically
   - Supports `--module-path`, `--canonical-repo`, and `--base-branch` flags
-  - Handles tag creation for published versions
+  - Handles tag creation for released versions
 
 #### Consumer Workflow Commands
 - **`apx search`**: Discover APIs in the canonical catalog
@@ -80,11 +80,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Regenerates `go.work` with all Go overlays
   - Idempotent operation safe to run multiple times
 
-- **`apx unlink`**: Remove overlay and switch to published module
+- **`apx unlink`**: Remove overlay and switch to released module
   - Validates dependency exists before removal
   - Removes overlay from `/internal/gen/`
   - Updates `go.work` to exclude removed overlay
-  - Provides guidance for adding published module to `go.mod`
+  - Provides guidance for adding released module to `go.mod`
 
 #### Configuration and Tooling
 - **`apx config`**: Configuration management operations

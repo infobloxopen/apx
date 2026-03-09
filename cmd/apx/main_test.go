@@ -13,7 +13,7 @@ func TestNewApp(t *testing.T) {
 	app := NewApp()
 	require.NotNil(t, app)
 	require.Equal(t, "apx", app.Use)
-	require.Equal(t, "API Publishing eXperience CLI", app.Short)
+	require.Equal(t, "API Release eXperience CLI", app.Short)
 }
 
 func TestHelpCommand(t *testing.T) {

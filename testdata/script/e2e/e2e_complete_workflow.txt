@@ -1,6 +1,6 @@
-# Test: Complete E2E Publishing Workflow
-# This test validates the complete schema publishing workflow from app repository
-# creation through canonical repository publication and dependency consumption.
+# Test: Complete E2E Release Workflow
+# This test validates the complete schema release workflow from app repository
+# creation through canonical repository release and dependency consumption.
 #
 # Prerequisites: k3d and Gitea running (handled by TestE2E)
 # Environment: GITEA_URL, GITEA_TOKEN, E2E_CLUSTER are injected by test runner
@@ -86,9 +86,9 @@ exec git log --oneline
 stdout 'Add user service'
 cd ..
 
-# Step 5: Test publish dry-run from payment app
+# Step 5: Test release prepare dry-run from payment app
 cd payment-app
-exec apx publish --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/testorg/test-canonical --dry-run
+exec apx release prepare --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/testorg/test-canonical --dry-run
 stdout 'Dry-run mode'
 cd ..
 
@@ -121,7 +121,7 @@ cd ..
 # - App repositories created with module structure
 # - Dependencies added and locked
 # - Code generation with overlays works
-# - Publish dry-run succeeds
+# - Release prepare dry-run succeeds
 # - Git history preserved in all repos
 
 -- common.proto --

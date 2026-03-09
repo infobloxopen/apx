@@ -1,4 +1,4 @@
-# apx – API Publishing eXperience CLI
+# apx – API Release eXperience CLI
 
 [![Go Version](https://img.shields.io/github/go-mod/go-version/infobloxopen/apx)](https://golang.org/)
 [![Release](https://img.shields.io/github/release/infobloxopen/apx.svg)](https://github.com/infobloxopen/apx/releases/latest)
@@ -10,19 +10,19 @@
 
 ## Key Features
 
-- 🎯 **Canonical Import Paths**: Single import path that works in development and production
-- 🔄 **go.work Overlays**: Seamless transition between local development and published modules
-- 🏢 **Organization-Wide Catalog**: Centralized API discovery across all teams
-- 🚀 **Multi-Format Support**: Protocol Buffers, OpenAPI, Avro, JSON Schema, Parquet (see [Format Maturity](docs/testing/format-maturity.md))
-- 🔍 **Schema Validation**: Automated linting and breaking change detection
-- 📦 **Code Generation**: Generate client code for Go, Python, and Java
-- 🔐 **Policy Enforcement**: Org-wide lint and breaking change policies
+- **Canonical Import Paths**: Single import path that works in development and production
+- **go.work Overlays**: Seamless transition between local development and released modules
+- **Organization-Wide Catalog**: Centralized API discovery across all teams
+- **Multi-Format Support**: Protocol Buffers, OpenAPI, Avro, JSON Schema, Parquet (see [Format Maturity](docs/testing/format-maturity.md))
+- **Schema Validation**: Automated linting and breaking change detection
+- **Code Generation**: Generate client code for Go, Python, and Java
+- **Policy Enforcement**: Org-wide lint and breaking change policies
 
 ## Architecture Overview
 
 APX implements a two-repository pattern:
 
-1. **Canonical Repository** (`github.com/<org>/apis`): Single source of truth for all published APIs
+1. **Canonical Repository** (`github.com/<org>/apis`): Single source of truth for all released APIs
 2. **App Repositories**: Where teams author schemas and generate code with canonical import paths
 
 **Benefits:**
@@ -75,8 +75,9 @@ apx lint internal/apis/proto/payments/ledger
 # Check for breaking changes
 apx breaking --against=HEAD^ internal/apis/proto/payments/ledger
 
-# Publish to canonical repo (identity-based)
-apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+# Release to canonical repo
+apx release prepare proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+apx release submit
 ```
 
 ### 3. Consume API in Another Service
@@ -94,7 +95,7 @@ apx gen go
 # Your code now uses: github.com/<org>/apis/proto/payments/ledger/v1
 # Works seamlessly via go.work overlay!
 
-# When ready, switch to published module
+# When ready, switch to released module
 apx unlink proto/payments/ledger/v1
 ```
 
@@ -181,11 +182,11 @@ apx init app internal/apis/proto/payments/ledger
 - `--non-interactive`: Skip interactive prompts
 
 **Auto-detects format** from path:
-- `/proto/` → Protocol Buffers
-- `/openapi/` → OpenAPI
-- `/avro/` → Avro
-- `/jsonschema/` → JSON Schema
-- `/parquet/` → Parquet
+- `/proto/` -> Protocol Buffers
+- `/openapi/` -> OpenAPI
+- `/avro/` -> Avro
+- `/jsonschema/` -> JSON Schema
+- `/parquet/` -> Parquet
 
 ### Schema Validation
 
@@ -208,44 +209,33 @@ apx breaking internal/apis/proto/payments
 apx breaking --format=openapi
 ```
 
-### Publishing
+### Releasing
 
-APX offers two publishing paths:
-
-- **`apx publish`** — one-step convenience wrapper (validates, pushes branch,
-  opens PR). Best for solo developers and quick iterations.
-- **`apx release` pipeline** (`prepare` → `submit` → `finalize` → `promote`)
-  — structured multi-step workflow with manifest, policy checks, and
-  immutable release records. Best for CI and production releases.
-
-See the [publishing overview](docs/publishing/overview.md) for a detailed
-comparison.
-
-#### `apx publish`
-
-Publish schema module to canonical repository via pull request.
-
-```bash
-apx publish proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta
-apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable --canonical-repo=git@github.com:org/apis.git
-```
-
-**Flags:**
-- `<api-id>` (positional): API identity (e.g. `proto/payments/ledger/v1`)
-- `--version`: Version to publish (e.g. `v1.0.0-beta.1`)
-- `--lifecycle`: Lifecycle state (`experimental`, `beta`, `stable`, `deprecated`, `sunset`)
-- `--canonical-repo`: Canonical repository URL
-- `--module-path`: Path to module in app repo (legacy; prefer positional api-id)
+APX uses a structured multi-step release pipeline (`prepare` -> `submit` -> `finalize` -> `promote`)
+with manifest tracking, policy checks, and immutable release records.
 
 #### `apx release`
 
 Structured release pipeline for CI and production workflows.
 
 ```bash
-apx release prepare proto/payments/ledger/v1 --version v1.0.0
-apx release submit proto/payments/ledger/v1
-apx release finalize proto/payments/ledger/v1
-apx release promote proto/payments/ledger/v1 --lifecycle stable
+# Prepare a release (validate, build manifest)
+apx release prepare proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+
+# Submit to canonical repo (opens PR)
+apx release submit
+
+# After PR merge, canonical CI runs finalize
+apx release finalize
+
+# Inspect current release state
+apx release inspect proto/payments/ledger/v1
+
+# List release history
+apx release history proto/payments/ledger/v1
+
+# Promote lifecycle (e.g. beta -> stable)
+apx release promote proto/payments/ledger/v1 --to stable --version v1.0.0
 ```
 
 ### Consumer Workflow
@@ -278,7 +268,7 @@ Generate client code from dependencies.
 
 ```bash
 apx gen go                    # Generate Go code
-apx gen python                # Generate Python code  
+apx gen python                # Generate Python code
 apx gen java                  # Generate Java code
 ```
 
@@ -307,7 +297,7 @@ Regenerates `go.work` to include all overlays in `/internal/gen/go/`.
 
 #### `apx unlink <module-path>`
 
-Remove overlay and switch to published module.
+Remove overlay and switch to released module.
 
 ```bash
 apx unlink proto/payments/ledger/v1
@@ -379,9 +369,9 @@ modules:
 ### Production Flow
 
 1. **Remove overlay**: `apx unlink proto/payments/ledger/v1`
-2. **Add published module**: `go get github.com/myorg/apis/proto/payments/ledger/v1@v1.2.3`
+2. **Add released module**: `go get github.com/myorg/apis/proto/payments/ledger/v1@v1.2.3`
 3. **Imports unchanged**: Same `import "github.com/myorg/apis/proto/payments/ledger/v1"`
-4. **Go resolves**: From published module in `go.mod`
+4. **Go resolves**: From released module in `go.mod`
 
 **No import rewrites. No replace directives. It just works.**
 
@@ -444,7 +434,7 @@ jobs:
       - name: Check Breaking Changes
         run: apx breaking internal/apis
 
-  publish:
+  release:
     if: github.ref == 'refs/heads/main'
     needs: validate
     runs-on: ubuntu-latest
@@ -457,49 +447,49 @@ jobs:
       - name: Install APX
         uses: infobloxopen/apx@v1
 
-      - name: Publish to Canonical Repo
+      - name: Release to Canonical Repo
         run: |
-          apx publish proto/payments/ledger/v1 \
-            --version v1.0.0 --lifecycle stable \
-            --canonical-repo=git@github.com:myorg/apis.git
+          apx release prepare proto/payments/ledger/v1 \
+            --version v1.0.0 --lifecycle stable
+          apx release submit
         env:
           GIT_SSH_COMMAND: "ssh -i ${{ secrets.DEPLOY_KEY }}"
 ```
 
 ## Documentation
 
-**📚 [Full Documentation](https://infobloxopen.github.io/apx/)** - Complete documentation hosted on GitHub Pages
+**[Full Documentation](https://infobloxopen.github.io/apx/)** - Complete documentation hosted on GitHub Pages
 
 ### Quick Links
 
-- 📖 [Quick Start Guide](https://infobloxopen.github.io/apx/getting-started/quickstart/) - Complete walkthrough
-- 🏗️ [Canonical Repository Structure](https://infobloxopen.github.io/apx/canonical-repo/structure/)
-- 📦 [Dependency Management](https://infobloxopen.github.io/apx/dependencies/)
-- 🔧 [Interactive Init Guide](https://infobloxopen.github.io/apx/getting-started/interactive-init/)
-- 🚀 [Publishing Guide](https://infobloxopen.github.io/apx/publishing/)
-- 🔧 [CLI Reference](https://infobloxopen.github.io/apx/cli-reference/)
-- ❓ [FAQ & Troubleshooting](https://infobloxopen.github.io/apx/troubleshooting/faq/)
+- [Quick Start Guide](https://infobloxopen.github.io/apx/getting-started/quickstart/) - Complete walkthrough
+- [Canonical Repository Structure](https://infobloxopen.github.io/apx/canonical-repo/structure/)
+- [Dependency Management](https://infobloxopen.github.io/apx/dependencies/)
+- [Interactive Init Guide](https://infobloxopen.github.io/apx/getting-started/interactive-init/)
+- [Release Guide](https://infobloxopen.github.io/apx/releasing/)
+- [CLI Reference](https://infobloxopen.github.io/apx/cli-reference/)
+- [FAQ & Troubleshooting](https://infobloxopen.github.io/apx/troubleshooting/faq/)
 
 ## Development Status
 
-### Implemented Features ✅
+### Implemented Features
 
-- ✅ Canonical repository initialization
-- ✅ App repository scaffolding
-- ✅ Schema validation (lint, breaking)
-- ✅ Code generation (Go, Python, Java)
-- ✅ Overlay management with go.work
-- ✅ API discovery and search
-- ✅ Dependency management (apx.lock)
-- ✅ Publishing workflow (PR-based canonical submission)
-- ✅ Multi-language overlay structure
+- Canonical repository initialization
+- App repository scaffolding
+- Schema validation (lint, breaking)
+- Code generation (Go, Python, Java)
+- Overlay management with go.work
+- API discovery and search
+- Dependency management (apx.lock)
+- Release workflow (PR-based canonical submission)
+- Multi-language overlay structure
 
-### Planned Features 🚧
+### Planned Features
 
-- 🚧 Offline/air-gapped mode via `apx fetch`
-- 🚧 GitHub Enterprise Server support
-- 🚧 Performance instrumentation
-- 🚧 Enhanced error messages with actionable guidance
+- Offline/air-gapped mode via `apx fetch`
+- GitHub Enterprise Server support
+- Performance instrumentation
+- Enhanced error messages with actionable guidance
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes.
 
@@ -543,7 +533,7 @@ make test-e2e
 make clean-e2e
 ```
 
-**What it tests**: Canonical repo bootstrap → schema publication → cross-repo dependencies → breaking change detection → git history preservation — all against a real git server.
+**What it tests**: Canonical repo bootstrap -> schema release -> cross-repo dependencies -> breaking change detection -> git history preservation -- all against a real git server.
 
 **Requirements**: Docker, ~2GB free memory, ~56 seconds runtime.
 
@@ -559,6 +549,6 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for detai
 
 ## Support
 
-- 📚 [Documentation](https://infobloxopen.github.io/apx/) - Full documentation on GitHub Pages
-- 🐛 [Issues](https://github.com/infobloxopen/apx/issues) - Bug reports and feature requests
-- 💬 [Discussions](https://github.com/infobloxopen/apx/discussions) - Questions and community support
+- [Documentation](https://infobloxopen.github.io/apx/) - Full documentation on GitHub Pages
+- [Issues](https://github.com/infobloxopen/apx/issues) - Bug reports and feature requests
+- [Discussions](https://github.com/infobloxopen/apx/discussions) - Questions and community support

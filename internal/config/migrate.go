@@ -151,7 +151,7 @@ func MarshalConfigString(cfg *Config) (string, error) {
 		"module_roots:":     true,
 		"language_targets:": true,
 		"policy:":           true,
-		"publishing:":       true,
+		"release:":          true,
 		"tools:":            true,
 		"execution:":        true,
 	}

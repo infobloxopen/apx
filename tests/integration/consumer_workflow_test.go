@@ -18,7 +18,7 @@ func TestConsumerWorkflow(t *testing.T) {
 	// 2. Add dependencies to apx.lock
 	// 3. Generate code with overlays
 	// 4. Sync go.work entries
-	// 5. Unlink and switch to published modules
+	// 5. Unlink and switch to released modules
 	// 6. Verify import paths remain stable throughout
 
 	t.Skip("Consumer workflow test pending implementation - see T061")

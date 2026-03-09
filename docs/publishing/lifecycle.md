@@ -238,5 +238,5 @@ Error: v0 line must use lifecycle "experimental" or "beta", got "stable"
 ## See Also
 
 - [Versioning Strategy](../dependencies/versioning-strategy.md) — the three-layer model in detail
-- [Publishing Overview](overview.md) — how publishing uses lifecycle
+- [Releasing Overview](overview.md) — how the release pipeline uses lifecycle
 - [Release Guardrails](release-guardrails.md) — policy enforcement during releases

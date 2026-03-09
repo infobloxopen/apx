@@ -66,7 +66,7 @@ func workflowsSyncAction(cmd *cobra.Command, args []string) error {
 
 	// Detect repo type from existing workflow files.
 	// Canonical repos have ci.yml and/or on-merge.yml.
-	// App repos have apx-publish.yml.
+	// App repos have apx-release.yml.
 	// If we can't detect, check for canonical directory structure.
 	isCanonical := false
 	isApp := false
@@ -75,7 +75,7 @@ func workflowsSyncAction(cmd *cobra.Command, args []string) error {
 		fileExists(filepath.Join(workflowDir, "on-merge.yml")) {
 		isCanonical = true
 	}
-	if fileExists(filepath.Join(workflowDir, "apx-publish.yml")) {
+	if fileExists(filepath.Join(workflowDir, "apx-release.yml")) {
 		isApp = true
 	}
 
@@ -95,7 +95,7 @@ func workflowsSyncAction(cmd *cobra.Command, args []string) error {
 
 	if !isCanonical && !isApp {
 		return fmt.Errorf("could not determine repository type (canonical or app).\n" +
-			"Expected .github/workflows/ci.yml (canonical) or apx-publish.yml (app).")
+			"Expected .github/workflows/ci.yml (canonical) or apx-release.yml (app).")
 	}
 
 	type workflowFile struct {
@@ -123,8 +123,8 @@ func workflowsSyncAction(cmd *cobra.Command, args []string) error {
 		canonicalRepo := "apis"
 		files = append(files,
 			workflowFile{
-				path:    filepath.Join(workflowDir, "apx-publish.yml"),
-				content: templates.GenerateAppPublish(org, canonicalRepo),
+				path:    filepath.Join(workflowDir, "apx-release.yml"),
+				content: templates.GenerateAppRelease(org, canonicalRepo),
 			},
 		)
 	}

@@ -103,7 +103,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	// Validate version-lifecycle compatibility
 	if lifecycle != "" && !force {
 		if err := config.ValidateVersionLifecycle(version, lifecycle); err != nil {
-			return &publisher.PublishError{
+			return &publisher.ReleaseError{
 				Code:    publisher.ErrCodeLifecycleMismatch,
 				Message: err.Error(),
 				Hint:    "Use --force to override lifecycle checks",
@@ -111,13 +111,13 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 		}
 	}
 	if config.LifecycleRequiresWarning(lifecycle) {
-		ui.Warning("Publishing under deprecated lifecycle — consumers should migrate")
+		ui.Warning("Releasing under deprecated lifecycle — consumers should migrate")
 	}
 
 	// Validate version-line compatibility (major version must match API line)
 	line := config.ParseLineFromID(apiID)
 	if err := config.ValidateVersionLine(version, line); err != nil {
-		return &publisher.PublishError{
+		return &publisher.ReleaseError{
 			Code:    publisher.ErrCodeVersionLineMismatch,
 			Message: err.Error(),
 			Hint:    "Ensure version major matches the API line (e.g. v1.x.x for /v1)",
@@ -127,7 +127,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	// v0 line policy enforcement
 	if config.IsV0Line(line) && lifecycle != "" && !force {
 		if err := config.ValidateV0Lifecycle(lifecycle); err != nil {
-			return &publisher.PublishError{
+			return &publisher.ReleaseError{
 				Code:    publisher.ErrCodeLifecycleMismatch,
 				Message: err.Error(),
 				Hint:    "v0 lines must use 'experimental' or 'beta' lifecycle",
@@ -139,7 +139,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	if lifecycle != "" && !force {
 		if prevLifecycle := resolveCurrentLifecycle(cmd, apiID); prevLifecycle != "" {
 			if err := config.ValidateLifecycleTransition(prevLifecycle, lifecycle); err != nil {
-				return &publisher.PublishError{
+				return &publisher.ReleaseError{
 					Code:    publisher.ErrCodeIllegalTransition,
 					Message: err.Error(),
 					Hint:    "Lifecycle can only move forward: experimental → beta → stable → deprecated → sunset",
@@ -153,7 +153,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	if sourceRepo == "" {
 		sourceRepo = resolveSourceRepo(cmd)
 		if sourceRepo == "github.com/<org>/<repo>" {
-			return publisher.NewPublishError(
+			return publisher.NewReleaseError(
 				publisher.ErrCodeMissingConfig,
 				"cannot determine canonical repo; use --canonical-repo or configure org/repo in apx.yaml",
 			)
@@ -212,7 +212,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 							if writeErr := publisher.WriteManifest(manifest, ".apx-release.yaml"); writeErr != nil {
 								ui.Warning("Could not write manifest: %v", writeErr)
 							}
-							return &publisher.PublishError{
+							return &publisher.ReleaseError{
 								Code:    publisher.ErrCodeGoPackageMismatch,
 								Message: fmt.Sprintf("%s: %v", relPath, valErr),
 							}
@@ -245,7 +245,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 					manifest.Validation.GoMod = publisher.ValidationFailed
 					manifest.Fail(string(publisher.ErrCodeGoModMismatch), parseErr.Error(), "prepare")
 					_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-					return &publisher.PublishError{
+					return &publisher.ReleaseError{
 						Code:    publisher.ErrCodeGoModMismatch,
 						Message: fmt.Sprintf("invalid go.mod at %s: %v", goModDir, parseErr),
 					}
@@ -255,7 +255,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 					manifest.Fail(string(publisher.ErrCodeGoModMismatch),
 						fmt.Sprintf("got %q, expected %q", existingMod, goModulePath), "prepare")
 					_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-					return &publisher.PublishError{
+					return &publisher.ReleaseError{
 						Code:    publisher.ErrCodeGoModMismatch,
 						Message: fmt.Sprintf("go.mod module mismatch at %s: got %q, expected %q", goModDir, existingMod, goModulePath),
 					}
@@ -286,7 +286,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 				manifest.Fail(string(publisher.ErrCodePolicyFailed),
 					fmt.Sprintf("%d policy violation(s)", len(polResult.Violations)), "prepare")
 				_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-				return &publisher.PublishError{
+				return &publisher.ReleaseError{
 					Code:    publisher.ErrCodePolicyFailed,
 					Message: fmt.Sprintf("policy check failed: %d violation(s)", len(polResult.Violations)),
 				}
@@ -332,7 +332,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 				manifest.Fail(string(publisher.ErrCodeVersionTaken),
 					fmt.Sprintf("version %s already exists with different content", version), "prepare")
 				_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-				return &publisher.PublishError{
+				return &publisher.ReleaseError{
 					Code:    publisher.ErrCodeVersionTaken,
 					Message: fmt.Sprintf("version %s already exists with different content", version),
 					Hint:    "Choose a different version or investigate with 'apx release inspect'",
@@ -399,7 +399,7 @@ func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
 	// Read manifest
 	manifest, err := publisher.ReadManifest(".apx-release.yaml")
 	if err != nil {
-		return publisher.NewPublishError(
+		return publisher.NewReleaseError(
 			publisher.ErrCodeMissingConfig,
 			"no release manifest found — run 'apx release prepare' first",
 		)
@@ -424,7 +424,7 @@ func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
 		ui.Success("Release already published — nothing to do")
 		return nil
 	case publisher.StateFailed:
-		return publisher.NewPublishError(
+		return publisher.NewReleaseError(
 			publisher.ErrCodeValidationFailed,
 			fmt.Sprintf("release is in failed state: %s", manifest.Error.Message),
 		).WithHint("Fix the issue and re-run 'apx release prepare'")
@@ -472,7 +472,7 @@ func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
 
 	// ── Preflight: gh CLI check ──────────────────────────────────────
 	if err := publisher.CheckGHCLI(); err != nil {
-		return publisher.NewPublishError(
+		return publisher.NewReleaseError(
 			publisher.ErrCodePRCreationFailed,
 			"GitHub CLI (gh) is required for release submission",
 		).WithHint("Install gh from https://cli.github.com and run: gh auth login")
@@ -488,7 +488,7 @@ func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		manifest.Fail(string(publisher.ErrCodePRCreationFailed), err.Error(), "submit")
 		_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-		return &publisher.PublishError{
+		return &publisher.ReleaseError{
 			Code:    publisher.ErrCodePRCreationFailed,
 			Message: fmt.Sprintf("release submission failed: %v", err),
 			Hint:    "Check gh auth status and try 'apx release submit' again",
@@ -727,7 +727,7 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 	// Read manifest
 	manifest, err := publisher.ReadManifest(".apx-release.yaml")
 	if err != nil {
-		return publisher.NewPublishError(
+		return publisher.NewReleaseError(
 			publisher.ErrCodeMissingConfig,
 			"no release manifest found — run 'apx release prepare' and 'apx release submit' first",
 		)
@@ -741,7 +741,7 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 		ui.Success("Release already finalized — nothing to do")
 		return nil
 	case publisher.StateFailed:
-		return publisher.NewPublishError(
+		return publisher.NewReleaseError(
 			publisher.ErrCodeValidationFailed,
 			fmt.Sprintf("release is in failed state: %s", manifest.Error.Message),
 		).WithHint("Fix the issue and re-run the release pipeline")
@@ -776,7 +776,7 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 			manifest.Validation.Lint = publisher.ValidationFailed
 			manifest.Fail(string(publisher.ErrCodeValidationFailed), lintErr.Error(), "finalize")
 			_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-			return &publisher.PublishError{
+			return &publisher.ReleaseError{
 				Code:    publisher.ErrCodeValidationFailed,
 				Message: fmt.Sprintf("lint re-validation failed: %v", lintErr),
 				Hint:    "Fix lint issues and re-submit",
@@ -800,7 +800,7 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 					manifest.Validation.Breaking = publisher.ValidationFailed
 					manifest.Fail(string(publisher.ErrCodeBreakingChange), breakErr.Error(), "finalize")
 					_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-					return &publisher.PublishError{
+					return &publisher.ReleaseError{
 						Code:    publisher.ErrCodeBreakingChange,
 						Message: fmt.Sprintf("breaking change detected against %s: %v", prevTag, breakErr),
 						Hint:    "Create a new API line for breaking changes",
@@ -824,7 +824,7 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 				manifest.Fail(string(publisher.ErrCodePolicyFailed),
 					fmt.Sprintf("%d policy violation(s)", len(polResult.Violations)), "finalize")
 				_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-				return &publisher.PublishError{
+				return &publisher.ReleaseError{
 					Code:    publisher.ErrCodePolicyFailed,
 					Message: fmt.Sprintf("policy check failed: %d violation(s)", len(polResult.Violations)),
 				}
@@ -863,7 +863,7 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 		if err := tm.CreateTag(manifest.Tag, message, commitHash); err != nil {
 			manifest.Fail(string(publisher.ErrCodePushFailed), err.Error(), "finalize")
 			_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-			return &publisher.PublishError{
+			return &publisher.ReleaseError{
 				Code:    publisher.ErrCodePushFailed,
 				Message: fmt.Sprintf("tag creation failed: %v", err),
 			}
@@ -1197,7 +1197,7 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 	// Validate transition
 	if !force {
 		if err := config.ValidateLifecycleTransition(currentLifecycle, targetLifecycle); err != nil {
-			return &publisher.PublishError{
+			return &publisher.ReleaseError{
 				Code:    publisher.ErrCodeIllegalTransition,
 				Message: err.Error(),
 				Hint:    "Use --force to override lifecycle checks",
@@ -1208,7 +1208,7 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 		line := config.ParseLineFromID(apiID)
 		if config.IsV0Line(line) {
 			if err := config.ValidateV0Lifecycle(targetLifecycle); err != nil {
-				return &publisher.PublishError{
+				return &publisher.ReleaseError{
 					Code:    publisher.ErrCodeLifecycleMismatch,
 					Message: err.Error(),
 					Hint:    "v0 lines cannot be promoted to stable; create a v1 line instead",
@@ -1256,7 +1256,7 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 	// Validate version-lifecycle compatibility
 	if !force {
 		if err := config.ValidateVersionLifecycle(version, targetLifecycle); err != nil {
-			return &publisher.PublishError{
+			return &publisher.ReleaseError{
 				Code:    publisher.ErrCodeLifecycleMismatch,
 				Message: err.Error(),
 				Hint:    "Use --force to override or choose a compatible version",
@@ -1266,7 +1266,7 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 
 	// Validate version-line compatibility
 	if err := config.ValidateVersionLine(version, config.ParseLineFromID(apiID)); err != nil {
-		return &publisher.PublishError{
+		return &publisher.ReleaseError{
 			Code:    publisher.ErrCodeVersionLineMismatch,
 			Message: err.Error(),
 		}
@@ -1277,7 +1277,7 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 	if sourceRepo == "" {
 		sourceRepo = resolveSourceRepo(cmd)
 		if sourceRepo == "github.com/<org>/<repo>" {
-			return publisher.NewPublishError(
+			return publisher.NewReleaseError(
 				publisher.ErrCodeMissingConfig,
 				"cannot determine canonical repo; use --canonical-repo or configure org/repo in apx.yaml",
 			)
@@ -1317,7 +1317,7 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 				manifest.Fail(string(publisher.ErrCodePolicyFailed),
 					fmt.Sprintf("%d policy violation(s)", len(polResult.Violations)), "promote")
 				_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
-				return &publisher.PublishError{
+				return &publisher.ReleaseError{
 					Code:    publisher.ErrCodePolicyFailed,
 					Message: fmt.Sprintf("policy check failed: %d violation(s)", len(polResult.Violations)),
 				}

@@ -1,6 +1,6 @@
 # apx — Getting Started & User Manual
 
-> A tiny CLI and repo pattern for publishing, discovering, and consuming organization-wide API schemas using canonical import paths with go.work overlays. Primary: **Protobuf**. Also: **OpenAPI**, **Avro**, **JSON Schema**, **Parquet**. No long-running service. Canonical distribution via a single GitHub repo and Go modules, with CI-only releases.
+> A tiny CLI and repo pattern for releasing, discovering, and consuming organization-wide API schemas using canonical import paths with go.work overlays. Primary: **Protobuf**. Also: **OpenAPI**, **Avro**, **JSON Schema**, **Parquet**. No long-running service. Canonical distribution via a single GitHub repo and Go modules, with CI-only releases.
 
 ---
 
@@ -13,21 +13,21 @@
     - [1) Create the repo structure](#1-create-the-repo-structure)
     - [2) Protect branches \& tags](#2-protect-branches--tags)
     - [3) Add CI (validate + release)](#3-add-ci-validate--release)
-  - [Bootstrap an App Repo (to author \& publish)](#bootstrap-an-app-repo-to-author--publish)
+  - [Bootstrap an App Repo (to author \& release)](#bootstrap-an-app-repo-to-author--release)
     - [1) Layout (Buf-only by default)](#1-layout-buf-only-by-default)
     - [2) Local dev](#2-local-dev)
-    - [3) Enable publish-from-app workflow](#3-enable-publish-from-app-workflow)
+    - [3) Enable release-from-app workflow](#3-enable-release-from-app-workflow)
   - [Discover, Add, Generate, and Update Dependencies](#discover-add-generate-and-update-dependencies)
     - [Discover APIs](#discover-apis)
     - [Add a dependency](#add-a-dependency)
     - [Generate stubs (never committed)](#generate-stubs-never-committed)
     - [Update to latest compatible](#update-to-latest-compatible)
     - [Upgrade to a new major](#upgrade-to-a-new-major)
-  - [Publish Flow (tag-in-app → PR-to-canonical)](#publish-flow-tag-in-app--pr-to-canonical)
+  - [Release Flow (tag-in-app → PR-to-canonical)](#release-flow-tag-in-app--pr-to-canonical)
   - [Release Guardrails (CI/Policy)](#release-guardrails-cipolicy)
   - [Versioning \& Layout (v1, v2)](#versioning--layout-v1-v2)
   - [CI Templates](#ci-templates)
-    - [App repo — publish on tag](#app-repo--publish-on-tag)
+    - [App repo — release on tag](#app-repo--release-on-tag)
     - [Canonical repo — validate \& release](#canonical-repo--validate--release)
   - [FAQ](#faq)
   - [Troubleshooting](#troubleshooting)
@@ -38,12 +38,12 @@
 ## What is apx?
 **apx** is a small CLI that standardizes how teams:
 - author schemas locally (inside their app repos),
-- publish those schemas to a **single canonical `apis` repo**, and
+- release those schemas to a **single canonical `apis` repo**, and
 - consume versioned APIs with deterministic codegen.
 
 **Key ideas**
 - Canonical source of truth: `github.com/<org>/apis` (one repo, many submodules).
-- App teams tag releases **in their app repo**; `apx publish` opens a PR to the canonical repo.
+- App teams tag releases **in their app repo**; `apx release prepare` + `apx release submit` opens a PR to the canonical repo.
 - Only CI in the canonical repo creates tags; Go modules work automatically via the tag. Other language packages (Maven, wheels, OCI) require CI plugins teams configure separately.
 - **Canonical import paths everywhere**: Generated code uses the canonical import path (e.g. `github.com/<org>/apis/proto/<domain>/<api>`) even during local development.
 - **go.work overlays**: Local development uses workspace overlays to resolve canonical paths to local generated stubs.
@@ -56,9 +56,9 @@
 APX uses a **single canonical import path** approach that eliminates import rewrites and `replace` gymnastics:
 
 * **Generate Go stubs locally** into your app's `internal/gen/**`.
-* Those stubs **use the canonical import path** (e.g. `github.com/<org>/apis/proto/<domain>/<api>`), **even if it isn't published yet**.
+* Those stubs **use the canonical import path** (e.g. `github.com/<org>/apis/proto/<domain>/<api>`), **even if it isn't released yet**.
 * A workspace file **`go.work` overlays** that canonical path to the local generated stubs during dev.
-* When a canonical module is published, **drop the overlay** and `go get` the real thing.
+* When a canonical module is released, **drop the overlay** and `go get` the real thing.
   → **One import path everywhere**, no `replace` gymnastics, no code rewrites.
 
 ### How it works
@@ -157,7 +157,7 @@ import (
 )
 
 func main() {  
-    // Use generated types and clients - same code whether local or published
+    // Use generated types and clients - same code whether local or released
     ledgerReq := &ledgerv1.CreateEntryRequest{
         AccountId: "acc-123",
         Amount:    1000,
@@ -186,7 +186,7 @@ func main() {
 * **Buf**: proto packages & dirs end with `vN` (e.g., `...ledger.v1` in `.../v1/`).
 * **Go SIV**: v1 module path **no `/v1`**; v2+ paths **end with `/vN`**.
 
-### Producer flow (author & publish)
+### Producer flow (author & release)
 
 1. Develop schemas under `internal/apis/**/vN/*.proto`
 
@@ -196,12 +196,12 @@ func main() {
    go test ./...
    ```
 
-2. Tag & publish schemas (no generated code)
+2. Tag & release schemas (no generated code)
 
    * Tag from app or directly in the monorepo (your process), open PR to `/<org>/apis`.
    * Canonical CI: re-checks, creates **subdirectory tag**. Go modules are available immediately via the Go module proxy. Other language packages (Maven, wheels) require optional CI workflow steps.
 
-3. Switch app off overlay once published
+3. Switch app off overlay once released
 
    ```bash
    apx unlink <api>
@@ -210,7 +210,7 @@ func main() {
 
 ### Consumer flow (use existing APIs)
 
-* **Fast path: just `go get` the published module(s).**
+* **Fast path: just `go get` the released module(s).**
 
   ```bash
   go get github.com/myorg/apis/proto/payments/ledger@v1.2.3
@@ -238,7 +238,7 @@ func main() {
 
   ```bash
   apx unlink proto/payments/ledger/v1          # remove overlay  
-  go get github.com/myorg/apis/proto/payments/ledger@v1.3.0  # get published
+  go get github.com/myorg/apis/proto/payments/ledger@v1.3.0  # get released
   # No code changes needed - same import path!
   ```
 
@@ -303,12 +303,12 @@ directories:
 
 ### 3) Add CI (validate + release)
 - **Validate PRs** touching `proto/**`, `openapi/**`, `avro/**`, `jsonschema/**`, `parquet/**` with `apx lint`, `apx breaking`, `apx policy check`.
-- **On merge** of PR created by `apx publish`, CI validates content. Tag-based releases are automated.
+- **On merge** of PR created by `apx release submit`, CI validates content. Tag-based releases are automated.
 
 ---
 
-## Bootstrap an App Repo (to author & publish)
-App repos own day-to-day authoring. They publish via tag + PR to canonical.
+## Bootstrap an App Repo (to author & release)
+App repos own day-to-day authoring. They release via tag + PR to canonical.
 
 ### 1) Layout (Buf-only by default)
 ```
@@ -325,7 +325,7 @@ App repos own day-to-day authoring. They publish via tag + PR to canonical.
 ├─ apx.yaml
 └─ apx.lock
 ```
-> **No local `go.mod` required** for authoring; Buf ignores it. `apx publish` can synthesize a correct `go.mod` inside the PR to the canonical repo. If you prefer to keep a `go.mod` locally, ensure it’s canonical (no `replace`, correct module path) and it will be imported verbatim.
+> **No local `go.mod` required** for authoring; Buf ignores it. `apx release prepare` can synthesize a correct `go.mod` inside the PR to the canonical repo. If you prefer to keep a `go.mod` locally, ensure it’s canonical (no `replace`, correct module path) and it will be imported verbatim.
 
 **buf.work.yaml (app repo)**
 ```yaml
@@ -354,8 +354,8 @@ apx breaking     # buf breaking / oasdiff / avro compat / jsonschema diff
 apx gen go       # writes to internal/gen/go/<api>@<ver>/
 ```
 
-### 3) Enable publish-from-app workflow
-Add a GitHub Action that triggers on tags like `proto/<domain>/<api>/v1/v1.2.3` and runs `apx publish` to open a PR to `github.com/<org>/apis`.
+### 3) Enable release-from-app workflow
+Add a GitHub Action that triggers on tags like `proto/<domain>/<api>/v1/v1.2.3` and runs `apx release prepare` + `apx release submit` to open a PR to `github.com/<org>/apis`.
 
 ---
 
@@ -398,9 +398,9 @@ apx gen go && apx sync
 # go.work automatically resolves new canonical paths to local stubs
 ```
 
-### Switch from overlay to published module
+### Switch from overlay to released module
 ```bash
-# Once the canonical module is published
+# Once the canonical module is released
 apx unlink proto/payments/ledger/v1     # removes go.work overlay
 go get github.com/<org>/apis/proto/payments/ledger@v1.2.3   # get real module
 # No import path changes needed - same canonical path everywhere
@@ -408,7 +408,7 @@ go get github.com/<org>/apis/proto/payments/ledger@v1.2.3   # get real module
 
 ---
 
-## Publish Flow (tag-in-app → PR-to-canonical)
+## Release Flow (tag-in-app → PR-to-canonical)
 
 1) **Validate locally**
 ```bash
@@ -422,11 +422,12 @@ git tag proto/payments/ledger/v1/v1.2.3
 git push --follow-tags
 ```
 
-3) **App CI runs `apx publish`**
+3) **App CI runs `apx release prepare` + `apx release submit`**
 ```bash
-apx publish \
+apx release prepare \
   --module-path=internal/apis/proto/payments/ledger/v1 \
   --canonical-repo=github.com/<org>/apis
+apx release submit
 ```
 
 4) **Canonical PR**
@@ -438,7 +439,7 @@ apx publish \
 - Re-runs checks.
 - Verifies semver compatibility.
 - Creates the **subdirectory tag** (`proto/payments/ledger/v1/v1.2.3`).
-- Publishes optional language packages.
+- Releases optional language packages.
 
 ---
 
@@ -449,7 +450,7 @@ apx publish \
 - **OpenAPI**: `oasdiff breaking`, `spectral lint`.
 - **Avro**: compatibility (default BACKWARD; fields need defaults; aliases for renames).
 - **JSON Schema**: schema diff; forbid tightenings without major.
-- **Parquet**: custom checker—additive **nullable** columns only.
+- **Parquet**: custom checker -- additive **nullable** columns only.
 - **Policy**: ban service/ORM annotations (e.g., any `(gorm.*)`) and unapproved generators.
 - **SemVer**: `apx semver suggest --against=<ref>` (recommendation for tag selection).
 - **Only CI can tag**: protected tag patterns.
@@ -489,15 +490,15 @@ proto/payments/ledger/
 
 ## CI Templates
 
-### App repo — publish on tag
+### App repo — release on tag
 ```yaml
-name: Publish API from App Repo
+name: Release API from App Repo
 on:
   push:
     tags:
       - 'proto/*/*/v*/v*'   # e.g., proto/payments/ledger/v1/v1.2.3
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     permissions: { contents: read, pull-requests: write }
     steps:
@@ -505,12 +506,14 @@ jobs:
         with: { fetch-depth: 0 }
       - run: apx fetch
       - run: apx lint && apx breaking --against=origin/main && apx policy check
-      - run: apx publish \
+      - run: |
+          apx release prepare \
                --module-path=internal/apis/${GITHUB_REF_NAME%/v*} \
                --canonical-repo=github.com/<org>/apis
+          apx release submit
 ```
 
-### Canonical repo — validate on PR
+### Canonical repo — validate on PR and release
 ```yaml
 name: Validate API Modules
 on:
@@ -529,7 +532,7 @@ jobs:
 
 ## FAQ
 **Q: Do I need a `go.mod` in my app repo for authoring?**  
-A: No. Buf ignores `go.mod`. `apx publish` will add a canonical `go.mod` in the PR. If you do keep one locally, ensure it’s canonical (no `replace`), and it will be imported verbatim.
+A: No. Buf ignores `go.mod`. `apx release prepare` will add a canonical `go.mod` in the PR. If you do keep one locally, ensure it’s canonical (no `replace`), and it will be imported verbatim.
 
 **Q: Will v2 code leak into v1 consumers?**  
 A: No. v2 lives in a separate module (`.../v2` with its own `go.mod`). v1 imports never see it unless explicitly referenced.
@@ -540,7 +543,7 @@ A: Yes. `apx search <keywords>` queries the catalog (generated in the canonical 
 **Q: Can apx update dependencies?**  
 A: Re-add the dependency at the new version: `apx add proto/payments/ledger/v1@v1.3.0`. Automatic `apx update` / `apx upgrade` commands are planned for a future release.
 
-**Q: How does APX publish APIs?**  
+**Q: How does APX release APIs?**
 A: APX opens a pull request against the canonical repository, copying module files to a feature branch for review and CI validation before merging.
 
 **Q: How do we prevent service-specific options (e.g., gorm) in shared schemas?**  
@@ -551,7 +554,7 @@ A: `apx policy check` fails on `(gorm.*)` and unapproved generators, both in app
 ## Troubleshooting
 - **Buf complaints about versioning**: ensure proto package ends with `vN` and files are under `.../vN/`.
 - **Go mod path errors**: in v1, module path has **no `/v1`**; in v2+, module path **must** end with `/v2`.
-- **Publish blocked for SemVer**: run `apx semver suggest --against=HEAD^` and update your tag to match (`MAJOR/MINOR/PATCH`).
+- **Release blocked for SemVer**: run `apx semver suggest --against=HEAD^` and update your tag to match (`MAJOR/MINOR/PATCH`).
 - **Generated code committed**: remove from VCS and add `/internal/gen/` to `.gitignore`; re-run `apx gen` in CI.
 
 ---
@@ -565,8 +568,8 @@ A: `apx policy check` fails on `(gorm.*)` and unapproved generators, both in app
 - `apx add <api>@<ver>` — add or update dependency; pin in `apx.lock`.
 - `apx gen <lang>` — generate stubs with canonical import paths into `internal/gen/<lang>/<api>@<ver>/`.
 - `apx sync` — update `go.work` overlays to map canonical paths to local generated stubs.
-- `apx unlink <api>` — remove `go.work` overlay for an API (switch to published module).
-- `apx publish <api-id> --version <ver>` — open PR to canonical repo.
+- `apx unlink <api>` — remove `go.work` overlay for an API (switch to released module).
+- `apx release prepare <api-id> --version <ver>` + `apx release submit` — open PR to canonical repo.
 - `apx semver suggest --against=<ref>` — compute recommended SemVer bump based on detected changes.
 - *(Planned)* `apx update <api>` / `apx upgrade <api>@<ver>` — bump dependencies automatically.
 
