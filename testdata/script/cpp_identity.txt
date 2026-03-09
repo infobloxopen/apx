@@ -1,0 +1,31 @@
+# Test C++/Conan identity derivation in inspect commands
+
+# --- Setup: create apx.yaml with org ---
+exec sh -c 'echo "version: 1" > apx.yaml'
+exec sh -c 'echo "org: acme" >> apx.yaml'
+exec sh -c 'echo "repo: apis" >> apx.yaml'
+
+# --- inspect identity shows Conan ref and C++ namespace when org is set ---
+exec apx inspect identity proto/payments/ledger/v1 --source-repo github.com/acme/apis
+stdout 'Conan:      acme-payments-ledger-v1-proto'
+stdout 'C[+][+] ns:     acme::payments::ledger::v1'
+
+# --- inspect identity 3-part (no domain) ---
+exec apx inspect identity proto/orders/v1 --source-repo github.com/acme/apis
+stdout 'Conan:      acme-orders-v1-proto'
+stdout 'C[+][+] ns:     acme::orders::v1'
+
+# --- inspect release shows C++ coords ---
+exec apx inspect release proto/payments/ledger/v1@v1.0.0-beta.1 --source-repo github.com/acme/apis
+stdout 'Conan:      acme-payments-ledger-v1-proto'
+stdout 'C[+][+] ns:     acme::payments::ledger::v1'
+
+# --- JSON output includes C++ coords ---
+exec apx --json inspect identity proto/payments/ledger/v1 --source-repo github.com/acme/apis
+stdout '"module": "acme-payments-ledger-v1-proto"'
+stdout '"import": "acme::payments::ledger::v1"'
+
+# --- openapi format works ---
+exec apx inspect identity openapi/billing/invoices/v1 --source-repo github.com/acme/apis
+stdout 'Conan:      acme-billing-invoices-v1-proto'
+stdout 'C[+][+] ns:     acme::billing::invoices::v1'

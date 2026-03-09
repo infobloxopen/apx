@@ -21,8 +21,8 @@ func TestDeriveAllCoords_WithOrg(t *testing.T) {
 	coords, err := DeriveAllCoords(ctx)
 	require.NoError(t, err)
 
-	// Should have all 4 languages
-	assert.Len(t, coords, 4)
+	// Should have all 6 languages
+	assert.Len(t, coords, 6)
 
 	// Go
 	goCoords, ok := coords["go"]
@@ -30,17 +30,29 @@ func TestDeriveAllCoords_WithOrg(t *testing.T) {
 	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", goCoords.Module)
 	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", goCoords.Import)
 
-	// Python
-	pyCoords, ok := coords["python"]
+	// C++
+	cppCoords, ok := coords["cpp"]
 	require.True(t, ok)
-	assert.Equal(t, "acme-payments-ledger-v1", pyCoords.Module)
-	assert.Equal(t, "acme_apis.payments.ledger.v1", pyCoords.Import)
+	assert.Equal(t, "acme-payments-ledger-v1-proto", cppCoords.Module)
+	assert.Equal(t, "acme::payments::ledger::v1", cppCoords.Import)
 
 	// Java
 	javaCoords, ok := coords["java"]
 	require.True(t, ok)
 	assert.Equal(t, "com.acme.apis:payments-ledger-v1-proto", javaCoords.Module)
 	assert.Equal(t, "com.acme.apis.payments.ledger.v1", javaCoords.Import)
+
+	// Python
+	pyCoords, ok := coords["python"]
+	require.True(t, ok)
+	assert.Equal(t, "acme-payments-ledger-v1", pyCoords.Module)
+	assert.Equal(t, "acme_apis.payments.ledger.v1", pyCoords.Import)
+
+	// Rust
+	rustCoords, ok := coords["rust"]
+	require.True(t, ok)
+	assert.Equal(t, "acme-payments-ledger-v1-proto", rustCoords.Module)
+	assert.Equal(t, "acme_payments::ledger::v1", rustCoords.Import)
 
 	// TypeScript
 	tsCoords, ok := coords["typescript"]
@@ -110,11 +122,19 @@ func TestDeriveAllCoords_ThreePart(t *testing.T) {
 	// Go — no domain segment
 	assert.Equal(t, "github.com/acme/apis/proto/orders", coords["go"].Module)
 
-	// Python — no domain
-	assert.Equal(t, "acme-orders-v1", coords["python"].Module)
+	// C++ — no domain
+	assert.Equal(t, "acme-orders-v1-proto", coords["cpp"].Module)
+	assert.Equal(t, "acme::orders::v1", coords["cpp"].Import)
 
 	// Java — no domain
 	assert.Equal(t, "com.acme.apis:orders-v1-proto", coords["java"].Module)
+
+	// Python — no domain
+	assert.Equal(t, "acme-orders-v1", coords["python"].Module)
+
+	// Rust — no domain
+	assert.Equal(t, "acme-orders-v1-proto", coords["rust"].Module)
+	assert.Equal(t, "acme_orders::v1", coords["rust"].Import)
 
 	// TypeScript — no domain
 	assert.Equal(t, "@acme/orders-v1-proto", coords["typescript"].Module)

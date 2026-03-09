@@ -305,22 +305,27 @@ func explainGoPathAction(cmd *cobra.Command, args []string) error {
 		sourceRepo = resolveSourceRepo(cmd)
 	}
 	importRoot := resolveImportRoot(cmd)
-	goRoot := config.EffectiveGoRoot(sourceRepo, importRoot)
 
 	api, err := config.ParseAPIID(apiID)
 	if err != nil {
 		return err
 	}
 
-	goMod, err := config.DeriveGoModule(goRoot, api)
+	goPlugin := language.Get("go")
+	if goPlugin == nil {
+		return fmt.Errorf("Go language plugin not registered")
+	}
+	ctx := language.DerivationContext{
+		SourceRepo: sourceRepo,
+		ImportRoot: importRoot,
+		API:        api,
+	}
+	coords, err := goPlugin.DeriveCoords(ctx)
 	if err != nil {
 		return err
 	}
-
-	goImport, err := config.DeriveGoImport(goRoot, api)
-	if err != nil {
-		return err
-	}
+	goMod := coords.Module
+	goImport := coords.Import
 
 	major, _ := config.LineMajor(api.Line)
 

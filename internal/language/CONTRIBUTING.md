@@ -13,24 +13,12 @@ the release manifest.
 
 ## Step-by-Step Checklist
 
-### 1. Identity Derivation Functions
-
-**File:** `internal/config/identity.go`
-
-Add two functions for the new language:
-
-```go
-func Derive<Lang>Module(org string, api *APIIdentity) string { ... }
-func Derive<Lang>Import(org string, api *APIIdentity) string { ... }
-```
-
-**Tests:** Add corresponding test cases in `internal/config/identity_test.go`.
-
-### 2. Plugin Implementation
+### 1. Plugin Implementation (with Derivation)
 
 **File:** `internal/language/<lang>.go`
 
-Implement the `LanguagePlugin` interface:
+Each plugin is self-contained — derivation logic lives inside the plugin
+as **unexported** functions, not in a shared module.
 
 ```go
 func init() { Register(&<lang>Plugin{}) }
@@ -43,7 +31,16 @@ func (p *<lang>Plugin) Available(ctx DerivationContext) bool                    
 func (p *<lang>Plugin) DeriveCoords(ctx DerivationContext) (config.LanguageCoords, error)
 func (p *<lang>Plugin) ReportLines(coords config.LanguageCoords) []ReportLine
 func (p *<lang>Plugin) UnlinkHint(ctx DerivationContext) *UnlinkHint
+
+// Private derivation functions — called only by DeriveCoords:
+func derive<Lang>Module(org string, api *config.APIIdentity) string { ... }
+func derive<Lang>Import(org string, api *config.APIIdentity) string { ... }
 ```
+
+Derivation functions (the language-specific coordinate derivation) are
+**private to the plugin file**. They are never exported or placed in
+`internal/config/`. The plugin's `DeriveCoords` method calls them and
+returns a `config.LanguageCoords`.
 
 **Optionally implement:**
 
@@ -53,12 +50,14 @@ func (p *<lang>Plugin) UnlinkHint(ctx DerivationContext) *UnlinkHint
 
 **Tests:** `internal/language/<lang>_test.go` with at minimum:
 - `TestName`, `TestAvailable`, `TestDeriveCoords`, `TestReportLines`, `TestUnlinkHint`
+- Derivation unit tests (e.g. `TestDerive<Lang>Module`, `TestDerive<Lang>Import`)
 - If implementing optional interfaces: test that the type assertion succeeds
 
-**Template:** Copy `internal/language/typescript.go` as a starting point — it's
-the simplest Tier 2 plugin with all required methods.
+**Template:** Copy `internal/language/cpp.go` or `internal/language/rust.go`
+as a starting point — they're the simplest Tier 2 plugins with self-contained
+derivation.
 
-### 3. Documentation Fragments
+### 2. Documentation Fragments
 
 **Files:**
 - `internal/language/<lang>_doc.go` — implements `DocContributor` with `//go:embed`
@@ -99,7 +98,7 @@ func (p *<lang>Plugin) DocMeta() DocMeta {
 }
 ```
 
-### 4. Testscript (Integration Test)
+### 3. Testscript (Integration Test)
 
 **File:** `testdata/script/<lang>_identity.txt`
 
@@ -113,16 +112,16 @@ exec apx --json inspect identity proto/payments/ledger/v1
 stdout '"<lang>"'
 ```
 
-Look at `testdata/script/typescript_identity.txt` or `java_identity.txt`
+Look at `testdata/script/cpp_identity.txt` or `rust_identity.txt`
 as a template.
 
-### 5. Generate and Verify
+### 4. Generate and Verify
 
 ```bash
 GOTOOLCHAIN=go1.26.1 go generate ./internal/language/...  # regenerates doc includes
 GOTOOLCHAIN=go1.26.1 go build ./...                        # verify compilation
 GOTOOLCHAIN=go1.26.1 go test ./internal/language/ -v        # plugin tests
-GOTOOLCHAIN=go1.26.1 go test ./internal/config/ -v          # derivation tests
+GOTOOLCHAIN=go1.26.1 go test ./internal/config/ -v          # shared config tests
 GOTOOLCHAIN=go1.26.1 go test ./... -count=1                 # full suite
 GOTOOLCHAIN=go1.26.1 go test . -run TestScript -v           # all testscripts
 ls docs/_generated/                                          # verify generated includes exist
@@ -146,8 +145,7 @@ handled by the framework:
 
 | File | Purpose |
 |------|---------|
-| `internal/config/identity.go` | Derive functions (building blocks) |
-| `internal/language/<lang>.go` | Plugin implementation |
+| `internal/language/<lang>.go` | Plugin + private derive functions |
 | `internal/language/<lang>_test.go` | Plugin unit tests |
 | `internal/language/<lang>_doc.go` | DocContributor + embeds |
 | `internal/language/<lang>_doc/*.md` | Documentation fragments |

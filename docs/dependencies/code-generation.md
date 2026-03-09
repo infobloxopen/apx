@@ -275,10 +275,16 @@ CI regenerates code from `apx.lock` during each pipeline run, ensuring consisten
 ```{include} ../_generated/dev-workflow-go.md
 ```
 
-```{include} ../_generated/dev-workflow-python.md
+```{include} ../_generated/dev-workflow-cpp.md
 ```
 
 ```{include} ../_generated/dev-workflow-java.md
+```
+
+```{include} ../_generated/dev-workflow-python.md
+```
+
+```{include} ../_generated/dev-workflow-rust.md
 ```
 
 ```{include} ../_generated/dev-workflow-typescript.md

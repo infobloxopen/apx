@@ -103,12 +103,14 @@ func TestNames(t *testing.T) {
 }
 
 // TestRealPluginsRegistered verifies that init() registration
-// actually works — all 4 built-in plugins should be present.
+// actually works — all 6 built-in plugins should be present.
 func TestRealPluginsRegistered(t *testing.T) {
 	all := All()
-	require.Len(t, all, 4)
-	assert.Equal(t, "go", all[0].Name())
-	assert.Equal(t, "java", all[1].Name())
-	assert.Equal(t, "python", all[2].Name())
-	assert.Equal(t, "typescript", all[3].Name())
+	require.Len(t, all, 6)
+	assert.Equal(t, "go", all[0].Name())         // Tier 1
+	assert.Equal(t, "cpp", all[1].Name())         // Tier 2, alpha
+	assert.Equal(t, "java", all[2].Name())        // Tier 2, alpha
+	assert.Equal(t, "python", all[3].Name())      // Tier 2, alpha
+	assert.Equal(t, "rust", all[4].Name())        // Tier 2, alpha
+	assert.Equal(t, "typescript", all[5].Name())  // Tier 2, alpha
 }

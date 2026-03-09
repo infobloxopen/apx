@@ -5,7 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"strings"
 
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/overlay"
@@ -26,8 +28,8 @@ func (p *pythonPlugin) Available(ctx DerivationContext) bool { return ctx.Org !=
 
 func (p *pythonPlugin) DeriveCoords(ctx DerivationContext) (config.LanguageCoords, error) {
 	return config.LanguageCoords{
-		Module: config.DerivePythonDistName(ctx.Org, ctx.API),
-		Import: config.DerivePythonImport(ctx.Org, ctx.API),
+		Module: derivePythonDistName(ctx.Org, ctx.API),
+		Import: derivePythonImport(ctx.Org, ctx.API),
 	}, nil
 }
 
@@ -41,14 +43,14 @@ func (p *pythonPlugin) ReportLines(coords config.LanguageCoords) []ReportLine {
 func (p *pythonPlugin) UnlinkHint(ctx DerivationContext) *UnlinkHint {
 	return &UnlinkHint{
 		Message: fmt.Sprintf("Python: Run 'pip install %s' to install the released package",
-			config.DerivePythonDistName(ctx.Org, ctx.API)),
+			derivePythonDistName(ctx.Org, ctx.API)),
 	}
 }
 
 // Scaffold implements Scaffolder — creates pyproject.toml and __init__.py hierarchy.
 func (p *pythonPlugin) Scaffold(overlayPath string, ctx DerivationContext) error {
-	distName := config.DerivePythonDistName(ctx.Org, ctx.API)
-	importRoot := config.DerivePythonImport(ctx.Org, ctx.API)
+	distName := derivePythonDistName(ctx.Org, ctx.API)
+	importRoot := derivePythonImport(ctx.Org, ctx.API)
 	return overlay.ScaffoldPythonPackage(overlayPath, distName, importRoot)
 }
 
@@ -120,4 +122,78 @@ func PipPath(venvDir string) string {
 		return filepath.Join(venvDir, "Scripts", "pip.exe")
 	}
 	return filepath.Join(venvDir, "bin", "pip")
+}
+
+// ---------------------------------------------------------------------------
+// Python identity derivation (private to this plugin)
+// ---------------------------------------------------------------------------
+
+// derivePythonDistName computes a PEP 625 distribution name for a Python package.
+//
+// Rules:
+//   - Combines org, domain (if present), API name, and line
+//   - All lowercase, joined with hyphens
+//   - Example: org="acme", proto/payments/ledger/v1 → "acme-payments-ledger-v1"
+//   - Example: org="acme", proto/orders/v1 (3-part, no domain) → "acme-orders-v1"
+func derivePythonDistName(org string, api *config.APIIdentity) string {
+	parts := []string{strings.ToLower(org)}
+	if api.Domain != "" {
+		parts = append(parts, strings.ToLower(api.Domain))
+	}
+	parts = append(parts, strings.ToLower(api.Name))
+	parts = append(parts, strings.ToLower(api.Line))
+	return strings.Join(parts, "-")
+}
+
+// derivePythonImport computes a dotted Python import path for an API.
+//
+// Rules:
+//   - Top-level namespace: {org}_apis (underscore-joined, Python identifier safe)
+//   - Sub-packages: domain (if present), name, line
+//   - Example: org="acme", proto/payments/ledger/v1 → "acme_apis.payments.ledger.v1"
+//   - Example: org="acme", proto/orders/v1 → "acme_apis.orders.v1"
+func derivePythonImport(org string, api *config.APIIdentity) string {
+	namespace := strings.ToLower(org) + "_apis"
+	parts := []string{namespace}
+	if api.Domain != "" {
+		parts = append(parts, strings.ToLower(api.Domain))
+	}
+	parts = append(parts, strings.ToLower(api.Name))
+	parts = append(parts, strings.ToLower(api.Line))
+	return strings.Join(parts, ".")
+}
+
+// pep440PreRe matches SemVer pre-release tags: alpha, beta, rc with optional dot-separator.
+var pep440PreRe = regexp.MustCompile(`-(alpha|beta|rc)\.?(\d+)`)
+
+// NormalizePEP440Version converts a SemVer version string to PEP 440 format.
+//
+// Rules:
+//   - Strips leading "v" prefix
+//   - Converts -alpha.N → aN
+//   - Converts -beta.N → bN
+//   - Converts -rc.N → rcN
+//   - Example: "v1.2.3" → "1.2.3"
+//   - Example: "v1.0.0-beta.1" → "1.0.0b1"
+func NormalizePEP440Version(semver string) string {
+	v := strings.TrimPrefix(semver, "v")
+
+	v = pep440PreRe.ReplaceAllStringFunc(v, func(match string) string {
+		sub := pep440PreRe.FindStringSubmatch(match)
+		if len(sub) < 3 {
+			return match
+		}
+		tag, num := sub[1], sub[2]
+		switch tag {
+		case "alpha":
+			return "a" + num
+		case "beta":
+			return "b" + num
+		case "rc":
+			return "rc" + num
+		}
+		return match
+	})
+
+	return v
 }

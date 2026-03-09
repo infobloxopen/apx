@@ -133,10 +133,16 @@ type Service struct {
 ```{include} ../_generated/path-mapping-go.md
 ```
 
-```{include} ../_generated/path-mapping-python.md
+```{include} ../_generated/path-mapping-cpp.md
 ```
 
 ```{include} ../_generated/path-mapping-java.md
+```
+
+```{include} ../_generated/path-mapping-python.md
+```
+
+```{include} ../_generated/path-mapping-rust.md
 ```
 
 ```{include} ../_generated/path-mapping-typescript.md

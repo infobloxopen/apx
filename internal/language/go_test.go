@@ -63,3 +63,83 @@ func TestGoPlugin_ImplementsPostGenHook(t *testing.T) {
 	_, ok := p.(PostGenHook)
 	assert.True(t, ok, "Go plugin should implement PostGenHook")
 }
+
+// ---------------------------------------------------------------------------
+// Go identity derivation tests (moved from config/identity_test.go)
+// ---------------------------------------------------------------------------
+
+func TestDeriveGoModule(t *testing.T) {
+	tests := []struct {
+		name       string
+		sourceRepo string
+		api        *config.APIIdentity
+		want       string
+	}{
+		{
+			name:       "v1 module has no version suffix",
+			sourceRepo: "github.com/acme/apis",
+			api:        &config.APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want:       "github.com/acme/apis/proto/payments/ledger",
+		},
+		{
+			name:       "v2 module has version suffix",
+			sourceRepo: "github.com/acme/apis",
+			api:        &config.APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v2"},
+			want:       "github.com/acme/apis/proto/payments/ledger/v2",
+		},
+		{
+			name:       "v3 module has version suffix",
+			sourceRepo: "github.com/acme/apis",
+			api:        &config.APIIdentity{Format: "openapi", Domain: "billing", Name: "invoices", Line: "v3"},
+			want:       "github.com/acme/apis/openapi/billing/invoices/v3",
+		},
+		{
+			name:       "v0 module has no version suffix",
+			sourceRepo: "github.com/acme/apis",
+			api:        &config.APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v0"},
+			want:       "github.com/acme/apis/proto/payments/ledger",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := deriveGoModule(tt.sourceRepo, tt.api)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestDeriveGoImport(t *testing.T) {
+	tests := []struct {
+		name       string
+		sourceRepo string
+		api        *config.APIIdentity
+		want       string
+	}{
+		{
+			name:       "v1 import includes v1",
+			sourceRepo: "github.com/acme/apis",
+			api:        &config.APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want:       "github.com/acme/apis/proto/payments/ledger/v1",
+		},
+		{
+			name:       "v2 import includes v2",
+			sourceRepo: "github.com/acme/apis",
+			api:        &config.APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v2"},
+			want:       "github.com/acme/apis/proto/payments/ledger/v2",
+		},
+		{
+			name:       "v0 import includes v0",
+			sourceRepo: "github.com/acme/apis",
+			api:        &config.APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v0"},
+			want:       "github.com/acme/apis/proto/payments/ledger/v0",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := deriveGoImport(tt.sourceRepo, tt.api)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
