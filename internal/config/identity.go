@@ -92,6 +92,18 @@ func EffectiveSourcePath(apiID, managedPath string) string {
 	return DeriveSourcePath(apiID)
 }
 
+// EffectiveGoRoot returns the import root to use for Go module/import path
+// derivation. If a custom importRoot is configured, it takes precedence
+// over the sourceRepo (Git hosting path). This supports organizations that
+// use a vanity import root (e.g. go.acme.dev/apis) while hosting code at
+// a different Git path (e.g. github.com/acme/apis).
+func EffectiveGoRoot(sourceRepo, importRoot string) string {
+	if importRoot != "" {
+		return importRoot
+	}
+	return sourceRepo
+}
+
 // DeriveGoModule computes the Go module path for the given API line.
 //
 // Rules (per Go module versioning):
@@ -142,13 +154,21 @@ func DeriveTag(apiID, version string) string {
 }
 
 // DeriveLanguageCoords fills complete language coordinates from an API identity
-// and source repository.
+// and source repository. If importRoot is non-empty, it is used as the Go
+// module prefix instead of sourceRepo.
 func DeriveLanguageCoords(sourceRepo string, api *APIIdentity) (map[string]LanguageCoords, error) {
-	goMod, err := DeriveGoModule(sourceRepo, api)
+	return DeriveLanguageCoordsWithRoot(sourceRepo, "", api)
+}
+
+// DeriveLanguageCoordsWithRoot is like DeriveLanguageCoords but accepts an
+// optional importRoot that overrides sourceRepo for Go module/import paths.
+func DeriveLanguageCoordsWithRoot(sourceRepo, importRoot string, api *APIIdentity) (map[string]LanguageCoords, error) {
+	goRoot := EffectiveGoRoot(sourceRepo, importRoot)
+	goMod, err := DeriveGoModule(goRoot, api)
 	if err != nil {
 		return nil, fmt.Errorf("deriving Go module: %w", err)
 	}
-	goImport, err := DeriveGoImport(sourceRepo, api)
+	goImport, err := DeriveGoImport(goRoot, api)
 	if err != nil {
 		return nil, fmt.Errorf("deriving Go import: %w", err)
 	}
@@ -165,6 +185,12 @@ func DeriveLanguageCoords(sourceRepo string, api *APIIdentity) (map[string]Langu
 // and source repository. This is the primary entry point for populating
 // identity fields from minimal inputs.
 func BuildIdentityBlock(apiID, sourceRepo, lifecycle, currentVersion string) (*APIIdentity, *SourceIdentity, *ReleaseInfo, map[string]LanguageCoords, error) {
+	return BuildIdentityBlockWithRoot(apiID, sourceRepo, "", lifecycle, currentVersion)
+}
+
+// BuildIdentityBlockWithRoot is like BuildIdentityBlock but accepts an
+// optional importRoot that overrides sourceRepo for Go module/import paths.
+func BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, lifecycle, currentVersion string) (*APIIdentity, *SourceIdentity, *ReleaseInfo, map[string]LanguageCoords, error) {
 	api, err := ParseAPIID(apiID)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -183,7 +209,7 @@ func BuildIdentityBlock(apiID, sourceRepo, lifecycle, currentVersion string) (*A
 		release = &ReleaseInfo{Current: currentVersion}
 	}
 
-	langs, err := DeriveLanguageCoords(sourceRepo, api)
+	langs, err := DeriveLanguageCoordsWithRoot(sourceRepo, importRoot, api)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

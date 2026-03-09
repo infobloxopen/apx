@@ -1,6 +1,7 @@
 version: 1
 org: your-org-name
 repo: apis
+# import_root: go.your-org-name.dev/apis   # optional: override Go module/import prefix
 module_roots:
   - proto
   - openapi

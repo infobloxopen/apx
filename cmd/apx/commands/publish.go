@@ -131,7 +131,7 @@ func publishWithIdentity(cmd *cobra.Command, opts publishOpts) error {
 		}
 	}
 
-	api, source, _, langs, err := config.BuildIdentityBlock(opts.APIID, sourceRepo, opts.Lifecycle, opts.Version)
+	api, source, _, langs, err := config.BuildIdentityBlockWithRoot(opts.APIID, sourceRepo, resolveImportRoot(cmd), opts.Lifecycle, opts.Version)
 	if err != nil {
 		return err
 	}

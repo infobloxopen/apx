@@ -78,8 +78,9 @@ func inspectIdentityAction(cmd *cobra.Command, args []string) error {
 	if sourceRepo == "" {
 		sourceRepo = resolveSourceRepo(cmd)
 	}
+	importRoot := resolveImportRoot(cmd)
 
-	api, source, release, langs, err := config.BuildIdentityBlock(apiID, sourceRepo, lifecycle, "")
+	api, source, release, langs, err := config.BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, lifecycle, "")
 	if err != nil {
 		return err
 	}
@@ -158,6 +159,7 @@ func inspectReleaseAction(cmd *cobra.Command, args []string) error {
 	if sourceRepo == "" {
 		sourceRepo = resolveSourceRepo(cmd)
 	}
+	importRoot := resolveImportRoot(cmd)
 
 	// Derive lifecycle from version prerelease if not explicit
 	lifecycle := ""
@@ -169,7 +171,7 @@ func inspectReleaseAction(cmd *cobra.Command, args []string) error {
 		lifecycle = "beta"
 	}
 
-	api, source, release, langs, err := config.BuildIdentityBlock(apiID, sourceRepo, lifecycle, version)
+	api, source, release, langs, err := config.BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, lifecycle, version)
 	if err != nil {
 		return err
 	}
@@ -193,6 +195,17 @@ func resolveSourceRepo(cmd *cobra.Command) string {
 		return fmt.Sprintf("github.com/%s/%s", cfg.Org, cfg.Repo)
 	}
 	return "github.com/<org>/<repo>"
+}
+
+// resolveImportRoot returns the configured import_root from apx.yaml, or ""
+// if not set. When non-empty this overrides sourceRepo for Go module derivation.
+func resolveImportRoot(cmd *cobra.Command) string {
+	configPath, _ := cmd.Root().PersistentFlags().GetString("config")
+	cfg, err := config.Load(configPath)
+	if err == nil {
+		return cfg.ImportRoot
+	}
+	return ""
 }
 
 func printIdentityJSON(api *config.APIIdentity, source *config.SourceIdentity, release *config.ReleaseInfo, langs map[string]config.LanguageCoords) error {
@@ -258,18 +271,20 @@ func explainGoPathAction(cmd *cobra.Command, args []string) error {
 	if sourceRepo == "" {
 		sourceRepo = resolveSourceRepo(cmd)
 	}
+	importRoot := resolveImportRoot(cmd)
+	goRoot := config.EffectiveGoRoot(sourceRepo, importRoot)
 
 	api, err := config.ParseAPIID(apiID)
 	if err != nil {
 		return err
 	}
 
-	goMod, err := config.DeriveGoModule(sourceRepo, api)
+	goMod, err := config.DeriveGoModule(goRoot, api)
 	if err != nil {
 		return err
 	}
 
-	goImport, err := config.DeriveGoImport(sourceRepo, api)
+	goImport, err := config.DeriveGoImport(goRoot, api)
 	if err != nil {
 		return err
 	}

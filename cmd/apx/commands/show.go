@@ -94,6 +94,7 @@ func showAction(cmd *cobra.Command, args []string) error {
 	if sourceRepo == "" {
 		sourceRepo = resolveSourceRepo(cmd)
 	}
+	importRoot := resolveImportRoot(cmd)
 
 	// Resolve catalog path
 	if catalogPath == "" {
@@ -111,7 +112,7 @@ func showAction(cmd *cobra.Command, args []string) error {
 		Path: config.DeriveSourcePath(apiID),
 	}
 
-	langs, err := config.DeriveLanguageCoords(sourceRepo, api)
+	langs, err := config.DeriveLanguageCoordsWithRoot(sourceRepo, importRoot, api)
 	if err != nil {
 		return err
 	}

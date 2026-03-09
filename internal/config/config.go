@@ -14,6 +14,7 @@ type Config struct {
 	Version         int                       `yaml:"version"`
 	Org             string                    `yaml:"org"`
 	Repo            string                    `yaml:"repo"`
+	ImportRoot      string                    `yaml:"import_root,omitempty"` // optional public import root (e.g. go.acme.dev/apis)
 	CatalogURL      string                    `yaml:"catalog_url,omitempty"` // remote catalog URL for discovery
 	ModuleRoots     []string                  `yaml:"module_roots"`
 	LanguageTargets map[string]LanguageTarget `yaml:"language_targets"`

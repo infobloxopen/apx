@@ -34,6 +34,9 @@ Inspect API identity, releases, and derived coordinates.
 When a catalog is available (local or remote via `catalog_url`), `inspect identity`
 also shows latest versions, owners, and tags.
 
+If `import_root` is set in `apx.yaml`, Go module and import paths use the
+custom root instead of the source repository path.
+
 ```bash
 apx inspect identity <api-id>              # Show full API identity + catalog data
 apx inspect release <api-id>@<version>     # Show identity for a release
@@ -93,7 +96,8 @@ apx --json show <api-id>                                    # JSON output
 
 This command merges two data sources:
 
-1. **Derived fields** computed from the API ID — Go module/import paths, tag pattern, source path
+1. **Derived fields** computed from the API ID — Go module/import paths, tag pattern, source path.
+   When `import_root` is set, Go paths use the custom root.
 2. **Catalog fields** from `catalog.yaml` — latest stable/prerelease versions, lifecycle, owners, tags
 
 The catalog source is resolved in order: `--catalog` flag → `catalog_url` from `apx.yaml` → `catalog/catalog.yaml`.
@@ -152,3 +156,27 @@ Manage the APX configuration file.
 apx config validate    # Validate apx.yaml against schema
 apx config migrate     # Migrate to latest schema version
 ```
+
+## Configuration: `import_root`
+
+By default, Go module and import paths are derived from the source repository
+(e.g. `github.com/<org>/<repo>`). Set `import_root` in `apx.yaml` to decouple
+the public Go import path from the hosting location:
+
+```yaml
+# apx.yaml
+org: acme
+repo: apis
+import_root: go.acme.dev/apis   # custom Go module prefix
+```
+
+With this configuration, `apx inspect`, `apx show`, `apx explain go-path`,
+`apx publish`, and `apx release` all use the custom root:
+
+```
+Go module:  go.acme.dev/apis/proto/payments/ledger
+Go import:  go.acme.dev/apis/proto/payments/ledger/v1
+```
+
+When `import_root` is omitted or empty, the source repository path is used
+as before, preserving full backward compatibility.

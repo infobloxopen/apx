@@ -428,3 +428,95 @@ func TestDeriveGoImportV0(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v0", got)
 }
+
+// ---------------------------------------------------------------------------
+// Import-root decoupling (APX-112)
+// ---------------------------------------------------------------------------
+
+func TestEffectiveGoRoot(t *testing.T) {
+	tests := []struct {
+		name       string
+		sourceRepo string
+		importRoot string
+		want       string
+	}{
+		{
+			name:       "import root empty falls back to source repo",
+			sourceRepo: "github.com/acme/apis",
+			importRoot: "",
+			want:       "github.com/acme/apis",
+		},
+		{
+			name:       "import root set overrides source repo",
+			sourceRepo: "github.com/acme/apis",
+			importRoot: "go.acme.dev/apis",
+			want:       "go.acme.dev/apis",
+		},
+		{
+			name:       "import root with different host",
+			sourceRepo: "github.com/acme/apis",
+			importRoot: "buf.build/gen/go/acme/apis",
+			want:       "buf.build/gen/go/acme/apis",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, EffectiveGoRoot(tt.sourceRepo, tt.importRoot))
+		})
+	}
+}
+
+func TestDeriveLanguageCoordsWithRoot(t *testing.T) {
+	api := &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"}
+
+	// Without import root — same as DeriveLanguageCoords.
+	coords, err := DeriveLanguageCoordsWithRoot("github.com/acme/apis", "", api)
+	require.NoError(t, err)
+	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", coords["go"].Module)
+	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", coords["go"].Import)
+
+	// With import root — Go paths use the custom root.
+	coords, err = DeriveLanguageCoordsWithRoot("github.com/acme/apis", "go.acme.dev/apis", api)
+	require.NoError(t, err)
+	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger", coords["go"].Module)
+	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger/v1", coords["go"].Import)
+}
+
+func TestBuildIdentityBlockWithRoot(t *testing.T) {
+	// With a custom import root, Go paths should use the import root while
+	// source.Repo should still reflect the actual repository.
+	api, source, release, langs, err := BuildIdentityBlockWithRoot(
+		"proto/payments/ledger/v1",
+		"github.com/acme/apis",
+		"go.acme.dev/apis",
+		"beta",
+		"v1.0.0-beta.1",
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, "proto/payments/ledger/v1", api.ID)
+	assert.Equal(t, "beta", api.Lifecycle)
+	assert.Equal(t, "github.com/acme/apis", source.Repo)
+	assert.Equal(t, "v1.0.0-beta.1", release.Current)
+
+	// Go paths use the import root, not the source repo.
+	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger", langs["go"].Module)
+	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger/v1", langs["go"].Import)
+}
+
+func TestBuildIdentityBlockWithRootEmpty(t *testing.T) {
+	// Empty import root behaves identically to BuildIdentityBlock.
+	api, source, _, langs, err := BuildIdentityBlockWithRoot(
+		"proto/payments/ledger/v1",
+		"github.com/acme/apis",
+		"",
+		"beta",
+		"v1.0.0-beta.1",
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, "proto/payments/ledger/v1", api.ID)
+	assert.Equal(t, "github.com/acme/apis", source.Repo)
+	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", langs["go"].Module)
+	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", langs["go"].Import)
+}

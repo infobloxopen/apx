@@ -161,7 +161,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build identity
-	api, source, release, langs, err := config.BuildIdentityBlock(apiID, sourceRepo, lifecycle, version)
+	api, source, release, langs, err := config.BuildIdentityBlockWithRoot(apiID, sourceRepo, resolveImportRoot(cmd), lifecycle, version)
 	if err != nil {
 		return err
 	}
@@ -1285,7 +1285,7 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build identity
-	api, source, _, langs, err := config.BuildIdentityBlock(apiID, sourceRepo, targetLifecycle, version)
+	api, source, _, langs, err := config.BuildIdentityBlockWithRoot(apiID, sourceRepo, resolveImportRoot(cmd), targetLifecycle, version)
 	if err != nil {
 		return err
 	}
