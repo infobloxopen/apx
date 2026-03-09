@@ -6,7 +6,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -229,61 +228,39 @@ func cleanupE2EEnvironment(t *testing.T, env *E2EEnvironment) {
 	t.Log("E2E environment cleanup complete")
 }
 
-// setupAPXBinary builds or copies the apx binary into the testscript workspace
+// setupAPXBinary adds the pre-built apx binary to the testscript PATH.
+// It uses the absolute path to the repo's bin/ directory directly rather than
+// copying the binary per-test, which avoids ETXTBSY (text file busy) errors
+// on Linux when parallel tests copy and execute the binary simultaneously.
 func setupAPXBinary(env *testscript.Env) error {
-	// Create bin directory in the test workspace
-	binDir := filepath.Join(env.WorkDir, "bin")
-	if err := os.MkdirAll(binDir, 0755); err != nil {
-		return err
-	}
-
 	binaryName := "apx"
 	if runtime.GOOS == "windows" {
 		binaryName = "apx.exe"
 	}
 
-	// Check if the binary already exists in ./bin/ (built by CI or make)
-	apxBinaryPath := filepath.Join("..", "..", "bin", binaryName)
-	destPath := filepath.Join(binDir, binaryName)
+	// Resolve the absolute path to the pre-built binary directory
+	absDir, err := filepath.Abs(filepath.Join("..", "..", "bin"))
+	if err != nil {
+		return fmt.Errorf("failed to resolve bin directory: %w", err)
+	}
 
-	if _, err := os.Stat(apxBinaryPath); err == nil {
-		// Copy the pre-built binary to the test workspace
-		if err := copyBinaryFile(apxBinaryPath, destPath); err != nil {
+	binaryPath := filepath.Join(absDir, binaryName)
+
+	// Build if binary doesn't exist (local dev without CI pre-build)
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(absDir, 0755); err != nil {
 			return err
 		}
-	} else {
-		// Build the binary fresh
-		cmd := exec.Command("go", "build", "-o", destPath, "../../cmd/apx")
+		cmd := exec.Command("go", "build", "-o", binaryPath, "../../cmd/apx")
 		cmd.Env = os.Environ()
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to build apx binary: %w\nOutput: %s", err, output)
 		}
 	}
 
-	if err := os.Chmod(destPath, 0755); err != nil {
-		return err
-	}
-
-	// Add the bin directory to PATH
-	newPath := binDir + string(os.PathListSeparator) + env.Getenv("PATH")
+	// Add the absolute bin directory to PATH
+	newPath := absDir + string(os.PathListSeparator) + env.Getenv("PATH")
 	env.Setenv("PATH", newPath)
 
 	return nil
-}
-
-// copyBinaryFile copies a file from src to dst
-func copyBinaryFile(src, dst string) error {
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcFile.Close()
-
-	data, err := io.ReadAll(srcFile)
-	if err != nil {
-		return err
-	}
-	srcFile.Close()
-
-	return os.WriteFile(dst, data, 0755)
 }
