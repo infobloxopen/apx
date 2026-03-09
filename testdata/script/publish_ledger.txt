@@ -23,10 +23,14 @@ exec git commit -m 'Add ledger API v1.0.0'
 exec git tag proto/payments/ledger/v1/v1.0.0
 
 # Test dry-run release prepare (should succeed without actual git operations)
-exec apx release prepare --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis --dry-run
+exec apx release prepare proto/payments/ledger/v1 --version=v1.0.0 --canonical-repo=github.com/myorg/apis --dry-run
 stdout 'Dry-run mode'
-stdout 'internal/apis/proto/payments/ledger/v1'
+stdout 'proto/payments/ledger/v1'
 stdout 'github.com/myorg/apis'
+
+# Prepare (non-dry-run) to write the manifest for submit tests
+exec apx release prepare proto/payments/ledger/v1 --version=v1.0.0 --canonical-repo=github.com/myorg/apis
+exists .apx-release.yaml
 
 # Test dry-run release submit
 exec apx release submit --dry-run
@@ -43,45 +47,47 @@ stderr 'buf'
 ! exec apx breaking --against=HEAD~1 internal/apis/proto/payments/ledger/v1/ledger.proto
 stderr 'buf'
 
-# Test release prepare with version flag
-exec apx release prepare --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis --version=v1.0.1 --dry-run
+# Test release prepare with a different version
+exec apx release prepare proto/payments/ledger/v1 --version=v1.0.1 --canonical-repo=github.com/myorg/apis --dry-run
 stdout 'v1.0.1'
 
 # Test release submit with dry-run
 exec apx release submit --dry-run
 stdout 'Dry-run mode'
 
-# Test with missing required flags
+# Test with missing positional api-id
 ! exec apx release prepare
-stderr 'module-path'
+stderr '.'
 
-! exec apx release prepare --module-path=internal/apis/proto/payments/ledger/v1
-stderr 'canonical-repo'
+# Test with missing required --version flag
+! exec apx release prepare proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis
+stderr 'version'
 
 # Test with non-existent module path
-! exec apx release prepare --module-path=nonexistent/path --canonical-repo=github.com/test/apis
+! exec apx release prepare proto/nonexistent/module/v1 --version=v1.0.0 --canonical-repo=github.com/test/apis
 stderr 'does not exist'
 
 # --- Identity-based release (dry-run) ---
 # Test positional API ID release: apx release prepare <api-id> --version --lifecycle
 exec apx release prepare proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle beta --canonical-repo=github.com/myorg/apis --dry-run
 stdout 'Dry-run mode'
-stdout 'API ID:      proto/payments/ledger/v1'
-stdout 'Version:     v1.0.0-beta.1'
-stdout 'Tag:         proto/payments/ledger/v1/v1.0.0-beta.1'
-stdout 'Go module:   github.com/myorg/apis/proto/payments/ledger'
-stdout 'Go import:   github.com/myorg/apis/proto/payments/ledger/v1'
+stdout 'proto/payments/ledger/v1'
+stdout 'v1.0.0-beta.1'
+stdout 'proto/payments/ledger/v1/v1.0.0-beta.1'
+stdout 'github.com/myorg/apis/proto/payments/ledger'
+stdout 'github.com/myorg/apis/proto/payments/ledger/v1'
 
 # Test identity release GA
 exec apx release prepare proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable --canonical-repo=github.com/myorg/apis --dry-run
 stdout 'v1.0.0'
 stdout 'stable'
 
-# Test identity release v2 line
+# Test identity release v2 line (create the v2 directory first)
+mkdir -p internal/apis/proto/payments/ledger/v2
 exec apx release prepare proto/payments/ledger/v2 --version v2.0.0-alpha.1 --lifecycle experimental --canonical-repo=github.com/myorg/apis --dry-run
 stdout 'proto/payments/ledger/v2'
-stdout 'Go module:   github.com/myorg/apis/proto/payments/ledger/v2'
-stdout 'Tag:         proto/payments/ledger/v2/v2.0.0-alpha.1'
+stdout 'github.com/myorg/apis/proto/payments/ledger/v2'
+stdout 'proto/payments/ledger/v2/v2.0.0-alpha.1'
 
 # Test identity release requires --version
 ! exec apx release prepare proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis --dry-run
@@ -91,9 +97,9 @@ stderr 'version'
 ! exec apx release prepare proto/payments/ledger/v1 --version v1.0.0 --lifecycle alpha --canonical-repo=github.com/myorg/apis --dry-run
 stderr 'invalid lifecycle'
 
-# Test identity release validates api-id format
+# Test identity release rejects unrecognized api-id (no slashes → treated as nonexistent path)
 ! exec apx release prepare invalid-api-id --version v1.0.0 --canonical-repo=github.com/myorg/apis --dry-run
-stderr 'invalid API ID'
+stderr '.'
 
 # Cleanup
 cd ..

@@ -43,16 +43,16 @@ cd app-repo
 # Create apx.yaml with org/repo and module_roots
 cp $WORK/app-config.yaml apx.yaml
 
-# Create stale publish workflow
+# Create stale release workflow
 mkdir -p .github/workflows
-exec sh -c 'echo "old-publish-content" > .github/workflows/apx-publish.yml'
+exec sh -c 'echo "old-publish-content" > .github/workflows/apx-release.yml'
 
 # Sync should regenerate
 exec apx workflows sync
 stdout 'Updated'
-stdout 'apx-publish.yml'
-grep 'infobloxopen/apx@v1' .github/workflows/apx-publish.yml
-! grep 'old-publish-content' .github/workflows/apx-publish.yml
+stdout 'apx-release.yml'
+grep 'infobloxopen/apx@v1' .github/workflows/apx-release.yml
+! grep 'old-publish-content' .github/workflows/apx-release.yml
 
 # --- No workflows and no structure: should error ---
 cd ..
