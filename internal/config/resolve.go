@@ -22,26 +22,29 @@ func ResolveAPIPath(arg string, cfg *Config) (string, error) {
 		}
 	}
 
-	// 2. Try to parse as an API ID.
+	// 2. Try to parse as a strict 4-part API ID (format/domain/name/line).
+	// If it parses, use module_roots and well-known fallback patterns.
+	// If it doesn't parse (e.g. a 3-part simplified id like "proto/tagtest/v1"),
+	// still try the common fallbacks below before giving up.
+	var relPath string
 	api, parseErr := ParseAPIID(arg)
-	if parseErr != nil {
-		// Not a valid API ID and not a valid path — report the path error.
-		return "", fmt.Errorf("path does not exist and is not a valid API ID: %s", arg)
-	}
+	if parseErr == nil {
+		relPath = DeriveSourcePath(api.ID)
 
-	// Derive the canonical relative path (e.g. "proto/payments/ledger/v1").
-	relPath := DeriveSourcePath(api.ID)
-
-	// 3. Search module_roots from config.
-	if cfg != nil {
-		for _, root := range cfg.ModuleRoots {
-			candidate, _ := filepath.Abs(filepath.Join(root, relPath))
-			if candidate != "" {
-				if _, statErr := os.Stat(candidate); statErr == nil {
-					return candidate, nil
+		// 3. Search module_roots from config.
+		if cfg != nil {
+			for _, root := range cfg.ModuleRoots {
+				candidate, _ := filepath.Abs(filepath.Join(root, relPath))
+				if candidate != "" {
+					if _, statErr := os.Stat(candidate); statErr == nil {
+						return candidate, nil
+					}
 				}
 			}
 		}
+	} else {
+		// Arg is not a valid 4-part API ID; use it verbatim as the relative path.
+		relPath = arg
 	}
 
 	// 4. Fall back to common patterns relative to cwd.
@@ -60,7 +63,7 @@ func ResolveAPIPath(arg string, cfg *Config) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("could not resolve API ID %q to a filesystem path; searched module_roots and common patterns", arg)
+	return "", fmt.Errorf("path does not exist: %s", arg)
 }
 
 // ResolveAPIFormat extracts the schema format from an API ID string.

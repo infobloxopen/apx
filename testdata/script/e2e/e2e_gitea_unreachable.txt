@@ -17,12 +17,17 @@ exec git add .
 exec git commit -m 'Initial schema'
 exec git tag proto/unreachable/v1/v1.0.0
 
-# Step 2: Try to release with an invalid Gitea URL
+# Step 2: Release prepare is local-only and should succeed even with invalid canonical repo URL
+exec apx release prepare proto/unreachable/v1 --version v1.0.0 --lifecycle stable --canonical-repo=http://localhost:9999/testorg/nonexistent
+stdout 'prepared'
+exists .apx-release.yaml
+
+# Step 3: Try to submit with an unreachable Gitea URL
 # This should fail with a connection error, not a panic
-! exec apx release prepare proto/unreachable/v1 --version v1.0.0 --lifecycle stable --canonical-repo=http://localhost:9999/testorg/nonexistent
+! exec apx release submit
 stderr '.'
 
-# Step 3: Verify the app repo is still intact after failed release
+# Step 4: Verify the app repo is still intact after failed release submit
 exists apx.yaml
 exists internal/apis/proto/unreachable/v1/unreachable.proto
 exec git log --oneline
@@ -31,5 +36,6 @@ stdout 'Initial schema'
 cd ..
 
 # Success: Gitea unreachable error handling validated
-# - Release fails gracefully when Gitea is unreachable
+# - Release prepare succeeds locally even with invalid canonical repo URL
+# - Release submit fails gracefully when Gitea is unreachable
 # - Local repository state is not corrupted

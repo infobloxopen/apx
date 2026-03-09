@@ -115,9 +115,9 @@ Error: cannot submit: release state is "draft", expected "prepared"
 
 **Fix:** Follow the pipeline in order:
 ```bash
-apx release prepare    # 1. validate and stage
-apx release submit     # 2. create PR on canonical
-apx release finalize   # 3. tag after merge
+apx release prepare    # 1. validate and stage (run by you, in app repo)
+apx release submit     # 2. create PR on canonical (run by you, in app repo)
+# apx release finalize is run automatically by canonical CI after the PR merges — not by you
 ```
 
 ### `release submit` on a non-existent canonical repo

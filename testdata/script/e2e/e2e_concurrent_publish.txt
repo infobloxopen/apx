@@ -34,12 +34,12 @@ cd ..
 
 # Step 2: Both apps attempt to release to same canonical (dry-run)
 cd app1
-exec apx release prepare --module-path=internal/apis/proto/shared/v1 --canonical-repo=github.com/testorg/shared-test --version=v1.0.0 --dry-run
+exec apx release prepare proto/shared/v1 --canonical-repo=github.com/testorg/shared-test --version=v1.0.0 --dry-run
 stdout 'Dry-run mode'
 cd ..
 
 cd app2
-exec apx release prepare --module-path=internal/apis/proto/shared/v1 --canonical-repo=github.com/testorg/shared-test --version=v1.0.0 --dry-run
+exec apx release prepare proto/shared/v1 --canonical-repo=github.com/testorg/shared-test --version=v1.0.0 --dry-run
 stdout 'Dry-run mode'
 cd ..
 

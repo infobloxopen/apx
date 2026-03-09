@@ -75,12 +75,12 @@ cd ..
 
 # Step 4: Verify both apps can independently release (dry-run)
 cd app1-payment
-exec apx release prepare --module-path=internal/apis/proto/payments/ledger/v1 --canonical-repo=github.com/testorg/cross-deps-canonical --dry-run
+exec apx release prepare proto/payments/ledger/v1 --canonical-repo=github.com/testorg/cross-deps-canonical --version=v1.0.0 --dry-run
 stdout 'Dry-run mode'
 cd ..
 
 cd app2-user
-exec apx release prepare --module-path=internal/apis/proto/users/profile/v1 --canonical-repo=github.com/testorg/cross-deps-canonical --dry-run
+exec apx release prepare proto/users/profile/v1 --canonical-repo=github.com/testorg/cross-deps-canonical --version=v1.0.0 --dry-run
 stdout 'Dry-run mode'
 cd ..
 

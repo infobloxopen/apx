@@ -37,7 +37,7 @@ exec git tag proto/nonbreak/v1/v1.1.0
 exec grep 'optional_description' internal/apis/proto/nonbreak/v1/nonbreak.proto
 
 # Step 4: Verify release prepare dry-run succeeds with non-breaking change
-exec apx release prepare --module-path=internal/apis/proto/nonbreak/v1 --canonical-repo=github.com/testorg/nonbreak-test --version=v1.1.0 --dry-run
+exec apx release prepare proto/nonbreak/v1 --canonical-repo=github.com/testorg/nonbreak-test --version=v1.1.0 --dry-run
 stdout 'Dry-run mode'
 stdout 'v1.1.0'
 

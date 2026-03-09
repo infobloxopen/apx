@@ -86,7 +86,7 @@ exec git rev-list --count HEAD
 stdout '6'
 
 # Step 7: Verify release prepare dry-run works with full history
-exec apx release prepare --module-path=internal/apis/proto/history/v1 --canonical-repo=github.com/testorg/history-test --dry-run
+exec apx release prepare proto/history/v1 --canonical-repo=github.com/testorg/history-test --version=v1.0.0 --dry-run
 stdout 'Dry-run mode'
 
 cd ..

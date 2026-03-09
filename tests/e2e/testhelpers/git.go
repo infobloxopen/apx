@@ -4,12 +4,12 @@
 package testhelpers
 
 import (
-"context"
-"fmt"
-"os"
-"os/exec"
-"path/filepath"
-"strings"
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 )
 
 // GitRepo wraps git operations for testing
@@ -63,7 +63,7 @@ func (r *GitRepo) SetRemote(name, url string) error {
 func (r *GitRepo) WriteFile(relativePath, content string) error {
 	fullPath := filepath.Join(r.Path, relativePath)
 	dir := filepath.Dir(fullPath)
-	
+
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}

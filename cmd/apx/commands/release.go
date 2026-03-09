@@ -71,6 +71,7 @@ Examples:
 	cmd.Flags().Bool("strict", false, "Make go_package mismatches an error")
 	cmd.Flags().Bool("skip-gomod", false, "Skip go.mod generation and validation")
 	cmd.Flags().Bool("force", false, "Override sunset block")
+	cmd.Flags().Bool("dry-run", false, "Show what would be prepared without writing the manifest")
 	_ = cmd.MarkFlagRequired("version")
 	return cmd
 }
@@ -83,11 +84,17 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	strict, _ := cmd.Flags().GetBool("strict")
 	skipGomod, _ := cmd.Flags().GetBool("skip-gomod")
 	force, _ := cmd.Flags().GetBool("force")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	cfg, err := loadConfig(cmd)
 	if err != nil {
 		ui.Warning("Could not load config for policy check: %v", err)
 		cfg = &config.Config{}
+	}
+
+	// Validate that the module path exists on disk before proceeding.
+	if _, resolveErr := config.ResolveAPIPath(apiID, cfg); resolveErr != nil {
+		return fmt.Errorf("module path does not exist: %s", apiID)
 	}
 
 	// --- State: draft ---
@@ -344,6 +351,18 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	// --- State: prepared ---
 	if err := manifest.SetState(publisher.StatePrepared); err != nil {
 		return err
+	}
+
+	// Dry-run: show what would be prepared without writing the manifest.
+	if dryRun {
+		ui.Info("Dry-run mode: showing what would be prepared")
+		ui.Info("")
+		report := config.FormatIdentityReport(api, source, release, langs)
+		fmt.Print(report)
+		ui.Info("Tag:         %s", tag)
+		ui.Info("")
+		ui.Info("(no manifest written in dry-run mode)")
+		return nil
 	}
 
 	// Write manifest

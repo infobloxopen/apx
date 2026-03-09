@@ -45,10 +45,10 @@ exists internal/apis/proto/versioned/v1/versioned.proto
 exists internal/apis/proto/versioned/v2/versioned.proto
 
 # Step 5: Both versions can be released independently
-exec apx release prepare --module-path=internal/apis/proto/versioned/v1 --canonical-repo=github.com/testorg/version-test --dry-run
+exec apx release prepare proto/versioned/v1 --canonical-repo=github.com/testorg/version-test --version=v1.0.0 --dry-run
 stdout 'Dry-run mode'
 
-exec apx release prepare --module-path=internal/apis/proto/versioned/v2 --canonical-repo=github.com/testorg/version-test --dry-run
+exec apx release prepare proto/versioned/v2 --canonical-repo=github.com/testorg/version-test --version=v2.0.0 --dry-run
 stdout 'Dry-run mode'
 
 # Step 6: Verify git history

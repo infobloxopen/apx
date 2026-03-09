@@ -4,10 +4,10 @@
 package testhelpers
 
 import (
-"fmt"
-"os"
-"path/filepath"
-"testing"
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
 )
 
 // TestEnvironment manages test workspace and cleanup
@@ -62,7 +62,7 @@ func (e *TestEnvironment) MkdirAll(relativePath string) string {
 func (e *TestEnvironment) WriteFile(relativePath, content string) string {
 	fullPath := e.Path(relativePath)
 	dir := filepath.Dir(fullPath)
-	
+
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		e.t.Fatalf("Failed to create directory: %v", err)
 	}

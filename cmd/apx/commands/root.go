@@ -45,6 +45,9 @@ func NewRootCmd(version string) *cobra.Command {
 	cmd.PersistentFlags().Bool("no-color", false, "disable colored output")
 	cmd.PersistentFlags().String("config", "apx.yaml", "config file path")
 
+	// Preserve registration order in help output instead of sorting alphabetically.
+	cobra.EnableCommandSorting = false
+
 	// Register all subcommands
 	cmd.AddCommand(
 		newInitCmd(),

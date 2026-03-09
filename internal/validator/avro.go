@@ -29,10 +29,10 @@ func (v *AvroValidator) SetCompatibilityMode(mode string) {
 
 // avroSchema represents an Avro record schema.
 type avroSchema struct {
-	Type      string       `json:"type"`
-	Name      string       `json:"name"`
-	Namespace string       `json:"namespace"`
-	Fields    []avroField  `json:"fields"`
+	Type      string      `json:"type"`
+	Name      string      `json:"name"`
+	Namespace string      `json:"namespace"`
+	Fields    []avroField `json:"fields"`
 }
 
 // avroField represents a field within an Avro record.

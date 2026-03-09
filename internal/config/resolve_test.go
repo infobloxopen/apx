@@ -89,7 +89,7 @@ func TestResolveAPIPath_NotFound(t *testing.T) {
 
 	_, err := ResolveAPIPath("proto/payments/ledger/v1", nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "could not resolve API ID")
+	assert.Contains(t, err.Error(), "path does not exist")
 }
 
 func TestResolveAPIPath_InvalidArgument(t *testing.T) {
@@ -101,7 +101,7 @@ func TestResolveAPIPath_InvalidArgument(t *testing.T) {
 	// Not a valid path and not a valid API ID
 	_, err := ResolveAPIPath("not-a-path-or-id", nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not a valid API ID")
+	assert.Contains(t, err.Error(), "path does not exist")
 }
 
 func TestResolveAPIFormat(t *testing.T) {

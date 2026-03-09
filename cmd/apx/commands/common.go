@@ -1,8 +1,8 @@
 package commands
 
 import (
-"github.com/infobloxopen/apx/internal/config"
-"github.com/spf13/cobra"
+	"github.com/infobloxopen/apx/internal/config"
+	"github.com/spf13/cobra"
 )
 
 func loadConfig(cmd *cobra.Command) (*config.Config, error) {

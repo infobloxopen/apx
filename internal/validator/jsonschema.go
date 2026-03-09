@@ -20,14 +20,14 @@ func NewJSONSchemaValidator(resolver *ToolchainResolver) *JSONSchemaValidator {
 
 // recognizedSchemaDrafts is the set of well-known JSON Schema draft URIs.
 var recognizedSchemaDrafts = map[string]bool{
-	"http://json-schema.org/draft-04/schema#":        true,
-	"http://json-schema.org/draft-04/schema":         true,
-	"http://json-schema.org/draft-06/schema#":        true,
-	"http://json-schema.org/draft-06/schema":         true,
-	"http://json-schema.org/draft-07/schema#":        true,
-	"http://json-schema.org/draft-07/schema":         true,
-	"https://json-schema.org/draft/2019-09/schema":   true,
-	"https://json-schema.org/draft/2020-12/schema":   true,
+	"http://json-schema.org/draft-04/schema#":      true,
+	"http://json-schema.org/draft-04/schema":       true,
+	"http://json-schema.org/draft-06/schema#":      true,
+	"http://json-schema.org/draft-06/schema":       true,
+	"http://json-schema.org/draft-07/schema#":      true,
+	"http://json-schema.org/draft-07/schema":       true,
+	"https://json-schema.org/draft/2019-09/schema": true,
+	"https://json-schema.org/draft/2020-12/schema": true,
 }
 
 // validJSONSchemaTypes is the set of primitive JSON Schema type names.

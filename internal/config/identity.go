@@ -7,25 +7,32 @@ import (
 	"strings"
 )
 
-// ParseAPIID parses an API ID string like "proto/payments/ledger/v1" into
-// its constituent parts: format, domain, name, and line.
+// ParseAPIID parses an API ID string into its constituent parts.
+// Accepts two forms:
+//   - 4-part: format/domain/name/line  (e.g. "proto/payments/ledger/v1")
+//   - 3-part: format/name/line         (e.g. "proto/orders/v1" — no explicit domain)
 func ParseAPIID(apiID string) (*APIIdentity, error) {
 	parts := strings.Split(apiID, "/")
-	if len(parts) != 4 {
-		return nil, fmt.Errorf("invalid API ID %q: expected format/<domain>/<name>/<line>", apiID)
+	if len(parts) < 3 || len(parts) > 4 {
+		return nil, fmt.Errorf("invalid API ID %q: expected format/<name>/<line> or format/<domain>/<name>/<line>", apiID)
 	}
-
-	format := parts[0]
-	domain := parts[1]
-	name := parts[2]
-	line := parts[3]
 
 	validFormats := map[string]bool{
 		"proto": true, "openapi": true, "avro": true,
 		"jsonschema": true, "parquet": true,
 	}
+
+	format := parts[0]
 	if !validFormats[format] {
 		return nil, fmt.Errorf("invalid API format %q: must be one of proto, openapi, avro, jsonschema, parquet", format)
+	}
+
+	var domain, name, line string
+	if len(parts) == 4 {
+		domain, name, line = parts[1], parts[2], parts[3]
+	} else {
+		// 3-part form: no explicit domain
+		name, line = parts[1], parts[2]
 	}
 
 	if !isValidLine(line) {
@@ -302,12 +309,16 @@ func DeriveGoModDir(api *APIIdentity) string {
 }
 
 // ParseLineFromID extracts the line component from an API ID string.
-// For example: "proto/payments/ledger/v1" → "v1"
+// Handles both 4-part (format/domain/name/line) and 3-part (format/name/line) forms.
+// For example: "proto/payments/ledger/v1" → "v1", "proto/orders/v2" → "v2"
 // Returns "v1" as a safe default if parsing fails.
 func ParseLineFromID(apiID string) string {
 	parts := strings.Split(apiID, "/")
 	if len(parts) >= 4 {
 		return parts[3]
+	}
+	if len(parts) == 3 {
+		return parts[2]
 	}
 	return "v1"
 }

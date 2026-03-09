@@ -420,11 +420,11 @@ func TestSaveConfig(t *testing.T) {
 	configPath := tmpDir + "/apx.yaml"
 
 	cfg := &Config{
-		Version:    1,
-		Org:        "testorg",
-		Repo:       "apis",
-		Release: ReleaseConfig{TagFormat: "{api}/{version}"},
-		Execution:  Execution{Mode: "local"},
+		Version:   1,
+		Org:       "testorg",
+		Repo:      "apis",
+		Release:   ReleaseConfig{TagFormat: "{api}/{version}"},
+		Execution: Execution{Mode: "local"},
 		ExternalAPIs: []ExternalRegistration{
 			{
 				ID:           "proto/google/pubsub/v1",

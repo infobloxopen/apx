@@ -4,10 +4,10 @@
 package testhelpers
 
 import (
-"context"
-"fmt"
-"os/exec"
-"strings"
+	"context"
+	"fmt"
+	"os/exec"
+	"strings"
 )
 
 // APXCommand wraps APX CLI command execution
@@ -81,10 +81,10 @@ func (a *APXCommand) run(ctx context.Context, args ...string) (string, error) {
 
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
-	
+
 	if err != nil {
-		return outputStr, fmt.Errorf("apx %s failed: %w\nOutput: %s", 
-strings.Join(args, " "), err, outputStr)
+		return outputStr, fmt.Errorf("apx %s failed: %w\nOutput: %s",
+			strings.Join(args, " "), err, outputStr)
 	}
 
 	return outputStr, nil

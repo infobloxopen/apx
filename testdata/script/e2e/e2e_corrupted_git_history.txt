@@ -23,16 +23,16 @@ exec git add .
 exec git commit --allow-empty -m 'Empty commit'
 
 # Try to release a non-existent module path
-! exec apx release prepare --module-path=internal/apis/proto/nonexistent/v1 --canonical-repo=github.com/testorg/corrupt-test --dry-run
+! exec apx release prepare proto/nonexistent/module/v1 --canonical-repo=github.com/testorg/corrupt-test --version=v1.0.0 --dry-run
 stderr 'does not exist'
 
 # Step 3: Verify the valid module still works
-exec apx release prepare --module-path=internal/apis/proto/corrupt/v1 --canonical-repo=github.com/testorg/corrupt-test --dry-run
+exec apx release prepare proto/corrupt/v1 --canonical-repo=github.com/testorg/corrupt-test --version=v1.0.0 --dry-run
 stdout 'Dry-run mode'
 
 # Step 4: Test with detached HEAD
 exec git checkout --detach HEAD
-exec apx release prepare --module-path=internal/apis/proto/corrupt/v1 --canonical-repo=github.com/testorg/corrupt-test --dry-run
+exec apx release prepare proto/corrupt/v1 --canonical-repo=github.com/testorg/corrupt-test --version=v1.0.0 --dry-run
 stdout 'Dry-run mode'
 
 # Return to main branch

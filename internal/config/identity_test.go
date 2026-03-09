@@ -40,14 +40,22 @@ func TestParseAPIID(t *testing.T) {
 			},
 		},
 		{
-			name:    "too few parts",
+			name:    "too few parts (no line)",
 			input:   "proto/payments/ledger",
-			wantErr: "expected format/<domain>/<name>/<line>",
+			wantErr: "invalid API line", // parsed as 3-part; "ledger" is not a valid v<N> line
 		},
 		{
 			name:    "too many parts",
 			input:   "proto/payments/ledger/v1/extra",
-			wantErr: "expected format/<domain>/<name>/<line>",
+			wantErr: "expected format/<name>/<line> or format/<domain>/<name>/<line>",
+		},
+		{
+			name:  "valid 3-part (no domain)",
+			input: "proto/orders/v1",
+			want: &APIIdentity{
+				ID: "proto/orders/v1", Format: "proto",
+				Domain: "", Name: "orders", Line: "v1",
+			},
 		},
 		{
 			name:    "invalid format",
@@ -70,7 +78,7 @@ func TestParseAPIID(t *testing.T) {
 		{
 			name:    "empty string",
 			input:   "",
-			wantErr: "expected format/<domain>/<name>/<line>",
+			wantErr: "expected format/<name>/<line> or format/<domain>/<name>/<line>",
 		},
 	}
 

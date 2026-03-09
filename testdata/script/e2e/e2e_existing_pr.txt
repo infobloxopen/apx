@@ -18,7 +18,7 @@ exec git commit -m 'Initial schema v1.0.0'
 exec git tag proto/existing/v1/v1.0.0
 
 # Step 2: First release attempt (dry-run to verify command works)
-exec apx release prepare --module-path=internal/apis/proto/existing/v1 --canonical-repo=github.com/testorg/existing-test --dry-run
+exec apx release prepare proto/existing/v1 --canonical-repo=github.com/testorg/existing-test --version=v1.0.0 --dry-run
 stdout 'Dry-run mode'
 
 # Step 3: Make a change and release again (simulate existing PR scenario)
@@ -27,7 +27,7 @@ exec git add .
 exec git commit -m 'Update schema v1.0.1'
 exec git tag proto/existing/v1/v1.0.1
 
-exec apx release prepare --module-path=internal/apis/proto/existing/v1 --canonical-repo=github.com/testorg/existing-test --version=v1.0.1 --dry-run
+exec apx release prepare proto/existing/v1 --canonical-repo=github.com/testorg/existing-test --version=v1.0.1 --dry-run
 stdout 'Dry-run mode'
 stdout 'v1.0.1'
 
