@@ -23,7 +23,12 @@ Before you begin, make sure you have:
 
 - **Go 1.26+** (for installation from source)
 - **Git** (for version control operations)
+- **GitHub or Gitea** as your canonical repository hosting platform
 - Basic familiarity with command-line tools
+
+:::{note}
+**Platform requirement:** APX 1.0 supports **GitHub** (github.com or GitHub Enterprise) and **Gitea** (self-hosted) as Git hosting platforms for the canonical repository. GitLab, Bitbucket, Azure DevOps, and other platforms are non-goals for v1.0. See [Platform Requirements](../index.md#platform-requirements-v10-scope).
+:::
 
 ## Choose Your Path
 

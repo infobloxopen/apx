@@ -204,4 +204,26 @@ apx gen go
 
 ---
 
+## Platform Requirements (v1.0 Scope)
+
+APX 1.0 supports **GitHub** and **Gitea** as the Git hosting platform for the canonical repository. All core features — tag-based releases, PR-based submissions, branch/tag protection, and the GitHub App bot identity — are designed and tested against these two platforms.
+
+**Supported hosting platforms:**
+
+| Platform | Support level |
+|----------|---------------|
+| GitHub (github.com) | ✅ Primary — fully supported |
+| GitHub Enterprise Server | ✅ Supported |
+| Gitea (self-hosted) | ✅ Supported (used for E2E test suite) |
+| GitLab | ❌ Non-goal for v1.0 |
+| Bitbucket | ❌ Non-goal for v1.0 |
+| Azure DevOps | ❌ Non-goal for v1.0 |
+| Other Git hosts | ❌ Non-goal for v1.0 |
+
+**CI runtime** (where `apx release` commands run) is separate from hosting: GitHub Actions is primary, and `apx release submit` also detects GitLab CI and Jenkins environments for setting CI metadata. The canonical repository itself must live on GitHub or Gitea.
+
+Supporting additional hosting platforms is out of scope for v1.0 and will be evaluated for future releases based on demand.
+
+---
+
 *APX standardizes how teams author, release, and consume versioned APIs across your organization.*

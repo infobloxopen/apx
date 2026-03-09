@@ -2,6 +2,10 @@
 
 The canonical repository (`github.com/<org>/apis`) is the single source of truth for all organization APIs. This is what consumers depend on and where CI creates official releases.
 
+:::{important}
+**APX 1.0 requires GitHub or Gitea** as the hosting platform for the canonical repository. GitHub Actions is the primary CI platform. Supporting GitLab, Bitbucket, Azure DevOps, or other hosting platforms is a non-goal for v1.0.
+:::
+
 ```{toctree}
 :maxdepth: 2
 
