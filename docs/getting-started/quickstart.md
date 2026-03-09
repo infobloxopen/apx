@@ -31,6 +31,10 @@ Every API in the canonical repo maps to a deterministic set of coordinates:
 
 **One canonical repo. One default import root. One path model.**
 
+:::{tip}
+**Custom import roots**: Set `import_root` in `apx.yaml` to use a vanity domain instead of the Git hosting path. For example, with `import_root: go.myorg.dev/apis`, the Go module becomes `go.myorg.dev/apis/proto/payments/ledger` and the import becomes `go.myorg.dev/apis/proto/payments/ledger/v1`. See [Configuration Reference](../cli-reference/configuration.md#import_root) for details.
+:::
+
 ## 1. Bootstrap the Canonical API Repo
 
 First, create your organization's canonical API repository:
@@ -108,6 +112,7 @@ This creates the **app repo structure**:
 version: 1
 org: <org>
 repo: <app-repo>
+# import_root: go.<org>.dev/apis   # optional: custom Go import prefix
 module_roots:
   - internal/apis/proto
 

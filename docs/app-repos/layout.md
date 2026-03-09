@@ -63,6 +63,7 @@ The primary APX configuration file. Created by `apx init app` and committed to t
 version: 1
 org: <org>
 repo: <app-repo>
+# import_root: go.<org>.dev/apis   # optional: custom Go import prefix
 module_roots:
   - internal/apis/proto
 
@@ -100,7 +101,7 @@ release:
   ci_only: true
 ```
 
-Most fields after `api.id`, `source.repo`, and `api.lifecycle` are **derived automatically** by `apx init app` or `apx identity`. They are shown here for reference.
+Most fields after `api.id`, `source.repo`, and `api.lifecycle` are **derived automatically** by `apx init app` or `apx identity`. They are shown here for reference. When `import_root` is set, Go module and import paths use the custom root instead of `source.repo`.
 
 ### apx.lock
 

@@ -96,6 +96,7 @@ View source code, report issues, and contribute to APX.
 ### Key Ideas
 
 - **Canonical source of truth**: `github.com/<org>/apis` (one repo, many submodules)
+- **Custom import roots**: Optional `import_root` decouples public Go import paths from Git hosting — use vanity domains like `go.acme.dev/apis` while hosting at `github.com/acme/apis`
 - **App teams tag releases** in their app repo; `apx release prepare` + `apx release submit` opens a PR to the canonical repo (files are copied to a feature branch and submitted for review)
 - **Only CI** in the canonical repo creates tags; Go modules are available automatically via the tag, while other language packages (Maven, wheels, OCI) require CI plugins teams configure separately
 - **Protobuf is primary**; OpenAPI/Avro/JSONSchema/Parquet supported at varying maturity levels (see [Format Maturity Matrix](testing/format-maturity.md))

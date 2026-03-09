@@ -38,7 +38,7 @@ func TestCanonicalScaffold(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 
-			scaffolder := NewCanonicalScaffolder(tt.org, tt.repo)
+			scaffolder := NewCanonicalScaffolder(tt.org, tt.repo, "")
 			err := scaffolder.Generate(tmpDir)
 
 			if (err != nil) != tt.wantErr {
@@ -93,7 +93,7 @@ func TestCanonicalScaffold(t *testing.T) {
 func TestBufYamlGeneration(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	scaffolder := NewCanonicalScaffolder("myorg", "apis")
+	scaffolder := NewCanonicalScaffolder("myorg", "apis", "")
 	err := scaffolder.Generate(tmpDir)
 	if err != nil {
 		t.Fatalf("Generate() failed: %v", err)
@@ -123,7 +123,7 @@ func TestBufYamlGeneration(t *testing.T) {
 func TestCodeownersGeneration(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	scaffolder := NewCanonicalScaffolder("myorg", "apis")
+	scaffolder := NewCanonicalScaffolder("myorg", "apis", "")
 	err := scaffolder.Generate(tmpDir)
 	if err != nil {
 		t.Fatalf("Generate() failed: %v", err)
@@ -149,10 +149,31 @@ func TestCodeownersGeneration(t *testing.T) {
 	}
 }
 
+func TestCanonicalScaffoldWithImportRoot(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	scaffolder := NewCanonicalScaffolder("myorg", "apis", "go.myorg.dev/apis")
+	err := scaffolder.Generate(tmpDir)
+	if err != nil {
+		t.Fatalf("Generate() failed: %v", err)
+	}
+
+	apxYamlPath := filepath.Join(tmpDir, "apx.yaml")
+	content, err := os.ReadFile(apxYamlPath)
+	if err != nil {
+		t.Fatalf("Failed to read apx.yaml: %v", err)
+	}
+
+	contentStr := string(content)
+	if !strings.Contains(contentStr, "import_root: go.myorg.dev/apis") {
+		t.Errorf("apx.yaml should contain import_root, content:\n%s", contentStr)
+	}
+}
+
 func TestCatalogGeneration(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	scaffolder := NewCanonicalScaffolder("myorg", "apis")
+	scaffolder := NewCanonicalScaffolder("myorg", "apis", "")
 	err := scaffolder.Generate(tmpDir)
 	if err != nil {
 		t.Fatalf("Generate() failed: %v", err)

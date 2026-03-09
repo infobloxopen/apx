@@ -15,14 +15,16 @@ type AppScaffolder struct {
 	modulePath string
 	org        string
 	repo       string
+	importRoot string
 }
 
 // NewAppScaffolder creates a new app scaffolder
-func NewAppScaffolder(modulePath, org, repo string) *AppScaffolder {
+func NewAppScaffolder(modulePath, org, repo, importRoot string) *AppScaffolder {
 	return &AppScaffolder{
 		modulePath: modulePath,
 		org:        org,
 		repo:       repo,
+		importRoot: importRoot,
 	}
 }
 
@@ -114,6 +116,7 @@ func (s *AppScaffolder) generateApxYaml(baseDir, format string) error {
 	cfg := config.DefaultConfig()
 	cfg.Org = s.org
 	cfg.Repo = s.repo
+	cfg.ImportRoot = s.importRoot
 	cfg.ModuleRoots = []string{moduleRoot}
 
 	content, err := config.MarshalConfigString(cfg)

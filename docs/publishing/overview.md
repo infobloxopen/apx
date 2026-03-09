@@ -266,6 +266,10 @@ import ledgerv1 "github.com/acme/apis/proto/payments/ledger/v1"
 
 Only the resolved module version changes.
 
+:::{tip}
+If your organization sets `import_root` in `apx.yaml` (e.g. `import_root: go.acme.dev/apis`), the import path above would instead be `go.acme.dev/apis/proto/payments/ledger/v1`. See [Configuration Reference](../cli-reference/configuration.md#import_root).
+:::
+
 See [Lifecycle Reference](lifecycle.md) for the full lifecycle model, transition
 rules, v0 line policy, and compatibility promise tables.
 

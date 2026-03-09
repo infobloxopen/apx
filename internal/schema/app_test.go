@@ -55,7 +55,7 @@ func TestAppScaffold(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 
-			scaffolder := NewAppScaffolder(tt.modulePath, tt.org, tt.repo)
+			scaffolder := NewAppScaffolder(tt.modulePath, tt.org, tt.repo, "")
 			err := scaffolder.Generate(tmpDir)
 
 			if (err != nil) != tt.wantErr {
@@ -92,7 +92,7 @@ func TestAppScaffoldProtoStructure(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	modulePath := "internal/apis/proto/payments/ledger/v1"
-	scaffolder := NewAppScaffolder(modulePath, "myorg", "myrepo")
+	scaffolder := NewAppScaffolder(modulePath, "myorg", "myrepo", "")
 
 	if err := scaffolder.Generate(tmpDir); err != nil {
 		t.Fatalf("Generate() failed: %v", err)
@@ -133,7 +133,7 @@ func TestAppScaffoldOpenAPIStructure(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	modulePath := "internal/apis/openapi/inventory/v2"
-	scaffolder := NewAppScaffolder(modulePath, "testorg", "myrepo")
+	scaffolder := NewAppScaffolder(modulePath, "testorg", "myrepo", "")
 
 	if err := scaffolder.Generate(tmpDir); err != nil {
 		t.Fatalf("Generate() failed: %v", err)

@@ -47,6 +47,7 @@ version: 1
 | `version` | integer | yes |  |  | Schema version number |
 | `org` | string | yes |  |  | GitHub organization name |
 | `repo` | string | yes |  |  | Canonical API repository name |
+| `import_root` | string | no |  |  | Custom public Go import prefix (e.g. `go.acme.dev/apis`). Overrides `source.repo` for Go module/import paths. |
 | `module_roots` | list | no | `[proto]` |  | Directories containing schema modules |
 | `language_targets` | map | no |  |  | Code generation targets keyed by language |
 | `language_targets.<key>` | struct |  |  |  | Code generation target for a language |
@@ -65,9 +66,9 @@ version: 1
 | `policy.jsonschema.breaking_mode` | string | no | `strict` | strict, lenient | Breaking change detection mode |
 | `policy.parquet` | struct | no |  |  | Parquet policy |
 | `policy.parquet.allow_additive_nullable_only` | boolean | no | `true` |  | Whether to restrict to additive nullable columns |
-| `releasing` | struct | no |  |  | Release configuration |
-| `releasing.tag_format` | string | no | `{subdir}/v{version}` |  | Tag pattern; must contain {version} |
-| `releasing.ci_only` | boolean | no | `true` |  | Restrict releasing to CI environments |
+| `release` | struct | no |  |  | Release configuration |
+| `release.tag_format` | string | no | `{subdir}/v{version}` |  | Tag pattern; must contain {version} |
+| `release.ci_only` | boolean | no | `true` |  | Restrict releasing to CI environments |
 | `tools` | struct | no |  |  | Pinned tool versions |
 | `tools.buf` | struct | no |  |  | Buf CLI settings |
 | `tools.buf.version` | string | no |  |  | Buf CLI version |
@@ -113,6 +114,35 @@ version: 1
 | `languages.<key>.import` | string | no |  |  | Import path for the language |
 
 ## Section Details
+
+### `import_root`
+
+Decouples the public Go import path from your Git hosting URL. When set, all derived Go module and import paths use this root instead of `source.repo`.
+
+```yaml
+import_root: go.acme.dev/apis
+```
+
+**Without `import_root`** (default):
+```
+Go module: github.com/acme/apis/proto/payments/ledger
+Go import: github.com/acme/apis/proto/payments/ledger/v1
+```
+
+**With `import_root: go.acme.dev/apis`**:
+```
+Go module: go.acme.dev/apis/proto/payments/ledger
+Go import: go.acme.dev/apis/proto/payments/ledger/v1
+```
+
+The `source.repo` field still reflects the actual Git repository. Only the public import identity changes.
+
+**Use cases:**
+- Vanity domain imports (`go.company.dev/apis`)
+- Migration-proof paths — change Git hosts without breaking consumer imports
+- Custom module registries (`buf.build/gen/go/acme/apis`)
+
+**Affected commands:** `inspect identity`, `inspect release`, `explain go-path`, `show`, `release prepare`, `release promote`.
 
 ### `module_roots`
 
@@ -167,12 +197,12 @@ policy:
     allow_additive_nullable_only: true
 ```
 
-### `releasing`
+### `release`
 
 Controls how schema versions are tagged and released.
 
 ```yaml
-releasing:
+release:
   tag_format: "{subdir}/v{version}"
   ci_only: true
 ```
@@ -326,6 +356,7 @@ A complete minimal configuration:
 version: 1
 org: your-org-name
 repo: apis
+# import_root: go.your-org-name.dev/apis   # optional: custom Go import prefix
 
 module_roots:
   - proto
@@ -358,7 +389,7 @@ policy:
   parquet:
     allow_additive_nullable_only: true
 
-releasing:
+release:
   tag_format: "{subdir}/v{version}"
   ci_only: true
 

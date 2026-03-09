@@ -11,15 +11,17 @@ import (
 
 // CanonicalScaffolder creates a canonical API repository structure
 type CanonicalScaffolder struct {
-	org  string
-	repo string
+	org        string
+	repo       string
+	importRoot string
 }
 
 // NewCanonicalScaffolder creates a new canonical scaffolder
-func NewCanonicalScaffolder(org, repo string) *CanonicalScaffolder {
+func NewCanonicalScaffolder(org, repo, importRoot string) *CanonicalScaffolder {
 	return &CanonicalScaffolder{
-		org:  org,
-		repo: repo,
+		org:        org,
+		repo:       repo,
+		importRoot: importRoot,
 	}
 }
 
@@ -100,6 +102,7 @@ func (s *CanonicalScaffolder) Generate(targetDir string) error {
 		cfg := config.DefaultConfig()
 		cfg.Org = s.org
 		cfg.Repo = s.repo
+		cfg.ImportRoot = s.importRoot
 		content, err := config.MarshalConfigString(cfg)
 		if err != nil {
 			return fmt.Errorf("failed to generate apx.yaml: %w", err)

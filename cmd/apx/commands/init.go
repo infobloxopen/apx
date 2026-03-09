@@ -48,6 +48,7 @@ func newInitCanonicalCmd() *cobra.Command {
 	}
 	cmd.Flags().String("org", "", "Organization name")
 	cmd.Flags().String("repo", "", "Repository name")
+	cmd.Flags().String("import-root", "", "Custom public Go import prefix (e.g. go.acme.dev/apis)")
 	cmd.Flags().Bool("skip-git", false, "Skip git initialization")
 	cmd.Flags().Bool("non-interactive", false, "Disable interactive prompts and require all flags")
 	cmd.Flags().Bool("setup-github", false, "Configure GitHub repo settings (branch/tag protection, org secrets) via gh CLI")
@@ -65,6 +66,7 @@ func newInitAppCmd() *cobra.Command {
 	}
 	cmd.Flags().String("org", "", "Organization name")
 	cmd.Flags().String("repo", "", "Repository name")
+	cmd.Flags().String("import-root", "", "Custom public Go import prefix (e.g. go.acme.dev/apis)")
 	cmd.Flags().Bool("non-interactive", false, "Disable interactive prompts and require all flags")
 	cmd.Flags().Bool("setup-github", false, "Configure GitHub repo settings (branch protection) via gh CLI")
 	return cmd
@@ -130,6 +132,7 @@ func initAction(cmd *cobra.Command, args []string) error {
 func initCanonicalAction(cmd *cobra.Command, args []string) error {
 	org, _ := cmd.Flags().GetString("org")
 	repo, _ := cmd.Flags().GetString("repo")
+	importRoot, _ := cmd.Flags().GetString("import-root")
 	skipGit, _ := cmd.Flags().GetBool("skip-git")
 	nonInteractive, _ := cmd.Flags().GetBool("non-interactive")
 
@@ -190,14 +193,30 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("failed to get repository name: %w", err)
 			}
 		}
+
+		// Prompt for import_root if not provided via flag
+		if importRoot == "" {
+			ui.Info("")
+			ui.Info("Custom import root (optional):")
+			ui.Info("  Decouples public Go import paths from your Git hosting URL.")
+			ui.Info("  Example: go.%s.dev/apis → consumers import go.%s.dev/apis/proto/...", org, org)
+			ui.Info("  Leave blank to use github.com/%s/%s as the import root.", org, repo)
+			ui.Info("")
+			if err := interactive.PromptForString("Import root (blank to skip):", "", &importRoot); err != nil {
+				return fmt.Errorf("failed to get import root: %w", err)
+			}
+		}
 	}
 
 	ui.Info("Initializing canonical API repository...")
 	ui.Info("Organization: %s", org)
 	ui.Info("Repository: %s", repo)
+	if importRoot != "" {
+		ui.Info("Import root: %s", importRoot)
+	}
 	ui.Info("")
 
-	scaffolder := schema.NewCanonicalScaffolder(org, repo)
+	scaffolder := schema.NewCanonicalScaffolder(org, repo, importRoot)
 	if err := scaffolder.Generate("."); err != nil {
 		return fmt.Errorf("failed to generate canonical structure: %w", err)
 	}
@@ -307,6 +326,7 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 
 	org, _ := cmd.Flags().GetString("org")
 	repo, _ := cmd.Flags().GetString("repo")
+	importRoot, _ := cmd.Flags().GetString("import-root")
 	nonInteractive, _ := cmd.Flags().GetBool("non-interactive")
 
 	// Also check parent flags
@@ -366,14 +386,30 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("failed to get repository name: %w", err)
 			}
 		}
+
+		// Prompt for import_root if not provided via flag
+		if importRoot == "" {
+			ui.Info("")
+			ui.Info("Custom import root (optional):")
+			ui.Info("  Decouples public Go import paths from your Git hosting URL.")
+			ui.Info("  Example: go.%s.dev/apis → consumers import go.%s.dev/apis/proto/...", org, org)
+			ui.Info("  Leave blank to use github.com/%s/%s as the import root.", org, repo)
+			ui.Info("")
+			if err := interactive.PromptForString("Import root (blank to skip):", "", &importRoot); err != nil {
+				return fmt.Errorf("failed to get import root: %w", err)
+			}
+		}
 	}
 
 	ui.Info("Initializing application repository...")
 	ui.Info("Module path: %s", modulePath)
 	ui.Info("Organization: %s", org)
 	ui.Info("Repository: %s", repo)
+	if importRoot != "" {
+		ui.Info("Import root: %s", importRoot)
+	}
 
-	scaffolder := schema.NewAppScaffolder(modulePath, org, repo)
+	scaffolder := schema.NewAppScaffolder(modulePath, org, repo, importRoot)
 	if err := scaffolder.Generate("."); err != nil {
 		return fmt.Errorf("failed to generate app structure: %w", err)
 	}
