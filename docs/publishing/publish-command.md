@@ -1,6 +1,15 @@
 # The publish Command
 
-The `apx publish` command publishes an API module to the canonical repository.
+`apx publish` is the **convenience wrapper** for publishing an API to the
+canonical repository in a single command. It validates, pushes a snapshot
+branch, and opens a PR — no manifest, no release record.
+
+For CI pipelines, production releases, and organization-wide governance,
+use the [release pipeline](../cli-reference/release-commands.md) instead
+(`apx release prepare` → `submit` → `finalize`).
+
+See [Which Path Should I Use?](overview.md#which-path-should-i-use) for
+a detailed comparison.
 
 ## Usage
 
@@ -62,13 +71,6 @@ apx publish proto/payments/ledger/v1 --version v1.0.0 --dry-run
 | `--strict` | Make `go_package` mismatches an error instead of a warning |
 | `--skip-gomod` | Skip `go.mod` generation and validation |
 | `--create-pr` | Create a pull request on the canonical repo (default behavior) |
-
-:::{tip}
-For CI pipelines and production releases, consider using the
-[release pipeline](../cli-reference/release-commands.md) instead.
-It provides a manifest, idempotency checks, catalog updates, and
-an immutable release record.
-:::
 
 ## What Publish Does
 

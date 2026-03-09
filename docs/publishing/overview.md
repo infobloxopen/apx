@@ -154,6 +154,34 @@ See [Publish Command](publish-command.md) for full usage.
 
 See [Tagging Strategy](tagging-strategy.md) for details on how tags are constructed.
 
+## Which Path Should I Use?
+
+`apx publish` is a **convenience wrapper** — a single fire-and-forget command.
+`apx release` is the **canonical enterprise workflow** — a multi-step pipeline
+with validation gates, manifest persistence, and immutable audit records.
+
+| Scenario | Recommended path | Why |
+|----------|-----------------|-----|
+| Solo dev, quick iteration | `apx publish` | One command, minimal ceremony |
+| Team CI pipeline | `apx release` | Manifest tracks state across CI steps |
+| Production / GA release | `apx release` | Audit trail, catalog update, policy enforcement |
+| Org-wide governance | `apx release` | Immutable release records, CI provenance, policy gates |
+| Lifecycle promotion | `apx release promote` | Only the release pipeline supports promotions |
+
+**Quick decision rule:** If you need an audit trail, catalog update, or policy
+enforcement, use `apx release`. For everything else, `apx publish` works.
+
+| Feature | `apx publish` | `apx release` |
+|---------|:-------------:|:--------------:|
+| Single command | ✅ | ❌ (3 steps) |
+| Manifest persistence | ❌ | ✅ |
+| Idempotency (SHA-256) | ❌ | ✅ |
+| Catalog update | ❌ | ✅ |
+| Release record | ❌ | ✅ |
+| Policy enforcement | ❌ | ✅ |
+| Lifecycle promotions | ❌ | ✅ |
+| CI provenance | ❌ | ✅ |
+
 ## Publishing by Lifecycle Stage
 
 Lifecycle and version work together: the lifecycle declares the maturity signal while

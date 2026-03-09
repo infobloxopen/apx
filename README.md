@@ -210,6 +210,17 @@ apx breaking --format=openapi
 
 ### Publishing
 
+APX offers two publishing paths:
+
+- **`apx publish`** — one-step convenience wrapper (validates, pushes branch,
+  opens PR). Best for solo developers and quick iterations.
+- **`apx release` pipeline** (`prepare` → `submit` → `finalize` → `promote`)
+  — structured multi-step workflow with manifest, policy checks, and
+  immutable release records. Best for CI and production releases.
+
+See the [publishing overview](docs/publishing/overview.md) for a detailed
+comparison.
+
 #### `apx publish`
 
 Publish schema module to canonical repository via pull request.
@@ -225,6 +236,17 @@ apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable --canon
 - `--lifecycle`: Lifecycle state (`experimental`, `beta`, `stable`, `deprecated`, `sunset`)
 - `--canonical-repo`: Canonical repository URL
 - `--module-path`: Path to module in app repo (legacy; prefer positional api-id)
+
+#### `apx release`
+
+Structured release pipeline for CI and production workflows.
+
+```bash
+apx release prepare proto/payments/ledger/v1 --version v1.0.0
+apx release submit proto/payments/ledger/v1
+apx release finalize proto/payments/ledger/v1
+apx release promote proto/payments/ledger/v1 --lifecycle stable
+```
 
 ### Consumer Workflow
 
