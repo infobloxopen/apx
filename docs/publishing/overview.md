@@ -89,18 +89,7 @@ Release artifacts and tags belong to this one repo. Local overlays (`go.work`) a
 
 APX provides two ways to get an API into the canonical repository:
 
-### Quick Publish (`apx publish`)
-
-A single fire-and-forget command that validates, pushes, and tags in one step.
-Best for local development and quick iterations.
-
-```bash
-apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
-```
-
-See [Publish Command](publish-command.md) for full usage.
-
-### Release Pipeline (`apx release`)
+### Release Pipeline (`apx release`) — Recommended
 
 A multi-step workflow with explicit phases, manifest persistence, idempotency
 checks, and immutable audit records.  Best for CI pipelines and production
@@ -126,11 +115,21 @@ apx release submit
 
 See [Release Commands](../cli-reference/release-commands.md) for full usage.
 
+### Quick Publish (`apx publish`)
+
+A single fire-and-forget command that validates, pushes a snapshot branch, and
+opens a PR.  Best for local development and quick iterations.
+
+```bash
+apx publish proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
+```
+
+Quick publish does **not** write a manifest, update the catalog, or emit a
+release record.  Tagging happens after merge in canonical CI.
+
+See [Publish Command](publish-command.md) for full usage.
+
 See [Tagging Strategy](tagging-strategy.md) for details on how tags are constructed.
-
-See [Publish Command](publish-command.md) for CLI usage details.
-
-See [Release Commands](../cli-reference/release-commands.md) for the multi-step release pipeline.
 
 ## Publishing by Lifecycle Stage
 

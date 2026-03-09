@@ -1,232 +1,231 @@
 # Publishing Workflow
 
-APX implements a **tag-in-app → PR-to-canonical** publishing workflow that preserves team autonomy while ensuring governance and consistency.
+APX implements a **PR-first release model**: every API change reaches the
+canonical repository through a pull request that is validated before merge
+and tagged after merge.
 
-:::{note}
-Full per-step guides are in progress. See sub-pages once available.
-:::
+Two paths lead to that PR — choose the one that fits your workflow:
 
-## Overview
+| Path | Best for | Steps |
+|------|----------|-------|
+| **Release pipeline** (`apx release`) | CI pipelines, production releases, audit trails | `prepare` → `submit` → `finalize` |
+| **Quick publish** (`apx publish`) | Local development, quick iterations | Single command |
 
-The publishing workflow connects app repo development to canonical repo releases:
+Both paths perform the same core operations: validate the API, push a
+snapshot to the canonical repo, and open a pull request via the `gh` CLI.
+The release pipeline adds a manifest, idempotency checks, catalog updates,
+and an immutable release record.
 
-::::{grid} 2 2 2 2
+## The Release Pipeline (Recommended)
+
+::::{grid} 1 1 3 3
 :gutter: 2
 
-:::{grid-item-card} **1. Local Validation**
+:::{grid-item-card} **1. Prepare**
 ^^^
 ```bash
-apx lint
-apx breaking --against=HEAD^
-apx semver suggest --against=HEAD^
+apx release prepare \
+  proto/payments/ledger/v1 \
+  --version v1.0.0-beta.1 \
+  --lifecycle beta
 ```
+Validates schemas, lifecycle policy, version-line compatibility.
+Writes `.apx-release.yaml`.
 :::
 
-:::{grid-item-card} **2. Tag in App Repo**
+:::{grid-item-card} **2. Submit**
 ^^^
 ```bash
-git tag proto/domain/api/v1/v1.2.3
-git push --follow-tags
+apx release submit
 ```
+Clones the canonical repo, copies the snapshot to a release branch,
+opens a PR via `gh`.  Idempotent — safe to retry.
 :::
 
-:::{grid-item-card} **3. App CI Publishes**
+:::{grid-item-card} **3. Finalize**
 ^^^
 ```bash
-apx publish \
-  --canonical-repo=...
+apx release finalize
 ```
-:::
-
-:::{grid-item-card} **4. Canonical CI Releases**
-^^^
-- Validates changes
-- Creates subdirectory tag
-- Publishes packages
+Run by canonical CI after merge: re-validates schemas, creates the
+official tag, updates the catalog, emits a release record.
 :::
 
 ::::
 
-## Publishing Strategies
+See [Release Commands](../cli-reference/release-commands.md) for full
+flag reference and state machine details.
 
-APX uses git subtree for publishing:
+### Manifest and Release Record
 
-### Git Subtree Publishing
-- **Preserves commit history** in canonical repo
-- **Maintains authorship and timestamps** for full traceability
-- **Better for debugging** and understanding API evolution
-- **Transparent process** with complete audit trail
-- **Industry standard** git tooling
+Every release pipeline run produces two artifacts:
 
-## Subdirectory Tagging
+| Artifact | Created by | Purpose |
+|----------|-----------|---------|
+| `.apx-release.yaml` | `prepare` (updated by each phase) | Tracks state, identity, validation results, PR metadata |
+| `.apx-release-record.yaml` | `finalize` | Immutable audit record with CI provenance, artifacts, catalog status |
 
-APX uses **subdirectory tags** to version individual APIs:
+### Lifecycle Promotions
 
-```
-# App repo tags (triggers CI)
-proto/payments/ledger/v1/v1.2.3
-proto/users/profile/v1/v1.0.1
-
-# Canonical repo tags (created by CI)  
-proto/payments/ledger/v1.2.3
-proto/users/profile/v1.0.1
-```
-
-### Tag Format Rules
-
-- **Schema format prefix**: `proto/`, `openapi/`, `avro/`, etc.
-- **Domain organization**: `domain/service/` grouping
-- **Version directory**: `/v1/`, `/v2/` for major versions
-- **Semantic version**: `/v1.2.3` following semver
-
-## Validation Pipeline
-
-Every publish goes through comprehensive validation:
-
-::::{grid} 1 1 2 2  
-:gutter: 3
-
-:::{grid-item-card} **Pre-Publish (App CI)**
-^^^
-- Schema linting
-- Breaking change detection
-- Policy compliance
-- Version suggestion validation
-:::
-
-:::{grid-item-card} **Post-Publish (Canonical CI)**
-^^^
-- Re-validate all changes
-- Verify SemVer compliance
-- Check CODEOWNERS approval
-- Create official tags
-:::
-
-:::{grid-item-card} **Format-Specific Checks**
-^^^
-- **Proto**: buf lint, buf breaking
-- **OpenAPI**: spectral, oasdiff  
-- **Avro**: compatibility rules
-- **JSON Schema**: diff analysis
-:::
-
-:::{grid-item-card} **Policy Enforcement**
-^^^
-- Ban service annotations (gorm, etc.)
-- Approved generators only
-- Breaking change justification
-- Security vulnerability scans
-:::
-
-::::
-
-## Example Publishing Flow
-
-### 1. Prepare for Release
+The release pipeline also supports lifecycle transitions:
 
 ```bash
-# Validate locally
-apx fetch                    # ensure latest toolchain
-apx lint                     # check schema quality
-apx breaking --against=HEAD^ # verify compatibility
-apx semver suggest --against=HEAD^ # get recommended version bump
+# Promote from beta to stable
+apx release promote proto/payments/ledger/v1 --to stable --version v1.0.0
+apx release submit
 
-# Expected output:
-# Suggested version: v1.2.3 (PATCH - backwards compatible bug fixes)
+# Mark as deprecated
+apx release promote proto/payments/ledger/v1 --to deprecated
+apx release submit
 ```
 
-### 2. Tag in App Repository
+See [Lifecycle Reference](lifecycle.md) for the full lifecycle model.
 
-```bash
-# Create and push tag (matches suggested version)
-git tag proto/payments/ledger/v1/v1.2.3
-git push --follow-tags
+## Quick Publish (Convenience Path)
 
-# This triggers app CI to run apx publish
-```
-
-### 3. App CI Automation
-
-App CI runs the publish command:
+For fast, one-shot publishing — ideal during local development:
 
 ```bash
 apx publish proto/payments/ledger/v1 \
-  --version v1.2.3 \
-  --lifecycle stable \
-  --create-pr
+  --version v1.0.0-beta.1 \
+  --lifecycle beta
 ```
 
-### 4. Canonical Repository PR
+This single command validates, pushes a snapshot branch, and opens a PR.
+It does **not** write a manifest, update the catalog, or emit a release
+record.
 
-The PR contains:
-- **Schema files** in correct canonical structure
-- **go.mod** with proper module path (if not present locally)
-- **CHANGELOG.md** with breaking changes summary
-- **Validation reports** from lint/breaking checks
+See [Publish Command](publish-command.md) for full usage.
 
-### 5. Canonical CI Processing
+## Validation Pipeline
 
-On PR merge, canonical CI:
+Every publish or release goes through validation at multiple stages:
 
-1. **Re-validates** all changes
-2. **Verifies SemVer** matches content
-3. **Creates subdirectory tag**: `proto/payments/ledger/v1.2.3`
-4. **Publishes packages** (Maven, wheels, OCI, etc.)
-5. **Updates catalog** for discovery
+::::{grid} 1 1 2 2
+:gutter: 3
+
+:::{grid-item-card} **Pre-Publish (Local / App CI)**
+^^^
+- `apx lint` — schema linting
+- `apx breaking` — backward compatibility
+- `apx semver suggest` — version recommendation
+- `apx policy check` — organizational policy
+:::
+
+:::{grid-item-card} **Prepare / Publish**
+^^^
+- API ID parsing and identity derivation
+- Lifecycle-version compatibility
+- `go_package` consistency (proto)
+- `go.mod` module path validation
+- Idempotency check (release pipeline)
+:::
+
+:::{grid-item-card} **Canonical CI (PR)**
+^^^
+- Re-validates schemas in canonical context
+- Re-checks breaking changes against previous tag
+- Runs policy validation
+:::
+
+:::{grid-item-card} **Finalize (Release Pipeline)**
+^^^
+- Re-runs lint and breaking checks
+- Creates annotated git tag
+- Updates catalog
+- Emits release record with CI provenance
+:::
+
+::::
+
+See [Publishing Validation](validation.md) for the full validation matrix.
+
+## Subdirectory Tagging
+
+APX uses **subdirectory-scoped git tags** so every API line is versioned
+independently within a single canonical repository.
+
+```
+<api-id>/v<semver>
+```
+
+Examples:
+
+```
+proto/payments/ledger/v1/v1.0.0-beta.1
+proto/payments/ledger/v1/v1.0.0
+proto/users/profile/v1/v1.1.0
+```
+
+Tags are created by `apx release finalize` (or by canonical CI after
+an `apx publish` PR is merged).
+
+See [Tagging Strategy](tagging-strategy.md) for full details.
+
+## Example: End-to-End Release
+
+### 1. Validate Locally
+
+```bash
+apx fetch                          # ensure latest toolchain
+apx lint                           # check schema quality
+apx breaking --against=HEAD^       # verify backward compatibility
+apx semver suggest --against=HEAD^ # get recommended version bump
+```
+
+### 2. Prepare the Release
+
+```bash
+apx release prepare proto/payments/ledger/v1 \
+  --version v1.2.0 \
+  --lifecycle stable
+```
+
+### 3. Submit to Canonical Repo
+
+```bash
+apx release submit
+# ✓ Pull request created
+# PR: https://github.com/acme/apis/pull/42
+```
+
+### 4. Canonical CI Processes
+
+After the PR is reviewed and merged, canonical CI runs:
+
+```bash
+apx release finalize
+```
+
+This creates the tag `proto/payments/ledger/v1/v1.2.0`, updates the
+catalog, and writes the release record.
 
 ## Error Handling
 
 Common publishing errors and solutions:
 
-### Version Mismatch
-```
-Error: Tagged version v1.2.3 doesn't match suggested v1.3.0
-```
-**Solution**: Update tag to match breaking changes, or justify version choice
-
-### Breaking Changes Without Major Bump
-```
-Error: Breaking changes detected but only minor version bump requested
-```
-**Solution**: Use major version bump or provide breaking change waiver
-
-### Policy Violations
-```
-Error: Detected banned annotation: (gorm.column)
-```
-**Solution**: Remove service-specific annotations from shared schemas
-
-### Merge Conflicts
-```
-Error: Cannot merge subtree - conflicts in canonical repo
-```
-**Solution**: Resolve conflicts manually by updating your branch or coordinating with the canonical repo maintainers
+| Error | Cause | Solution |
+|-------|-------|----------|
+| Version mismatch | Tagged version doesn't match suggested | Update version to match breaking changes |
+| Breaking change on stable | Breaking change with minor/patch bump | Use a new major API line (`v2`) |
+| Policy violation | Banned annotation detected | Remove service-specific annotations |
+| Lifecycle mismatch | Version tag incompatible with lifecycle | Use the correct prerelease tag for the lifecycle |
+| `gh` not found | GitHub CLI not installed | `brew install gh` and `gh auth login` |
 
 ## Best Practices
 
-### Pre-Publish Checklist
-- [ ] Run full validation locally
-- [ ] Coordinate with downstream consumers
-- [ ] Document breaking changes
-- [ ] Test generated code
-- [ ] Verify CODEOWNERS approval
-
-### Tagging Best Practices
-- **Tag after merge** to main branch
-- **Use annotated tags** with release notes
-- **Follow semver strictly** 
-- **Coordinate major versions** across teams
-
-### Emergency Releases
-For urgent fixes:
-1. **Create hotfix branch** from last release
-2. **Apply minimal changes**
-3. **Tag patch version**
-4. **Expedite canonical CI** if needed
+- **Use the release pipeline for CI** — it provides audit trails and idempotency
+- **Use quick publish for local iteration** — faster feedback loop
+- **Run `apx lint` and `apx breaking` before publish** — catch issues early
+- **Follow lifecycle conventions** — `experimental` for alpha, `beta` for beta/rc, `stable` for GA
+- **Coordinate major versions** across teams — new API lines (`v2`) affect all consumers
 
 ## Next Steps
 
-1. Review the [full CLI reference](../cli-reference/index.md) for all publishing flags
-2. Read the [Lifecycle Reference](lifecycle.md) for lifecycle states, v0 policy, and compatibility promises
-3. See [Release Guardrails](release-guardrails.md) for policy enforcement during releases
-4. Understand the [Versioning Strategy](../dependencies/versioning-strategy.md) three-layer model
+- [Release Commands](../cli-reference/release-commands.md) — full release state machine reference
+- [Publish Command](publish-command.md) — quick publish CLI reference
+- [Publishing Overview](overview.md) — identity model and two-path architecture
+- [Lifecycle Reference](lifecycle.md) — lifecycle states, transitions, and compatibility promises
+- [Tagging Strategy](tagging-strategy.md) — subdirectory tag format
+- [Release Guardrails](release-guardrails.md) — policy enforcement during releases
+- [Publishing Validation](validation.md) — validation pipeline details
