@@ -242,7 +242,7 @@ func ValidateVersionLine(version, line string) error {
 //
 // The lifecycle parameter is used to attach the correct prerelease tag:
 //   - "experimental" → -alpha.1
-//   - "preview"/"beta" → -beta.1
+//   - "beta" → -beta.1 ("preview" accepted as alias)
 //   - "stable" → no prerelease
 //   - "deprecated" → no prerelease (but caller should warn)
 //   - "sunset" → blocked

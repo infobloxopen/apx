@@ -362,7 +362,7 @@ func TestLifecyclePrerelease(t *testing.T) {
 	assert.Equal(t, "alpha.1", lifecyclePrerelease("experimental", 1))
 	assert.Equal(t, "alpha.3", lifecyclePrerelease("experimental", 3))
 	assert.Equal(t, "beta.1", lifecyclePrerelease("preview", 1))
-	assert.Equal(t, "beta.1", lifecyclePrerelease("beta", 1)) // alias for preview
+	assert.Equal(t, "beta.1", lifecyclePrerelease("beta", 1)) // canonical form
 	assert.Equal(t, "", lifecyclePrerelease("stable", 1))
 	assert.Equal(t, "", lifecyclePrerelease("deprecated", 1))
 	assert.Equal(t, "", lifecyclePrerelease("", 1))

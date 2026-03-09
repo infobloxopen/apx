@@ -40,7 +40,7 @@ func NormalizeLifecycle(lifecycle string) string {
 // Rules:
 //
 //	experimental → must have -alpha.* prerelease
-//	beta/preview → must have -alpha.*, -beta.*, or -rc.* prerelease
+//	beta (or preview alias) → must have -alpha.*, -beta.*, or -rc.* prerelease
 //	stable       → must NOT have a prerelease tag
 //	deprecated   → any version allowed (warning emitted by caller)
 //	sunset       → blocked unless override is set
@@ -117,7 +117,7 @@ func LifecycleRequiresWarning(lifecycle string) bool {
 var lifecycleOrder = map[string]int{
 	"experimental": 0,
 	"preview":      1,
-	"beta":         1, // alias — same rank as preview
+	"beta":         1, // canonical; preview is a backward-compat alias
 	"stable":       2,
 	"deprecated":   3,
 	"sunset":       4,
