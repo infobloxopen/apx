@@ -47,6 +47,7 @@ type ReleaseManifest struct {
 	PythonImport   string `yaml:"python_import,omitempty" json:"python_import,omitempty"`
 	MavenCoords    string `yaml:"maven_coords,omitempty" json:"maven_coords,omitempty"`
 	JavaPackage    string `yaml:"java_package,omitempty" json:"java_package,omitempty"`
+	NpmPackage     string `yaml:"npm_package,omitempty" json:"npm_package,omitempty"`
 
 	// Tag
 	Tag string `yaml:"tag" json:"tag"`
@@ -136,6 +137,10 @@ func NewManifest(
 	if javaCoords, ok := langs["java"]; ok {
 		m.MavenCoords = javaCoords.Module
 		m.JavaPackage = javaCoords.Import
+	}
+
+	if tsCoords, ok := langs["typescript"]; ok {
+		m.NpmPackage = tsCoords.Module
 	}
 
 	return m
@@ -232,6 +237,9 @@ func FormatManifestReport(m *ReleaseManifest) string {
 	if m.MavenCoords != "" {
 		lines = append(lines, fmt.Sprintf("Maven:       %s", m.MavenCoords))
 		lines = append(lines, fmt.Sprintf("Java pkg:    %s", m.JavaPackage))
+	}
+	if m.NpmPackage != "" {
+		lines = append(lines, fmt.Sprintf("npm:         %s", m.NpmPackage))
 	}
 	if m.PRURL != "" {
 		lines = append(lines, fmt.Sprintf("PR URL:      %s", m.PRURL))

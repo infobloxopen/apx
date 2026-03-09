@@ -46,6 +46,7 @@ func unlinkAction(cmd *cobra.Command, args []string) error {
 	printGoUnlinkHint(modulePath)
 	printPythonUnlinkHint(modulePath)
 	printJavaUnlinkHint(modulePath)
+	printTsUnlinkHint(modulePath)
 	ui.Success("Unlinked %s - now using released module", modulePath)
 	return nil
 }
@@ -83,4 +84,17 @@ func printJavaUnlinkHint(modulePath string) {
 	}
 	coords := config.DeriveMavenCoords(cfg.Org, api)
 	ui.Info("Java: Add %s:<version> to your pom.xml", coords)
+}
+
+func printTsUnlinkHint(modulePath string) {
+	cfg, _ := config.LoadRaw("")
+	if cfg == nil || cfg.Org == "" {
+		return
+	}
+	api, err := config.ParseAPIID(modulePath)
+	if err != nil {
+		return
+	}
+	npmPkg := config.DeriveNpmPackage(cfg.Org, api)
+	ui.Info("TypeScript: Run 'npm install %s' to install the released package", npmPkg)
 }

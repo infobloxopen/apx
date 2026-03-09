@@ -1,0 +1,31 @@
+# Test TypeScript/npm identity derivation in inspect and unlink commands
+
+# --- Setup: create apx.yaml with org ---
+exec sh -c 'echo "version: 1" > apx.yaml'
+exec sh -c 'echo "org: acme" >> apx.yaml'
+exec sh -c 'echo "repo: apis" >> apx.yaml'
+
+# --- inspect identity shows npm package when org is set ---
+exec apx inspect identity proto/payments/ledger/v1 --source-repo github.com/acme/apis
+stdout 'npm:        @acme/payments-ledger-v1-proto'
+stdout 'Py dist:    acme-payments-ledger-v1'
+stdout 'Maven:      com.acme.apis:payments-ledger-v1-proto'
+
+# --- inspect identity 3-part (no domain) ---
+exec apx inspect identity proto/orders/v1 --source-repo github.com/acme/apis
+stdout 'npm:        @acme/orders-v1-proto'
+
+# --- inspect release shows npm package ---
+exec apx inspect release proto/payments/ledger/v1@v1.0.0-beta.1 --source-repo github.com/acme/apis
+stdout 'npm:        @acme/payments-ledger-v1-proto'
+
+# --- JSON output includes TypeScript coords ---
+exec apx --json inspect identity proto/payments/ledger/v1 --source-repo github.com/acme/apis
+stdout '"module": "@acme/payments-ledger-v1-proto"'
+stdout '"import": "@acme/payments-ledger-v1-proto"'
+
+# --- openapi format also works ---
+exec apx inspect identity openapi/billing/invoices/v1 --source-repo github.com/acme/apis
+stdout 'npm:        @acme/billing-invoices-v1-proto'
+stdout 'Maven:      com.acme.apis:billing-invoices-v1-proto'
+stdout 'Py dist:    acme-billing-invoices-v1'

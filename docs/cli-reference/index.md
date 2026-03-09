@@ -15,7 +15,7 @@ APX commands are organized into logical categories:
 - `apx fetch` - Download toolchain  
 - `apx gen` - Generate code with canonical imports
 - `apx sync` - Update go.work overlays
-- `apx link` - Link Python overlays for local dev
+- `apx link` - Link Python/TypeScript overlays for local dev
 - `apx unlink` - Remove overlays for released APIs
 :::
 
@@ -142,7 +142,14 @@ type Service struct {
 | `proto/users/profile/v1` | `com.<org>.apis` | `users-profile-v1-proto` | `com.<org>.apis.users.profile.v1` |
 | `proto/orders/v1` (3-part) | `com.<org>.apis` | `orders-v1-proto` | `com.<org>.apis.orders.v1` |
 
-**TypeScript** — Planned. npm scope and package name derivation will follow the same deterministic pattern.
+**APX API Path → TypeScript / npm**
+
+| APX API Path | npm Package |
+|---|---|
+| `proto/payments/ledger/v1` | `@<org>/payments-ledger-v1-proto` |
+| `proto/users/profile/v1` | `@<org>/users-profile-v1-proto` |
+| `proto/orders/v1` (3-part) | `@<org>/orders-v1-proto` |
+| `openapi/billing/invoices/v1` | `@<org>/billing-invoices-v1-proto` |
 
 **Local Overlay Paths**
 

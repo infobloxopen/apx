@@ -239,6 +239,31 @@ func DeriveJavaPackage(org string, api *APIIdentity) string {
 	return strings.Join(parts, ".")
 }
 
+// DeriveNpmPackage computes the scoped npm package name for an API.
+//
+// Rules:
+//   - Pattern: @<org>/<domain>-<name>-<line>-proto (4-part) or @<org>/<name>-<line>-proto (3-part)
+//   - Lowercased, hyphens join path segments, -proto suffix
+//   - Example: org="acme", proto/payments/ledger/v1 → "@acme/payments-ledger-v1-proto"
+//   - Example: org="acme", proto/orders/v1 (3-part) → "@acme/orders-v1-proto"
+func DeriveNpmPackage(org string, api *APIIdentity) string {
+	scope := strings.ToLower(org)
+	var parts []string
+	if api.Domain != "" {
+		parts = append(parts, strings.ToLower(api.Domain))
+	}
+	parts = append(parts, strings.ToLower(api.Name))
+	parts = append(parts, strings.ToLower(api.Line))
+	parts = append(parts, "proto")
+	return "@" + scope + "/" + strings.Join(parts, "-")
+}
+
+// DeriveTsImport returns the TypeScript import path for an API.
+// In TypeScript, the import path is the npm package name itself.
+func DeriveTsImport(org string, api *APIIdentity) string {
+	return DeriveNpmPackage(org, api)
+}
+
 // pep440PreRe matches SemVer pre-release tags: alpha, beta, rc with optional dot-separator.
 var pep440PreRe = regexp.MustCompile(`-(alpha|beta|rc)\.?(\d+)`)
 
@@ -329,6 +354,10 @@ func DeriveLanguageCoordsWithRoot(sourceRepo, importRoot, org string, api *APIId
 			Module: DeriveMavenCoords(org, api),
 			Import: DeriveJavaPackage(org, api),
 		}
+		coords["typescript"] = LanguageCoords{
+			Module: DeriveNpmPackage(org, api),
+			Import: DeriveTsImport(org, api),
+		}
 	}
 
 	return coords, nil
@@ -408,6 +437,10 @@ func FormatIdentityReport(api *APIIdentity, source *SourceIdentity, release *Rel
 	if javaCoords, ok := langs["java"]; ok {
 		sb.WriteString(fmt.Sprintf("Maven:      %s\n", javaCoords.Module))
 		sb.WriteString(fmt.Sprintf("Java pkg:   %s\n", javaCoords.Import))
+	}
+
+	if tsCoords, ok := langs["typescript"]; ok {
+		sb.WriteString(fmt.Sprintf("npm:        %s\n", tsCoords.Module))
 	}
 
 	return sb.String()

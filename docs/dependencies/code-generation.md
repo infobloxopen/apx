@@ -10,7 +10,7 @@ apx gen <lang> [path]
 
 The `apx gen` command reads your schemas from `internal/apis/`, generates code using format-specific toolchains (e.g. Buf for protobuf), and writes the output to `internal/gen/<lang>/` with canonical module paths.
 
-**Supported languages:** `go`, `python`, `java`
+**Supported languages:** `go`, `python`, `java`, `typescript`
 
 ---
 
@@ -179,6 +179,46 @@ mvn compile
 ```
 
 This mirrors Go's `go.work` overlay and Python's `pip install -e` — same identity in dev and prod, only the resolution backend changes.
+
+---
+
+## TypeScript Generation
+
+TypeScript follows the same schema-first pattern. APX derives scoped npm package names from the API identity:
+
+| Component | Pattern | Example |
+|-----------|---------|---------|
+| npm package | `@<org>/<domain>-<name>-<line>-proto` | `@acme/payments-ledger-v1-proto` |
+
+The `-proto` suffix distinguishes schema packages from application packages.
+
+### Consumer Workflow
+
+Install the schema package from npm:
+
+```bash
+npm install @acme/payments-ledger-v1-proto
+```
+
+Import generated types in your TypeScript code:
+
+```typescript
+import { LedgerService } from "@acme/payments-ledger-v1-proto";
+```
+
+### Local Development
+
+For local development before schemas are released, use `apx link typescript` (planned) to create npm links:
+
+```bash
+# Generate and link locally
+apx link typescript   # planned — creates npm link
+
+# npm resolves from local link
+npm run build
+```
+
+This mirrors Go's `go.work`, Python's `pip install -e`, and Java's `~/.m2` — same identity in dev and prod.
 
 ---
 

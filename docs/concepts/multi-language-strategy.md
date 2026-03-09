@@ -16,13 +16,13 @@ APX provides a symmetric developer experience across languages. The core princip
 
 | Concern | Go | Python | Java | TypeScript |
 |---------|-----|--------|------|------------|
-| Published artifact | Go module | sdist / wheel | Schema zip / jar | Planned |
-| Local overlay | `go.work use` | `pip install -e` | `mvn install:install-file` | Planned |
-| Resolution mechanism | go.work -> go.mod | pkgutil namespace | Maven dependency resolution | Planned |
-| Code generation | `apx gen go` | `apx gen python` | `mvn generate-sources` | Planned |
-| Dev command | `apx sync` | `apx link python` | `apx link java` (planned) | Planned |
-| Unlink hint | `go get ...` | `pip install ...` | pom.xml dependency | Planned |
-| Status | **Tier 1** | **Tier 2** | **Tier 2** | **Planned** |
+| Published artifact | Go module | sdist / wheel | Schema zip / jar | npm package |
+| Local overlay | `go.work use` | `pip install -e` | `mvn install:install-file` | `npm link` |
+| Resolution mechanism | go.work -> go.mod | pkgutil namespace | Maven dependency resolution | npm / workspace |
+| Code generation | `apx gen go` | `apx gen python` | `mvn generate-sources` | `apx gen typescript` (planned) |
+| Dev command | `apx sync` | `apx link python` | `apx link java` (planned) | `apx link typescript` (planned) |
+| Unlink hint | `go get ...` | `pip install ...` | pom.xml dependency | `npm install ...` |
+| Status | **Tier 1** | **Tier 2** | **Tier 2** | **Tier 2** |
 
 ### Tier definitions
 
@@ -42,6 +42,7 @@ Given `org=acme` and API path `proto/payments/ledger/v1`:
 | Python | Import | `acme_apis.payments.ledger.v1` |
 | Java | Maven coords | `com.acme.apis:payments-ledger-v1-proto` |
 | Java | Package | `com.acme.apis.payments.ledger.v1` |
+| TypeScript | npm package | `@acme/payments-ledger-v1-proto` |
 
 ## Go Workflow
 
@@ -70,6 +71,17 @@ Java uses Maven's dependency resolution and code generation phases:
 
 Java developers never interact with Go modules or `go.work`. The Maven coordinate system provides a complete, self-contained experience.
 
-## TypeScript Workflow (Planned)
+## TypeScript Workflow
 
-TypeScript support will follow the same pattern: npm packages as the published artifact, local linking via `npm link` or workspace references, and identity derivation for npm scope/package names.
+TypeScript uses npm packages as the published artifact with scoped package names:
+
+1. **Producer** releases schema artifacts to an npm registry via APX's release pipeline. The npm package name is deterministically derived: `@<org>/<domain>-<name>-<line>-proto`.
+2. **Consumer** installs the package using `npm install @<org>/<domain>-<name>-<line>-proto`.
+3. For local development, `apx link typescript` (planned) links local schema artifacts via `npm link`, allowing resolution without a remote registry.
+4. `apx unlink` removes the local link; `npm install @<org>/<pkg>` adds the released package. Import paths stay the same.
+
+TypeScript developers import generated types directly from the npm package name:
+
+```typescript
+import { LedgerService } from "@acme/payments-ledger-v1-proto";
+```

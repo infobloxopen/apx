@@ -491,19 +491,23 @@ func TestDeriveLanguageCoordsWithRoot(t *testing.T) {
 	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger", coords["go"].Module)
 	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger/v1", coords["go"].Import)
 
-	// With org — Python and Java coords are populated.
+	// With org — Python, Java, and TypeScript coords are populated.
 	coords, err = DeriveLanguageCoordsWithRoot("github.com/acme/apis", "", "acme", api)
 	require.NoError(t, err)
 	assert.Equal(t, "acme-payments-ledger-v1", coords["python"].Module)
 	assert.Equal(t, "acme_apis.payments.ledger.v1", coords["python"].Import)
 	assert.Equal(t, "com.acme.apis:payments-ledger-v1-proto", coords["java"].Module)
 	assert.Equal(t, "com.acme.apis.payments.ledger.v1", coords["java"].Import)
+	assert.Equal(t, "@acme/payments-ledger-v1-proto", coords["typescript"].Module)
+	assert.Equal(t, "@acme/payments-ledger-v1-proto", coords["typescript"].Import)
 
-	// Without org — Java coords should be absent.
+	// Without org — Java and TypeScript coords should be absent.
 	coords, err = DeriveLanguageCoordsWithRoot("github.com/acme/apis", "", "", api)
 	require.NoError(t, err)
 	_, hasJava := coords["java"]
 	assert.False(t, hasJava, "java coords should be absent when org is empty")
+	_, hasTs := coords["typescript"]
+	assert.False(t, hasTs, "typescript coords should be absent when org is empty")
 }
 
 func TestBuildIdentityBlockWithRoot(t *testing.T) {
@@ -732,6 +736,57 @@ func TestDeriveJavaPackage(t *testing.T) {
 			assert.Equal(t, tt.want, DeriveJavaPackage(tt.org, tt.api))
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// TypeScript / npm identity derivation
+// ---------------------------------------------------------------------------
+
+func TestDeriveNpmPackage(t *testing.T) {
+	tests := []struct {
+		name string
+		org  string
+		api  *APIIdentity
+		want string
+	}{
+		{
+			name: "4-part with domain",
+			org:  "acme",
+			api:  &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "@acme/payments-ledger-v1-proto",
+		},
+		{
+			name: "3-part no domain",
+			org:  "acme",
+			api:  &APIIdentity{Format: "proto", Domain: "", Name: "orders", Line: "v1"},
+			want: "@acme/orders-v1-proto",
+		},
+		{
+			name: "uppercase org normalized",
+			org:  "ACME",
+			api:  &APIIdentity{Format: "proto", Domain: "Payments", Name: "Ledger", Line: "v2"},
+			want: "@acme/payments-ledger-v2-proto",
+		},
+		{
+			name: "hyphenated org",
+			org:  "acme-corp",
+			api:  &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "@acme-corp/payments-ledger-v1-proto",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, DeriveNpmPackage(tt.org, tt.api))
+		})
+	}
+}
+
+func TestDeriveTsImport(t *testing.T) {
+	// In TypeScript, the import path IS the npm package name.
+	api := &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"}
+	npmPkg := DeriveNpmPackage("acme", api)
+	tsImport := DeriveTsImport("acme", api)
+	assert.Equal(t, npmPkg, tsImport)
 }
 
 func TestNormalizePEP440Version(t *testing.T) {

@@ -233,6 +233,10 @@ func TestNewManifest_WithAllCoords(t *testing.T) {
 			Module: "com.acme.apis:payments-ledger-v1-proto",
 			Import: "com.acme.apis.payments.ledger.v1",
 		},
+		"typescript": {
+			Module: "@acme/payments-ledger-v1-proto",
+			Import: "@acme/payments-ledger-v1-proto",
+		},
 	}
 
 	m := NewManifest(api, source, langs, "v1.0.0", "github.com/acme/apis")
@@ -245,9 +249,13 @@ func TestNewManifest_WithAllCoords(t *testing.T) {
 	assert.Equal(t, "com.acme.apis:payments-ledger-v1-proto", m.MavenCoords)
 	assert.Equal(t, "com.acme.apis.payments.ledger.v1", m.JavaPackage)
 
+	// TypeScript coords
+	assert.Equal(t, "@acme/payments-ledger-v1-proto", m.NpmPackage)
+
 	report := FormatManifestReport(m)
 	assert.Contains(t, report, "Py dist:     acme-payments-ledger-v1")
 	assert.Contains(t, report, "Py import:   acme_apis.payments.ledger.v1")
 	assert.Contains(t, report, "Maven:       com.acme.apis:payments-ledger-v1-proto")
 	assert.Contains(t, report, "Java pkg:    com.acme.apis.payments.ledger.v1")
+	assert.Contains(t, report, "npm:         @acme/payments-ledger-v1-proto")
 }

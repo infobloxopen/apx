@@ -284,6 +284,46 @@ Key differences from Go and Python:
 
 ---
 
+## TypeScript Development Loop
+
+For TypeScript consumers, APX publishes schema packages to npm with scoped package names:
+
+```bash
+# 1. Add dependency
+apx add proto/payments/ledger/v1@v1.2.3
+
+# 2. Install npm package
+npm install @acme/payments-ledger-v1-proto
+
+# 3. Import in your TypeScript code
+# import { LedgerService } from "@acme/payments-ledger-v1-proto";
+
+# 4. Build and test
+npm run build && npm test
+```
+
+For local development before schemas are released:
+
+```bash
+# Link schema packages locally (planned)
+apx link typescript
+
+# npm resolves from local link
+npm run build
+
+# When ready for released packages
+apx unlink proto/payments/ledger/v1
+npm install @acme/payments-ledger-v1-proto
+```
+
+Key differences from Go and Python:
+
+- **npm-native resolution** -- `npm link` for local dev, npm registry for released packages
+- **Scoped packages** -- all packages use `@<org>/` scope for namespace isolation
+- **`-proto` suffix** -- distinguishes schema packages from application packages
+
+---
+
 ## Adding Dependencies
 
 To use schemas released by other teams:
