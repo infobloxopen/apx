@@ -1,0 +1,4 @@
+message event {
+  required binary id (INVALID_ANNOTATION);
+  optional int32 age;
+}

@@ -1,0 +1,42 @@
+# Test: apx lint for Parquet schemas
+# Verifies lint command works with Parquet format (native Go, no external tools)
+
+# Test lint on valid schema (should pass — native Go, no external tool needed)
+exec apx lint --format=parquet valid.parquet
+exec apx lint valid.parquet
+
+# Test lint on invalid schema (should fail)
+! exec apx lint invalid.parquet
+stderr 'unknown physical type'
+
+# Test lint on schema with duplicate column names
+! exec apx lint duplicate.parquet
+stderr 'duplicate column name'
+
+# Test lint on schema with bad column naming
+! exec apx lint bad_name.parquet
+stderr 'snake_case'
+
+# Test with non-existent file (should fail)
+! exec apx lint /tmp/nonexistent_parquet_12345.parquet
+
+-- valid.parquet --
+message event {
+  required binary id (STRING);
+  required binary event_type (STRING);
+  required int64 timestamp (TIMESTAMP_MILLIS);
+  optional binary user_id (STRING);
+}
+-- invalid.parquet --
+message event {
+  required supertype id (STRING);
+}
+-- duplicate.parquet --
+message event {
+  required binary id (STRING);
+  optional int32 id;
+}
+-- bad_name.parquet --
+message event {
+  required binary userId (STRING);
+}

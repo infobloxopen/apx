@@ -1,0 +1,72 @@
+# Test: apx lint for Avro schemas
+# Verifies lint command works with Avro format (native Go, no external tools)
+
+# Test lint on valid schema (should pass — native Go, no external tool needed)
+exec apx lint --format=avro valid.avsc
+exec apx lint valid.avsc
+
+# Test lint on invalid schema (missing name)
+! exec apx lint invalid.avsc
+stderr 'missing required .name. field'
+
+# Test lint on schema with duplicate field names
+! exec apx lint duplicate.avsc
+stderr 'duplicate field name'
+
+# Test lint on schema with bad field naming
+! exec apx lint bad_name.avsc
+stderr 'camelCase'
+
+# Test lint on schema with empty fields
+! exec apx lint empty.avsc
+stderr 'empty .fields. array'
+
+# Test with non-existent file (should fail)
+! exec apx lint /tmp/nonexistent_avro_12345.avsc
+
+-- valid.avsc --
+{
+  "type": "record",
+  "name": "User",
+  "namespace": "com.example",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "userName", "type": "string"},
+    {"name": "email", "type": ["null", "string"], "default": null}
+  ]
+}
+-- invalid.avsc --
+{
+  "type": "record",
+  "fields": [
+    {"name": "id", "type": "string"}
+  ]
+}
+-- duplicate.avsc --
+{
+  "type": "record",
+  "name": "User",
+  "namespace": "com.example",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "name", "type": "string"},
+    {"name": "id", "type": "long"}
+  ]
+}
+-- bad_name.avsc --
+{
+  "type": "record",
+  "name": "User",
+  "namespace": "com.example",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "user_name", "type": "string"}
+  ]
+}
+-- empty.avsc --
+{
+  "type": "record",
+  "name": "Empty",
+  "namespace": "com.example",
+  "fields": []
+}

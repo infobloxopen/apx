@@ -1,0 +1,76 @@
+# Test: apx breaking for Avro schemas
+# Verifies breaking change detection with Avro format (native Go, no external tools)
+
+# Test breaking detection — new required field without default (should fail)
+! exec apx breaking --against=v1.avsc v2_breaking.avsc
+stderr 'without a default'
+
+# Test with explicit format flag
+! exec apx breaking --format=avro --against=v1.avsc v2_breaking.avsc
+stderr 'without a default'
+
+# Test safe change — new field with nullable union default (should pass)
+exec apx breaking --against=v1.avsc v2_safe.avsc
+
+# Test field removal — safe in BACKWARD mode (reader ignores unknown writer fields)
+exec apx breaking --against=v1.avsc v2_removed.avsc
+
+# Test type change — breaking
+! exec apx breaking --against=v1.avsc v2_type_change.avsc
+stderr 'type changed'
+
+# Test missing --against flag (should fail with helpful error)
+! exec apx breaking v1.avsc
+stderr 'required flag.*against.*not set'
+
+-- v1.avsc --
+{
+  "type": "record",
+  "name": "User",
+  "namespace": "com.example",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "name", "type": "string"}
+  ]
+}
+-- v2_breaking.avsc --
+{
+  "type": "record",
+  "name": "User",
+  "namespace": "com.example",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "name", "type": "string"},
+    {"name": "phone", "type": "string"}
+  ]
+}
+-- v2_safe.avsc --
+{
+  "type": "record",
+  "name": "User",
+  "namespace": "com.example",
+  "fields": [
+    {"name": "id", "type": "string"},
+    {"name": "name", "type": "string"},
+    {"name": "email", "type": ["null", "string"], "default": null}
+  ]
+}
+-- v2_removed.avsc --
+{
+  "type": "record",
+  "name": "User",
+  "namespace": "com.example",
+  "fields": [
+    {"name": "id", "type": "string"}
+  ]
+}
+-- v2_type_change.avsc --
+{
+  "type": "record",
+  "name": "User",
+  "namespace": "com.example",
+  "fields": [
+    {"name": "id", "type": "long"},
+    {"name": "name", "type": "string"}
+  ]
+}

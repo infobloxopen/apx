@@ -1,0 +1,6 @@
+message event {
+  required binary id (STRING);
+  required binary type (STRING);
+  required int64 timestamp (TIMESTAMP_MILLIS);
+  required binary user_id (STRING);
+}

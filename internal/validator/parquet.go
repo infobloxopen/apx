@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 // ParquetValidator handles Parquet schema validation.
@@ -64,6 +65,20 @@ var validParquetTypes = map[string]bool{
 	"fixed_len_byte_array": true,
 }
 
+// validParquetAnnotations is the set of valid Parquet logical type annotations.
+var validParquetAnnotations = map[string]bool{
+	"STRING": true, "UTF8": true, "DATE": true,
+	"TIMESTAMP_MILLIS": true, "TIMESTAMP_MICROS": true,
+	"DECIMAL": true,
+	"INT_8":   true, "INT_16": true, "INT_32": true, "INT_64": true,
+	"UINT_8": true, "UINT_16": true, "UINT_32": true, "UINT_64": true,
+	"JSON": true, "BSON": true,
+	"MAP": true, "LIST": true,
+	"ENUM": true, "UUID": true,
+	"TIME_MILLIS": true, "TIME_MICROS": true,
+	"INTERVAL": true,
+}
+
 // columnLineRe matches a flat column definition line:
 //
 //	<repetition> <type> <name> [(<annotation>)];
@@ -72,6 +87,35 @@ var columnLineRe = regexp.MustCompile(
 
 // messageHeaderRe matches the opening line of a message schema.
 var messageHeaderRe = regexp.MustCompile(`^\s*message\s+([\w_]+)\s*\{`)
+
+// groupHeaderRe matches a nested group definition line.
+var groupHeaderRe = regexp.MustCompile(`^\s*(required|optional|repeated)\s+group\s+\w+`)
+
+// snakeCaseRe matches valid snake_case identifiers.
+var snakeCaseRe = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
+
+// isSnakeCase returns true if the string is a valid snake_case identifier.
+func isSnakeCase(s string) bool {
+	return snakeCaseRe.MatchString(s)
+}
+
+// isMessageNameValid checks that message names use PascalCase or snake_case.
+func isMessageNameValid(name string) bool {
+	if len(name) == 0 {
+		return false
+	}
+	// Allow PascalCase (starts with uppercase) or snake_case (starts with lowercase)
+	if unicode.IsUpper(rune(name[0])) {
+		// PascalCase: all alphanumeric
+		for _, r := range name {
+			if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' {
+				return false
+			}
+		}
+		return true
+	}
+	return isSnakeCase(name)
+}
 
 // parseParquetSchema parses a Parquet message schema text file.
 func parseParquetSchema(path string) (*parquetMessage, error) {
@@ -82,9 +126,11 @@ func parseParquetSchema(path string) (*parquetMessage, error) {
 	defer f.Close()
 
 	var msg parquetMessage
+	var violations []string
 	foundHeader := false
 	lineNum := 0
 	depth := 0
+	seen := make(map[string]int) // column name → line number
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -103,6 +149,10 @@ func parseParquetSchema(path string) (*parquetMessage, error) {
 				return nil, fmt.Errorf("line %d: expected 'message <name> {', got: %s", lineNum, trimmed)
 			}
 			msg.Name = m[1]
+			if !isMessageNameValid(msg.Name) {
+				violations = append(violations, fmt.Sprintf(
+					"line %d: message name %q should be PascalCase or snake_case", lineNum, msg.Name))
+			}
 			foundHeader = true
 			depth = 1
 			continue
@@ -124,12 +174,18 @@ func parseParquetSchema(path string) (*parquetMessage, error) {
 		}
 
 		// Skip group headers (lines containing '{')
-		if strings.Contains(trimmed, "{") {
+		if groupHeaderRe.MatchString(trimmed) || trimmed == "}" {
 			continue
 		}
 
 		m := columnLineRe.FindStringSubmatch(line)
 		if m == nil {
+			// Closing brace is not an unrecognized line
+			if trimmed == "}" {
+				continue
+			}
+			violations = append(violations, fmt.Sprintf(
+				"line %d: unrecognized column definition: %s", lineNum, trimmed))
 			continue
 		}
 
@@ -144,8 +200,29 @@ func parseParquetSchema(path string) (*parquetMessage, error) {
 			return nil, fmt.Errorf("line %d: invalid repetition %q", lineNum, col.Repetition)
 		}
 		if !validParquetTypes[col.PhysType] {
-			return nil, fmt.Errorf("line %d: unknown physical type %q for column %q", lineNum, col.PhysType, col.Name)
+			violations = append(violations, fmt.Sprintf(
+				"line %d: unknown physical type %q for column %q", lineNum, col.PhysType, col.Name))
+			continue
 		}
+
+		// Validate logical type annotation
+		if col.Annotation != "" && !validParquetAnnotations[strings.TrimSpace(col.Annotation)] {
+			violations = append(violations, fmt.Sprintf(
+				"line %d: unknown logical type annotation %q for column %q", lineNum, col.Annotation, col.Name))
+		}
+
+		// Check column naming convention (snake_case)
+		if !isSnakeCase(col.Name) {
+			violations = append(violations, fmt.Sprintf(
+				"line %d: column name %q should be snake_case", lineNum, col.Name))
+		}
+
+		// Check for duplicate column names
+		if prevLine, exists := seen[col.Name]; exists {
+			violations = append(violations, fmt.Sprintf(
+				"line %d: duplicate column name %q (first defined on line %d)", lineNum, col.Name, prevLine))
+		}
+		seen[col.Name] = lineNum
 
 		msg.Columns = append(msg.Columns, col)
 	}
@@ -155,6 +232,15 @@ func parseParquetSchema(path string) (*parquetMessage, error) {
 	}
 	if !foundHeader {
 		return nil, fmt.Errorf("no 'message' declaration found in %s", path)
+	}
+
+	// Empty message check
+	if len(msg.Columns) == 0 {
+		violations = append(violations, "message has no columns")
+	}
+
+	if len(violations) > 0 {
+		return nil, fmt.Errorf("parquet lint errors:\n  %s", strings.Join(violations, "\n  "))
 	}
 
 	return &msg, nil

@@ -1,0 +1,5 @@
+message event {
+  required binary id (STRING);
+  this is not a valid column definition
+  optional int32 age;
+}

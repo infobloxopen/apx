@@ -53,7 +53,7 @@ external tools required.
 
 | Feature | Implementation |
 |---------|----------------|
-| Lint | Native Go: parses JSON, validates `type`/`name`/`fields` structure |
+| Lint | Native Go: validates JSON structure, `type`/`name`/`fields`, camelCase field naming, duplicate field detection, empty fields detection |
 | Breaking | Native Go: BACKWARD/FORWARD/FULL/NONE compatibility rules |
 | Release | Format-agnostic pipeline |
 | Codegen | Overlay system (format-agnostic) |
@@ -92,8 +92,8 @@ format that `parquet-tools schema` outputs.
 
 | Feature | Implementation |
 |---------|----------------|
-| Lint | Native Go: parses message notation, validates physical types and repetition levels |
-| Breaking | Native Go: additive-nullable policy enforcement |
+| Lint | Native Go: validates physical types, repetition levels, logical type annotations, snake_case column naming, duplicate detection, empty message detection |
+| Breaking | Native Go: additive-nullable policy enforcement (column removal, type change, annotation change, repetition tightening) |
 | Release | Format-agnostic pipeline |
 | Codegen | Overlay system (format-agnostic) |
 | Catalog | Tag-based discovery |

@@ -1,0 +1,5 @@
+message event {
+  required binary id (STRING);
+  required binary name (STRING);
+  optional int32 id;
+}

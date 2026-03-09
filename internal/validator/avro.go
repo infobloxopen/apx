@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -68,7 +69,16 @@ var validAvroTypes = map[string]bool{
 	"union": true, "fixed": true,
 }
 
+// avroCamelCaseRe matches valid camelCase identifiers (the Avro convention).
+var avroCamelCaseRe = regexp.MustCompile(`^[a-z][a-zA-Z0-9]*$`)
+
+// isAvroCamelCase returns true if the string follows camelCase naming.
+func isAvroCamelCase(s string) bool {
+	return avroCamelCaseRe.MatchString(s)
+}
+
 // Lint validates Avro schema syntax using native Go parsing.
+// It collects all lint violations and returns them together.
 func (v *AvroValidator) Lint(path string) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -86,7 +96,7 @@ func (v *AvroValidator) Lint(path string) error {
 		return fmt.Errorf("invalid JSON in Avro schema: %w", err)
 	}
 
-	// Must have a "type" field
+	// Must have a "type" field — fatal, cannot continue without it
 	typeRaw, ok := raw["type"]
 	if !ok {
 		return fmt.Errorf("avro schema missing required 'type' field")
@@ -101,34 +111,69 @@ func (v *AvroValidator) Lint(path string) error {
 
 	// Record schemas must have a "name" and valid "fields"
 	if typeName == "record" {
+		var violations []string
+
 		nameRaw, ok := raw["name"]
 		if !ok {
-			return fmt.Errorf("avro record schema missing required 'name' field")
-		}
-		var name string
-		if err := json.Unmarshal(nameRaw, &name); err != nil || name == "" {
-			return fmt.Errorf("'name' must be a non-empty string")
+			violations = append(violations, "record schema missing required 'name' field")
+		} else {
+			var name string
+			if err := json.Unmarshal(nameRaw, &name); err != nil || name == "" {
+				violations = append(violations, "'name' must be a non-empty string")
+			}
 		}
 
 		fieldsRaw, ok := raw["fields"]
 		if !ok {
-			return fmt.Errorf("avro record schema missing required 'fields' array")
+			violations = append(violations, "record schema missing required 'fields' array")
+		} else {
+			var fields []json.RawMessage
+			if err := json.Unmarshal(fieldsRaw, &fields); err != nil {
+				violations = append(violations, fmt.Sprintf("'fields' must be an array: %v", err))
+			} else if len(fields) == 0 {
+				violations = append(violations, "record schema has empty 'fields' array")
+			} else {
+				seen := make(map[string]int) // field name → field index
+				for i, fRaw := range fields {
+					var f map[string]json.RawMessage
+					if err := json.Unmarshal(fRaw, &f); err != nil {
+						violations = append(violations, fmt.Sprintf("field[%d] is not an object: %v", i, err))
+						continue
+					}
+
+					nameRaw, hasName := f["name"]
+					if !hasName {
+						violations = append(violations, fmt.Sprintf("field[%d] missing required 'name'", i))
+						continue
+					}
+					var fieldName string
+					if err := json.Unmarshal(nameRaw, &fieldName); err != nil {
+						violations = append(violations, fmt.Sprintf("field[%d] 'name' must be a string", i))
+						continue
+					}
+
+					if _, ok := f["type"]; !ok {
+						violations = append(violations, fmt.Sprintf("field[%d] %q missing required 'type'", i, fieldName))
+					}
+
+					// Duplicate field name detection
+					if prevIdx, exists := seen[fieldName]; exists {
+						violations = append(violations, fmt.Sprintf(
+							"field[%d] duplicate field name %q (first defined at field[%d])", i, fieldName, prevIdx))
+					}
+					seen[fieldName] = i
+
+					// Field naming convention: camelCase
+					if !isAvroCamelCase(fieldName) {
+						violations = append(violations, fmt.Sprintf(
+							"field[%d] name %q should be camelCase", i, fieldName))
+					}
+				}
+			}
 		}
-		var fields []json.RawMessage
-		if err := json.Unmarshal(fieldsRaw, &fields); err != nil {
-			return fmt.Errorf("'fields' must be an array: %w", err)
-		}
-		for i, fRaw := range fields {
-			var f map[string]json.RawMessage
-			if err := json.Unmarshal(fRaw, &f); err != nil {
-				return fmt.Errorf("field[%d] is not an object: %w", i, err)
-			}
-			if _, ok := f["name"]; !ok {
-				return fmt.Errorf("field[%d] missing required 'name'", i)
-			}
-			if _, ok := f["type"]; !ok {
-				return fmt.Errorf("field[%d] missing required 'type'", i)
-			}
+
+		if len(violations) > 0 {
+			return fmt.Errorf("avro lint errors:\n  %s", strings.Join(violations, "\n  "))
 		}
 	}
 

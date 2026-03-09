@@ -1,0 +1,4 @@
+message event {
+  required binary userId (STRING);
+  required binary event_type (STRING);
+}

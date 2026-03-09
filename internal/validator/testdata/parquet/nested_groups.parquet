@@ -1,0 +1,9 @@
+message event {
+  required binary id (STRING);
+  required binary event_type (STRING);
+  optional group metadata {
+    optional binary source (STRING);
+    optional int64 priority;
+  }
+  optional int64 timestamp (TIMESTAMP_MILLIS);
+}
