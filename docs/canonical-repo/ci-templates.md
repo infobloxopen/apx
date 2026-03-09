@@ -59,9 +59,9 @@ The `validate` job name matches the required status check configured by branch p
 
 ---
 
-### `on-merge.yml` — Catalog Update on Merge
+### `on-merge.yml` — Catalog Build & Publish on Merge
 
-Runs when a PR merges to `main`. Validates schemas, regenerates the catalog, and commits changes.
+Runs when a PR merges to `main`. Validates schemas, generates catalog data, builds a Docker image with OCI labels, pushes to GHCR, and attests the build.
 
 ```yaml
 name: APX On Merge
@@ -72,10 +72,15 @@ on:
 
 permissions:
   contents: read
+  packages: write
+  id-token: write
+  attestations: write
 
 jobs:
-  tag-and-catalog:
+  catalog:
     runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/<org>/${{ github.event.repository.name }}-catalog
     steps:
       - name: Generate App Token
         id: app-token
@@ -95,31 +100,50 @@ jobs:
       - name: Validate schemas
         run: apx lint
 
-      - name: Update catalog
-        run: apx catalog generate
+      - name: Generate catalog data
+        run: apx catalog generate --output catalog/catalog.yaml
 
-      - name: Commit catalog changes
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ steps.app-token.outputs.token }}
+
+      - name: Build catalog image
         run: |
-          git config user.name "apx-publisher[bot]"
-          git config user.email "apx-publisher[bot]@users.noreply.github.com"
-          if git diff --quiet catalog/; then
-            echo "No catalog changes"
-          else
-            git add catalog/
-            git commit -m "chore: update catalog [skip ci]"
-            git push
-          fi
+          docker build \
+            --build-arg CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --build-arg REVISION="${{ github.sha }}" \
+            --build-arg SOURCE="https://github.com/${{ github.repository }}" \
+            --build-arg VERSION="${{ github.sha }}" \
+            -t "$IMAGE:latest" \
+            -t "$IMAGE:sha-${GITHUB_SHA::7}" \
+            catalog/
+
+      - name: Push catalog image
+        run: |
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:sha-${GITHUB_SHA::7}"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          push-to-registry: true
 ```
 
 **What it does:**
 
-1. **Generates a GitHub App token** — uses the APX GitHub App credentials (`APX_APP_ID` and `APX_APP_PRIVATE_KEY` org secrets) to get a token with `contents:write` permission
+1. **Generates a GitHub App token** — uses the APX GitHub App credentials (`APX_APP_ID` and `APX_APP_PRIVATE_KEY` org secrets) to get a token with `packages:write` permission
 2. **Validates schemas** — re-runs lint as a post-merge safety check
-3. **Regenerates the catalog** — `apx catalog generate` scans all modules and git tags to build `catalog/catalog.yaml`
-4. **Commits catalog changes** — if the catalog changed, commits and pushes with `[skip ci]` to avoid infinite loops
+3. **Generates catalog data** — `apx catalog generate` scans all modules and git tags to build `catalog/catalog.yaml` (not committed — gitignored as a CI artifact)
+4. **Builds a Docker image** — uses the `catalog/Dockerfile` (scaffolded by `apx init canonical`) with OCI best-practice labels injected via build args
+5. **Pushes to GHCR** — tags both `:latest` (always overridden) and `:sha-<short>` (audit trail)
+6. **Attests the build** — uses GitHub's build provenance attestation for supply-chain security
 
 :::{important}
-The checkout uses the app token (not the default `GITHUB_TOKEN`) so the push can bypass branch protection and trigger downstream workflows. See [Protection](protection.md) for details on GitHub App setup.
+The catalog data (`catalog/catalog.yaml`) is gitignored and not committed. It is a CI-only artifact that is baked into the Docker image and pushed to GHCR. Consumers discover APIs by pulling the catalog image from the registry.
 :::
 
 ---

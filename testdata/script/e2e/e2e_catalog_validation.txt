@@ -11,7 +11,7 @@ exec git init
 exec git config user.name 'E2E Test Bot'
 exec git config user.email 'e2e@example.com'
 exec apx init canonical --org=testorg --repo=catalog-test --skip-git --non-interactive
-exists catalog/catalog.yaml
+exists catalog/Dockerfile
 
 # Populate catalog with test entries using sh -c
 exec sh -c 'echo "version: 1" > catalog/catalog.yaml'

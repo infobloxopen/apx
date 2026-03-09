@@ -2,15 +2,6 @@ package templates
 
 import "fmt"
 
-// GenerateCatalog generates a catalog.yaml for the canonical repo
-func GenerateCatalog(org, repo string) string {
-	return fmt.Sprintf(`version: 1
-org: %s
-repo: %s
-modules: []
-`, org, repo)
-}
-
 // GenerateReadme generates a README.md for the canonical repo
 func GenerateReadme(org, repo string) string {
 	return fmt.Sprintf(`# %s/%s

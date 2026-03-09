@@ -15,7 +15,7 @@ exec apx init canonical --org=testorg --repo=test-canonical --skip-git --non-int
 
 # Verify canonical structure
 exists buf.yaml
-exists catalog/catalog.yaml
+exists catalog/Dockerfile
 exists CODEOWNERS
 
 # Create common schema

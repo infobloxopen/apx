@@ -45,7 +45,7 @@ func TestDocParity_InitCanonical(t *testing.T) {
 		"Created directory structure",
 		"Generated buf.yaml",
 		"Generated CODEOWNERS",
-		"Generated catalog.yaml",
+		"Generated catalog/Dockerfile",
 		"initialized successfully",
 	}
 
@@ -62,7 +62,7 @@ func TestDocParity_InitCanonical(t *testing.T) {
 		}
 	}
 
-	expectedFiles := []string{"buf.yaml", "buf.work.yaml", "CODEOWNERS", "catalog/catalog.yaml"}
+	expectedFiles := []string{"buf.yaml", "buf.work.yaml", "CODEOWNERS", "catalog/Dockerfile", "catalog/.gitignore"}
 	for _, file := range expectedFiles {
 		if _, err := os.Stat(filepath.Join(tmpDir, file)); os.IsNotExist(err) {
 			t.Errorf("Doc parity failure: expected file %s (as shown in quickstart.md)", file)
@@ -354,8 +354,8 @@ func TestDocParity_ConfigRoundtrip(t *testing.T) {
 			t.Fatalf("init canonical failed: %v", err)
 		}
 
-		// Canonical init generates buf.yaml and catalog.yaml, not apx.yaml
-		for _, f := range []string{"buf.yaml", "catalog/catalog.yaml"} {
+		// Canonical init generates buf.yaml and catalog/Dockerfile, not apx.yaml
+		for _, f := range []string{"buf.yaml", "catalog/Dockerfile", "catalog/.gitignore"} {
 			if _, err := os.Stat(filepath.Join(tmpDir, f)); os.IsNotExist(err) {
 				t.Errorf("Config roundtrip failure: init canonical should generate %s", f)
 			}

@@ -1,0 +1,174 @@
+# Test: Full catalog pipeline — tags → generate → search
+#
+# This scenario validates the complete catalog workflow end-to-end:
+# 1. Initialize a canonical repo
+# 2. Create release tags simulating published APIs across multiple formats
+# 3. Run `apx catalog generate` to build the catalog from tags
+# 4. Run `apx search` to verify the generated catalog is searchable
+# 5. Run `apx show` to verify catalog-enriched identity output
+#
+# This is the integration test that connects the generate and search
+# halves of the catalog system together.
+
+# Setup: Create a canonical repo with git history and release tags
+mkdir canonical
+cd canonical
+exec git init
+exec git config user.email 'test@test.com'
+exec git config user.name 'Test'
+exec apx init canonical --org=testorg --repo=apis --skip-git --non-interactive
+
+# Initial commit so tags work
+exec git add -A
+exec git commit -m 'init'
+
+# Simulate API releases via tags (the same mechanism CI uses)
+# Proto: payments/ledger — stable (has multiple stable releases)
+exec git tag proto/payments/ledger/v1/v1.0.0
+exec git tag proto/payments/ledger/v1/v1.1.0
+exec git tag proto/payments/ledger/v1/v1.2.3
+
+# Proto: payments/wallet — beta only (no stable release yet)
+exec git tag proto/payments/wallet/v1/v1.0.0-beta.1
+exec git tag proto/payments/wallet/v1/v1.0.0-beta.2
+
+# OpenAPI: iam/roles — alpha only (experimental)
+exec git tag openapi/iam/roles/v2/v2.0.0-alpha.1
+exec git tag openapi/iam/roles/v2/v2.0.0-alpha.3
+
+# Proto: users/profile — stable + prerelease
+exec git tag proto/users/profile/v1/v1.0.0
+exec git tag proto/users/profile/v1/v1.1.0-rc.1
+
+# --------------------------------------------------------
+# Step 1: Generate catalog from git tags
+# --------------------------------------------------------
+exec apx catalog generate --org=testorg --repo=apis
+stdout 'Catalog generated'
+stdout '4 APIs discovered'
+exists catalog/catalog.yaml
+
+# --------------------------------------------------------
+# Step 2: Search all APIs — should find all 4
+# --------------------------------------------------------
+exec apx search
+stdout 'ledger'
+stdout 'wallet'
+stdout 'roles'
+stdout 'profile'
+
+# --------------------------------------------------------
+# Step 3: Search by name — should filter correctly
+# --------------------------------------------------------
+exec apx search ledger
+stdout 'ledger'
+! stdout 'wallet'
+! stdout 'roles'
+! stdout 'profile'
+
+exec apx search wallet
+stdout 'wallet'
+! stdout 'ledger'
+
+# --------------------------------------------------------
+# Step 4: Search by format — proto vs openapi
+# --------------------------------------------------------
+exec apx search --format=proto
+stdout 'ledger'
+stdout 'wallet'
+stdout 'profile'
+! stdout 'roles'
+
+exec apx search --format=openapi
+stdout 'roles'
+! stdout 'ledger'
+! stdout 'wallet'
+! stdout 'profile'
+
+# --------------------------------------------------------
+# Step 5: Search by lifecycle — stable vs beta vs experimental
+# --------------------------------------------------------
+exec apx search --lifecycle=stable
+stdout 'ledger'
+stdout 'profile'
+! stdout 'wallet'
+! stdout 'roles'
+
+exec apx search --lifecycle=beta
+stdout 'wallet'
+! stdout 'ledger'
+! stdout 'roles'
+
+exec apx search --lifecycle=experimental
+stdout 'roles'
+! stdout 'ledger'
+! stdout 'wallet'
+
+# --------------------------------------------------------
+# Step 6: Search by domain
+# --------------------------------------------------------
+exec apx search --domain=payments
+stdout 'ledger'
+stdout 'wallet'
+! stdout 'roles'
+! stdout 'profile'
+
+exec apx search --domain=iam
+stdout 'roles'
+! stdout 'ledger'
+
+# --------------------------------------------------------
+# Step 7: Search by api-line
+# --------------------------------------------------------
+exec apx search --api-line=v2
+stdout 'roles'
+! stdout 'ledger'
+! stdout 'wallet'
+! stdout 'profile'
+
+# --------------------------------------------------------
+# Step 8: Combined filters
+# --------------------------------------------------------
+exec apx search --format=proto --domain=payments --lifecycle=stable
+stdout 'ledger'
+! stdout 'wallet'
+! stdout 'roles'
+! stdout 'profile'
+
+# --------------------------------------------------------
+# Step 9: Show — verify catalog-enriched output for a stable API
+# --------------------------------------------------------
+exec apx show proto/payments/ledger/v1
+stdout 'API:.*proto/payments/ledger/v1'
+stdout 'Format:.*proto'
+stdout 'Domain:.*payments'
+stdout 'Lifecycle:.*stable'
+stdout 'Latest stable:.*v1.2.3'
+! stdout 'No catalog data found'
+
+# --------------------------------------------------------
+# Step 10: Show — verify a prerelease-only API
+# --------------------------------------------------------
+exec apx show openapi/iam/roles/v2
+stdout 'API:.*openapi/iam/roles/v2'
+stdout 'Lifecycle:.*experimental'
+stdout 'Latest stable:.*none'
+stdout 'Latest prerelease:.*v2.0.0-alpha.3'
+
+# --------------------------------------------------------
+# Step 11: Show — mixed stable + prerelease
+# --------------------------------------------------------
+exec apx show proto/users/profile/v1
+stdout 'API:.*proto/users/profile/v1'
+stdout 'Lifecycle:.*stable'
+stdout 'Latest stable:.*v1.0.0'
+stdout 'Latest prerelease:.*v1.1.0-rc.1'
+
+# --------------------------------------------------------
+# Step 12: No matches for nonsense query
+# --------------------------------------------------------
+exec apx search nonexistent
+! stdout 'ledger'
+! stdout 'wallet'
+! stdout 'roles'
+! stdout 'profile'

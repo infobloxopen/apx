@@ -236,6 +236,32 @@ func isGzipped(data []byte) bool {
 	return len(data) >= 2 && data[0] == 0x1f && data[1] == 0x8b
 }
 
+// createTarGz creates a tar.gz archive containing a single file.
+func createTarGz(name string, data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+
+	hdr := &tar.Header{
+		Name: name,
+		Mode: 0644,
+		Size: int64(len(data)),
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		return nil, err
+	}
+	if _, err := tw.Write(data); err != nil {
+		return nil, err
+	}
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	if err := gw.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 // extractFromTarGz extracts a named file from a tar.gz archive.
 func extractFromTarGz(data []byte, name string) ([]byte, error) {
 	gz, err := gzip.NewReader(bytes.NewReader(data))

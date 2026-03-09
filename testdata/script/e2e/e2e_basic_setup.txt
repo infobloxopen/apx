@@ -19,7 +19,8 @@ stdout 'Cluster:'
 # Test basic repository initialization
 exec apx init canonical --org=testorg --repo=basic-test --skip-git --non-interactive
 exists buf.yaml
-exec grep 'org: testorg' catalog/catalog.yaml
+exists catalog/Dockerfile
+exec grep 'testorg' catalog/Dockerfile
 
 # Test git is available
 exec git --version

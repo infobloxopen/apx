@@ -34,7 +34,8 @@ jobs:
 }
 
 // GenerateCanonicalOnMerge generates .github/workflows/on-merge.yml for
-// canonical repos. On push to main it validates, tags, and updates the catalog.
+// canonical repos. On push to main it validates, generates catalog data,
+// builds a Docker image with OCI labels, pushes to GHCR, and attests the build.
 func GenerateCanonicalOnMerge(org string) string {
 	return fmt.Sprintf(`name: APX On Merge
 
@@ -44,10 +45,15 @@ on:
 
 permissions:
   contents: read
+  packages: write
+  id-token: write
+  attestations: write
 
 jobs:
-  tag-and-catalog:
+  catalog:
     runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/%[1]s/${{ github.event.repository.name }}-catalog
     steps:
       - name: Generate App Token
         id: app-token
@@ -67,26 +73,38 @@ jobs:
       - name: Validate schemas
         run: apx lint
 
-      - name: Update catalog
-        run: apx catalog generate
+      - name: Generate catalog data
+        run: apx catalog generate --output catalog/catalog.yaml
 
-      - name: Publish catalog to GHCR
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: apx catalog publish
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ steps.app-token.outputs.token }}
 
-      - name: Commit catalog changes
+      - name: Build catalog image
         run: |
-          git config user.name "apx-publisher[bot]"
-          git config user.email "apx-publisher[bot]@users.noreply.github.com"
-          if git diff --quiet catalog/; then
-            echo "No catalog changes"
-          else
-            git add catalog/
-            git commit -m "chore: update catalog [skip ci]"
-            git push
-          fi
-`)
+          docker build \
+            --build-arg CREATED="$(date -u +%%Y-%%m-%%dT%%H:%%M:%%SZ)" \
+            --build-arg REVISION="${{ github.sha }}" \
+            --build-arg SOURCE="https://github.com/${{ github.repository }}" \
+            --build-arg VERSION="${{ github.sha }}" \
+            -t "$IMAGE:latest" \
+            -t "$IMAGE:sha-${GITHUB_SHA::7}" \
+            catalog/
+
+      - name: Push catalog image
+        run: |
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:sha-${GITHUB_SHA::7}"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          push-to-registry: true
+`, org)
 }
 
 // GenerateAppRelease generates .github/workflows/apx-release.yml for app

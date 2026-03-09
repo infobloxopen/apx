@@ -62,7 +62,8 @@ apis/
 ├── buf.work.yaml            # workspace aggregating version dirs
 ├── CODEOWNERS               # per-path ownership
 ├── catalog/
-│  └── catalog.yaml          # generated index of APIs/owners/tags
+│  ├── .gitignore            # ignores generated catalog.yaml
+│  └── Dockerfile            # scratch-based image with OCI labels
 └── proto/                   # (add openapi/avro/jsonschema/parquet as needed)
    └── payments/
       └── ledger/

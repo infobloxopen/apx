@@ -57,7 +57,8 @@ apis/
 ├── buf.work.yaml            # workspace config  
 ├── CODEOWNERS              # per-path ownership
 ├── catalog/
-│  └── catalog.yaml         # generated API index
+│  ├── .gitignore           # ignores generated catalog.yaml
+│  └── Dockerfile           # scratch-based image with OCI labels
 └── proto/                  # (+ other format dirs)
 ```
 

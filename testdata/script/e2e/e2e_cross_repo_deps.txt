@@ -13,7 +13,7 @@ exec git config user.name 'E2E Test Bot'
 exec git config user.email 'e2e@example.com'
 exec apx init canonical --org=testorg --repo=cross-deps-canonical --skip-git --non-interactive
 exists buf.yaml
-exists catalog/catalog.yaml
+exists catalog/Dockerfile
 
 # Create common schema
 exec mkdir -p proto/common/v1

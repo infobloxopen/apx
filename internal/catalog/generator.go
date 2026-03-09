@@ -47,10 +47,11 @@ func (m Module) DisplayName() string {
 
 // Catalog represents the schema catalog
 type Catalog struct {
-	Version int      `yaml:"version"`
-	Org     string   `yaml:"org"`
-	Repo    string   `yaml:"repo"`
-	Modules []Module `yaml:"modules"`
+	Version     int      `yaml:"version"`
+	Org         string   `yaml:"org"`
+	Repo        string   `yaml:"repo"`
+	GeneratedBy string   `yaml:"generated_by,omitempty"`
+	Modules     []Module `yaml:"modules"`
 }
 
 // Generator handles catalog generation

@@ -20,7 +20,8 @@ exists catalog/
 exists buf.yaml
 exists buf.work.yaml
 exists CODEOWNERS
-exists catalog/catalog.yaml
+exists catalog/Dockerfile
+exists catalog/.gitignore
 exists README.md
 exists apx.yaml
 
@@ -36,9 +37,8 @@ grep 'path: proto' buf.yaml
 # Verify CODEOWNERS
 grep '@testorg/api-owners' CODEOWNERS
 
-# Verify catalog.yaml
-grep 'org: testorg' catalog/catalog.yaml
-grep 'repo: test-apis' catalog/catalog.yaml
+# Verify catalog/Dockerfile has vendor label
+grep 'testorg' catalog/Dockerfile
 
 # Test with missing org (should fail)
 ! exec apx init canonical --repo=test-apis --non-interactive

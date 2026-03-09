@@ -57,7 +57,7 @@ func TestCanonicalBootstrap(t *testing.T) {
 		"✓ Created directory structure",
 		"✓ Generated buf.yaml",
 		"✓ Generated CODEOWNERS",
-		"✓ Generated catalog.yaml",
+		"✓ Generated catalog/Dockerfile",
 		"✓ Canonical API repository initialized successfully",
 	}
 
@@ -117,12 +117,18 @@ func TestCanonicalBootstrap(t *testing.T) {
 			},
 		},
 		{
-			file: "catalog/catalog.yaml",
+			file: "catalog/Dockerfile",
 			expectedContents: []string{
-				"version: 1",
-				"org: infoblox",
-				"repo: api-schemas",
-				"modules: []",
+				"FROM scratch",
+				"COPY catalog.yaml /catalog.yaml",
+				"org.opencontainers.image.vendor=\"infoblox\"",
+				"dev.apx.type=\"catalog\"",
+			},
+		},
+		{
+			file: "catalog/.gitignore",
+			expectedContents: []string{
+				"catalog.yaml",
 			},
 		},
 		{

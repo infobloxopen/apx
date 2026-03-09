@@ -75,11 +75,16 @@ func (s *CanonicalScaffolder) Generate(targetDir string) error {
 		return fmt.Errorf("failed to write CODEOWNERS: %w", err)
 	}
 
-	// Generate catalog.yaml in catalog/ directory
-	catalogContent := templates.GenerateCatalog(s.org, s.repo)
-	catalogPath := filepath.Join(targetDir, "catalog", "catalog.yaml")
-	if err := os.WriteFile(catalogPath, []byte(catalogContent), 0644); err != nil {
-		return fmt.Errorf("failed to write catalog.yaml: %w", err)
+	// Generate catalog/.gitignore so generated catalog data is not committed
+	catalogGitignorePath := filepath.Join(targetDir, "catalog", ".gitignore")
+	if err := writeIfNotExists(catalogGitignorePath, "catalog.yaml\n"); err != nil {
+		return fmt.Errorf("failed to write catalog/.gitignore: %w", err)
+	}
+
+	// Generate catalog/Dockerfile for CI-based container builds
+	dockerfilePath := filepath.Join(targetDir, "catalog", "Dockerfile")
+	if err := writeIfNotExists(dockerfilePath, templates.GenerateCatalogDockerfile(s.org)); err != nil {
+		return fmt.Errorf("failed to write catalog/Dockerfile: %w", err)
 	}
 
 	// Generate buf.work.yaml

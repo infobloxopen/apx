@@ -81,10 +81,14 @@ func TestCanonicalScaffold(t *testing.T) {
 				}
 			}
 
-			// Verify catalog/catalog.yaml was created
-			catalogPath := filepath.Join(tmpDir, "catalog", "catalog.yaml")
-			if _, err := os.Stat(catalogPath); os.IsNotExist(err) {
-				t.Errorf("Expected file not created: catalog/catalog.yaml")
+			// Verify catalog/.gitignore and catalog/Dockerfile were created
+			catalogGitignore := filepath.Join(tmpDir, "catalog", ".gitignore")
+			if _, err := os.Stat(catalogGitignore); os.IsNotExist(err) {
+				t.Errorf("Expected file not created: catalog/.gitignore")
+			}
+			catalogDockerfile := filepath.Join(tmpDir, "catalog", "Dockerfile")
+			if _, err := os.Stat(catalogDockerfile); os.IsNotExist(err) {
+				t.Errorf("Expected file not created: catalog/Dockerfile")
 			}
 		})
 	}
@@ -170,7 +174,7 @@ func TestCanonicalScaffoldWithImportRoot(t *testing.T) {
 	}
 }
 
-func TestCatalogGeneration(t *testing.T) {
+func TestCatalogDockerfileGeneration(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	scaffolder := NewCanonicalScaffolder("myorg", "apis", "")
@@ -179,24 +183,36 @@ func TestCatalogGeneration(t *testing.T) {
 		t.Fatalf("Generate() failed: %v", err)
 	}
 
-	catalogPath := filepath.Join(tmpDir, "catalog", "catalog.yaml")
-	content, err := os.ReadFile(catalogPath)
+	// Verify catalog/Dockerfile was created with OCI labels
+	dockerfilePath := filepath.Join(tmpDir, "catalog", "Dockerfile")
+	content, err := os.ReadFile(dockerfilePath)
 	if err != nil {
-		t.Fatalf("Failed to read catalog/catalog.yaml: %v", err)
+		t.Fatalf("Failed to read catalog/Dockerfile: %v", err)
 	}
 
-	// Verify catalog.yaml contains expected content
 	contentStr := string(content)
 	expectedStrings := []string{
-		"version: 1",
-		"org: myorg",
-		"repo: apis",
-		"modules: []",
+		"FROM scratch",
+		"COPY catalog.yaml /catalog.yaml",
+		"org.opencontainers.image.title",
+		"org.opencontainers.image.vendor=\"myorg\"",
+		"dev.apx.type=\"catalog\"",
 	}
 
 	for _, expected := range expectedStrings {
 		if !strings.Contains(contentStr, expected) {
-			t.Errorf("catalog.yaml missing expected content: %s", expected)
+			t.Errorf("catalog/Dockerfile missing expected content: %s", expected)
 		}
+	}
+
+	// Verify catalog/.gitignore was created
+	gitignorePath := filepath.Join(tmpDir, "catalog", ".gitignore")
+	gitignoreContent, err := os.ReadFile(gitignorePath)
+	if err != nil {
+		t.Fatalf("Failed to read catalog/.gitignore: %v", err)
+	}
+
+	if !strings.Contains(string(gitignoreContent), "catalog.yaml") {
+		t.Errorf("catalog/.gitignore should contain catalog.yaml")
 	}
 }

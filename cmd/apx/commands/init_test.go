@@ -43,7 +43,7 @@ func TestInitCanonical_CLIOutput(t *testing.T) {
 		"Created directory structure",
 		"Generated buf.yaml",
 		"Generated CODEOWNERS",
-		"Generated catalog.yaml",
+		"Generated catalog/Dockerfile",
 		"Generated README.md",
 		"Canonical API repository initialized successfully",
 	}
@@ -70,9 +70,13 @@ func TestInitCanonical_CLIOutput(t *testing.T) {
 		}
 	}
 
-	catalogPath := filepath.Join(tmpDir, "catalog", "catalog.yaml")
-	if _, err := os.Stat(catalogPath); os.IsNotExist(err) {
-		t.Errorf("Expected file catalog/catalog.yaml to exist")
+	catalogDockerfile := filepath.Join(tmpDir, "catalog", "Dockerfile")
+	if _, err := os.Stat(catalogDockerfile); os.IsNotExist(err) {
+		t.Errorf("Expected file catalog/Dockerfile to exist")
+	}
+	catalogGitignore := filepath.Join(tmpDir, "catalog", ".gitignore")
+	if _, err := os.Stat(catalogGitignore); os.IsNotExist(err) {
+		t.Errorf("Expected file catalog/.gitignore to exist")
 	}
 }
 

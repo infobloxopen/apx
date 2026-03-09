@@ -84,7 +84,8 @@ apis/
 ├── CODEOWNERS                   # Per-path team ownership
 ├── README.md                    # Repo overview
 ├── catalog/
-│  └── catalog.yaml              # API catalog (updated by CI)
+│  ├── .gitignore                # ignores generated catalog.yaml
+│  └── Dockerfile                # scratch-based image with OCI labels
 ├── .github/
 │  └── workflows/
 │     ├── ci.yml                 # PR validation (lint + breaking)
@@ -111,7 +112,7 @@ Repository: apis
 ✓ Created directory structure
 ✓ Generated buf.yaml
 ✓ Generated CODEOWNERS
-✓ Generated catalog.yaml
+✓ Generated catalog/Dockerfile
 ✓ Generated README.md
 ✓ Generated apx.yaml
 ✓ Generated .github/workflows/ci.yml
@@ -289,15 +290,36 @@ Per-path ownership rules. Customize team names after scaffolding:
 /parquet/  @<org>/parquet-owners
 ```
 
-### `catalog/catalog.yaml`
+### `catalog/Dockerfile`
 
-Empty catalog seed, automatically updated by CI on merge:
+Scratch-based Dockerfile for building the catalog OCI image. CI injects OCI labels via build args:
 
-```yaml
-version: 1
-org: <org>
-repo: apis
-modules: []
+```dockerfile
+ARG CREATED
+ARG REVISION
+ARG SOURCE
+ARG VERSION
+
+FROM scratch
+
+LABEL org.opencontainers.image.title="API Catalog" \
+      org.opencontainers.image.description="APX API catalog data for discovery and search" \
+      org.opencontainers.image.source="${SOURCE}" \
+      org.opencontainers.image.created="${CREATED}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.vendor="<org>" \
+      dev.apx.type="catalog"
+
+COPY catalog.yaml /catalog.yaml
+```
+
+### `catalog/.gitignore`
+
+Ensures the generated `catalog.yaml` is not committed — it is a CI artifact baked into the Docker image:
+
+```
+catalog.yaml
 ```
 
 ### `.github/workflows/ci.yml`
@@ -323,16 +345,23 @@ jobs:
 
 ### `.github/workflows/on-merge.yml`
 
-Runs on push to `main`. Uses the GitHub App token to validate, update the catalog, and commit changes:
+Runs on push to `main`. Generates catalog data, builds and pushes a Docker image to GHCR, and attests the build:
 
 ```yaml
 name: APX On Merge
 on:
   push:
     branches: [main]
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
 jobs:
-  tag-and-catalog:
+  catalog:
     runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/<org>/${{ github.event.repository.name }}-catalog
     steps:
       - uses: actions/create-github-app-token@v1
         id: app-token
@@ -345,17 +374,28 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
       - uses: infobloxopen/apx@v1
       - run: apx lint
-      - run: apx catalog generate
+      - run: apx catalog generate --output catalog/catalog.yaml
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ steps.app-token.outputs.token }}
       - run: |
-          git config user.name "apx-publisher[bot]"
-          git config user.email "apx-publisher[bot]@users.noreply.github.com"
-          if git diff --quiet catalog/; then
-            echo "No catalog changes"
-          else
-            git add catalog/
-            git commit -m "chore: update catalog [skip ci]"
-            git push
-          fi
+          docker build \
+            --build-arg CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --build-arg REVISION="${{ github.sha }}" \
+            --build-arg SOURCE="https://github.com/${{ github.repository }}" \
+            --build-arg VERSION="${{ github.sha }}" \
+            -t "$IMAGE:latest" \
+            -t "$IMAGE:sha-${GITHUB_SHA::7}" \
+            catalog/
+      - run: |
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:sha-${GITHUB_SHA::7}"
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          push-to-registry: true
 ```
 
 ## Verifying the Setup
