@@ -3,8 +3,10 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/infobloxopen/apx/internal/catalog"
+	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -15,13 +17,19 @@ func newSearchCmd() *cobra.Command {
 		Short: "Search for APIs in the catalog",
 		Long: `Search the canonical repository catalog for available APIs.
 
+The catalog can be a local file path or a remote URL (http:// or https://).
+When --catalog is not specified, APX checks catalog_url from apx.yaml first,
+then falls back to catalog/catalog.yaml.
+
 Examples:
   apx search                    # List all APIs
   apx search ledger             # Search for APIs matching "ledger"
   apx search --format=proto     # Search for proto APIs only
   apx search --lifecycle=beta   # Search for beta APIs
   apx search --domain=payments  # Search by domain
-  apx search payment --format=proto --lifecycle=stable`,
+  apx search --tag=public       # Search by tag
+  apx search payment --format=proto --lifecycle=stable
+  apx search --catalog=https://raw.githubusercontent.com/org/apis/main/catalog/catalog.yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: searchAction,
 	}
@@ -30,7 +38,8 @@ Examples:
 	cmd.Flags().StringP("domain", "d", "", "Filter by domain (e.g. payments, billing)")
 	cmd.Flags().String("api-line", "", "Filter by API line (e.g. v1, v2)")
 	cmd.Flags().String("origin", "", "Filter by origin: first-party, external, forked")
-	cmd.Flags().StringP("catalog", "c", "catalog/catalog.yaml", "Path to catalog file")
+	cmd.Flags().String("tag", "", "Filter by tag")
+	cmd.Flags().StringP("catalog", "c", "", "Path or URL to catalog file (default: catalog_url from apx.yaml, then catalog/catalog.yaml)")
 	return cmd
 }
 
@@ -44,7 +53,13 @@ func searchAction(cmd *cobra.Command, args []string) error {
 	domain, _ := cmd.Flags().GetString("domain")
 	apiLine, _ := cmd.Flags().GetString("api-line")
 	origin, _ := cmd.Flags().GetString("origin")
+	tag, _ := cmd.Flags().GetString("tag")
 	catalogPath, _ := cmd.Flags().GetString("catalog")
+
+	// Resolve catalog path: explicit flag > catalog_url from config > local default
+	if catalogPath == "" {
+		catalogPath = resolveCatalogPath(cmd)
+	}
 
 	gen := catalog.NewGenerator(catalogPath)
 	modules, err := catalog.SearchModulesOpts(gen, catalog.SearchOptions{
@@ -54,6 +69,7 @@ func searchAction(cmd *cobra.Command, args []string) error {
 		Domain:    domain,
 		APILine:   apiLine,
 		Origin:    origin,
+		Tag:       tag,
 	})
 	if err != nil {
 		ui.Error("Failed to search catalog: %v", err)
@@ -105,6 +121,9 @@ func searchAction(cmd *cobra.Command, args []string) error {
 		if module.LatestPrerelease != "" {
 			fmt.Printf("    Latest prerelease: %s\n", module.LatestPrerelease)
 		}
+		if len(module.Tags) > 0 {
+			fmt.Printf("    Tags: %s\n", strings.Join(module.Tags, ", "))
+		}
 		if module.Origin != "" && module.ManagedRepo != "" {
 			fmt.Printf("    Managed: %s\n", module.ManagedRepo)
 			fmt.Printf("    Import: %s\n", module.ImportMode)
@@ -116,4 +135,16 @@ func searchAction(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// resolveCatalogPath returns the best catalog path by checking:
+// 1. catalog_url from apx.yaml config
+// 2. local default catalog/catalog.yaml
+func resolveCatalogPath(cmd *cobra.Command) string {
+	configPath, _ := cmd.Root().PersistentFlags().GetString("config")
+	cfg, err := config.Load(configPath)
+	if err == nil && cfg.CatalogURL != "" {
+		return cfg.CatalogURL
+	}
+	return "catalog/catalog.yaml"
 }

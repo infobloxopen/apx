@@ -778,3 +778,169 @@ func TestSearchModulesOpts_OriginFilter(t *testing.T) {
 		})
 	}
 }
+
+func TestSearchModulesOpts_TagFilter(t *testing.T) {
+	tmpDir := t.TempDir()
+	catalogPath := filepath.Join(tmpDir, "catalog.yaml")
+
+	cat := &Catalog{
+		Version: 1,
+		Org:     "testorg",
+		Repo:    "apis",
+		Modules: []Module{
+			{
+				ID:     "proto/payments/ledger/v1",
+				Format: "proto",
+				Domain: "payments",
+				Path:   "proto/payments/ledger/v1",
+				Tags:   []string{"public", "core"},
+			},
+			{
+				ID:     "proto/internal/metrics/v1",
+				Format: "proto",
+				Domain: "infra",
+				Path:   "proto/internal/metrics/v1",
+				Tags:   []string{"internal"},
+			},
+			{
+				ID:     "openapi/billing/invoices/v1",
+				Format: "openapi",
+				Domain: "billing",
+				Path:   "openapi/billing/invoices/v1",
+				Tags:   []string{"public"},
+			},
+		},
+	}
+
+	gen := NewGenerator(catalogPath)
+	if err := gen.Save(cat); err != nil {
+		t.Fatalf("failed to save test catalog: %v", err)
+	}
+
+	tests := []struct {
+		name          string
+		tag           string
+		expectedCount int
+		expectedIDs   []string
+	}{
+		{
+			name:          "no filter returns all",
+			tag:           "",
+			expectedCount: 3,
+		},
+		{
+			name:          "filter by public tag",
+			tag:           "public",
+			expectedCount: 2,
+			expectedIDs:   []string{"proto/payments/ledger/v1", "openapi/billing/invoices/v1"},
+		},
+		{
+			name:          "filter by internal tag",
+			tag:           "internal",
+			expectedCount: 1,
+			expectedIDs:   []string{"proto/internal/metrics/v1"},
+		},
+		{
+			name:          "filter by core tag",
+			tag:           "core",
+			expectedCount: 1,
+			expectedIDs:   []string{"proto/payments/ledger/v1"},
+		},
+		{
+			name:          "case insensitive tag match",
+			tag:           "PUBLIC",
+			expectedCount: 2,
+			expectedIDs:   []string{"proto/payments/ledger/v1", "openapi/billing/invoices/v1"},
+		},
+		{
+			name:          "nonexistent tag",
+			tag:           "missing",
+			expectedCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results, err := SearchModulesOpts(gen, SearchOptions{Tag: tt.tag})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(results) != tt.expectedCount {
+				t.Errorf("expected %d results, got %d", tt.expectedCount, len(results))
+			}
+			foundIDs := make(map[string]bool)
+			for _, r := range results {
+				foundIDs[r.ID] = true
+			}
+			for _, id := range tt.expectedIDs {
+				if !foundIDs[id] {
+					t.Errorf("expected module %s not found in results", id)
+				}
+			}
+		})
+	}
+}
+
+func TestSearchModulesOpts_FreeTextMatchesTags(t *testing.T) {
+	tmpDir := t.TempDir()
+	catalogPath := filepath.Join(tmpDir, "catalog.yaml")
+
+	cat := &Catalog{
+		Version: 1,
+		Org:     "testorg",
+		Repo:    "apis",
+		Modules: []Module{
+			{
+				ID:     "proto/payments/ledger/v1",
+				Format: "proto",
+				Domain: "payments",
+				Path:   "proto/payments/ledger/v1",
+				Tags:   []string{"flagship"},
+			},
+			{
+				ID:     "proto/billing/invoices/v1",
+				Format: "proto",
+				Domain: "billing",
+				Path:   "proto/billing/invoices/v1",
+			},
+		},
+	}
+
+	gen := NewGenerator(catalogPath)
+	if err := gen.Save(cat); err != nil {
+		t.Fatalf("failed to save test catalog: %v", err)
+	}
+
+	results, err := SearchModulesOpts(gen, SearchOptions{Query: "flagship"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].ID != "proto/payments/ledger/v1" {
+		t.Errorf("expected proto/payments/ledger/v1, got %s", results[0].ID)
+	}
+}
+
+func TestIsRemoteURL(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"https://raw.githubusercontent.com/org/apis/main/catalog.yaml", true},
+		{"http://example.com/catalog.yaml", true},
+		{"catalog/catalog.yaml", false},
+		{"/absolute/path/catalog.yaml", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := isRemoteURL(tt.input)
+			if got != tt.expected {
+				t.Errorf("isRemoteURL(%q) = %v, want %v", tt.input, got, tt.expected)
+			}
+		})
+	}
+}

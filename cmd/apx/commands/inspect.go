@@ -84,18 +84,20 @@ func inspectIdentityAction(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Check if this is an external API via catalog lookup
-	catalogPath := "catalog/catalog.yaml"
+	// Check catalog for enrichment (external provenance, lifecycle, versions, owners)
+	catalogPath := resolveCatalogPath(cmd)
 	var extModule *catalog.Module
 	gen := catalog.NewGenerator(catalogPath)
 	cat, catErr := gen.Load()
 	if catErr == nil {
 		for i, m := range cat.Modules {
-			if m.ID == apiID && m.Origin != "" {
+			if m.ID == apiID {
 				extModule = &cat.Modules[i]
-				// Override source for external APIs
-				source.Repo = m.ManagedRepo
-				source.Path = m.Path
+				if m.Origin != "" {
+					// Override source for external APIs
+					source.Repo = m.ManagedRepo
+					source.Path = m.Path
+				}
 				if api.Lifecycle == "" && m.Lifecycle != "" {
 					api.Lifecycle = m.Lifecycle
 				}
@@ -112,12 +114,26 @@ func inspectIdentityAction(cmd *cobra.Command, args []string) error {
 	report := config.FormatIdentityReport(api, source, release, langs)
 	fmt.Print(report)
 
-	// Print external provenance if applicable
+	// Print catalog-enriched data
 	if extModule != nil {
-		fmt.Printf("Origin:     %s\n", extModule.Origin)
-		fmt.Printf("Import:     %s\n", extModule.ImportMode)
-		fmt.Printf("Managed:    %s/%s\n", extModule.ManagedRepo, extModule.Path)
-		fmt.Printf("Upstream:   %s/%s\n", extModule.UpstreamRepo, extModule.UpstreamPath)
+		if extModule.Origin != "" {
+			fmt.Printf("Origin:     %s\n", extModule.Origin)
+			fmt.Printf("Import:     %s\n", extModule.ImportMode)
+			fmt.Printf("Managed:    %s/%s\n", extModule.ManagedRepo, extModule.Path)
+			fmt.Printf("Upstream:   %s/%s\n", extModule.UpstreamRepo, extModule.UpstreamPath)
+		}
+		if extModule.LatestStable != "" {
+			fmt.Printf("Latest stable:      %s\n", extModule.LatestStable)
+		}
+		if extModule.LatestPrerelease != "" {
+			fmt.Printf("Latest prerelease:  %s\n", extModule.LatestPrerelease)
+		}
+		if len(extModule.Owners) > 0 {
+			fmt.Printf("Owners:     %s\n", strings.Join(extModule.Owners, ", "))
+		}
+		if len(extModule.Tags) > 0 {
+			fmt.Printf("Tags:       %s\n", strings.Join(extModule.Tags, ", "))
+		}
 	}
 
 	return nil

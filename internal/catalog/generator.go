@@ -2,6 +2,8 @@ package catalog
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,8 +70,23 @@ func NewGenerator(catalogPath string) *Generator {
 	}
 }
 
-// Load loads the existing catalog
+// Load loads the existing catalog from a local file or remote URL.
+// If catalogPath starts with http:// or https://, the catalog is fetched
+// over HTTP. Otherwise it is read from the local filesystem.
 func (g *Generator) Load() (*Catalog, error) {
+	if isRemoteURL(g.catalogPath) {
+		return g.loadRemote()
+	}
+	return g.loadLocal()
+}
+
+// isRemoteURL returns true if path looks like an HTTP(S) URL.
+func isRemoteURL(path string) bool {
+	return strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://")
+}
+
+// loadLocal reads the catalog from the local filesystem.
+func (g *Generator) loadLocal() (*Catalog, error) {
 	data, err := os.ReadFile(g.catalogPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -85,6 +102,31 @@ func (g *Generator) Load() (*Catalog, error) {
 	var catalog Catalog
 	if err := yaml.Unmarshal(data, &catalog); err != nil {
 		return nil, fmt.Errorf("failed to parse catalog: %w", err)
+	}
+
+	return &catalog, nil
+}
+
+// loadRemote fetches the catalog from an HTTP(S) URL.
+func (g *Generator) loadRemote() (*Catalog, error) {
+	resp, err := http.Get(g.catalogPath) //nolint:gosec // user-provided URL is intentional
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch remote catalog: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("remote catalog returned HTTP %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read remote catalog body: %w", err)
+	}
+
+	var catalog Catalog
+	if err := yaml.Unmarshal(data, &catalog); err != nil {
+		return nil, fmt.Errorf("failed to parse remote catalog: %w", err)
 	}
 
 	return &catalog, nil

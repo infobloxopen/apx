@@ -12,6 +12,7 @@ type SearchOptions struct {
 	Domain    string // filter by domain (e.g. "payments")
 	APILine   string // filter by API line (e.g. "v1")
 	Origin    string // filter by origin: "first-party", "external", "forked", or "" (all)
+	Tag       string // filter by tag (case-insensitive exact match)
 }
 
 // SearchModules searches the catalog for modules matching the query and format.
@@ -72,15 +73,31 @@ func SearchModulesOpts(gen *Generator, opts SearchOptions) ([]Module, error) {
 			continue
 		}
 
+		// Filter by tag
+		if opts.Tag != "" {
+			found := false
+			for _, t := range module.Tags {
+				if strings.EqualFold(t, opts.Tag) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+		}
+
 		// Filter by free-text query
 		if opts.Query != "" {
 			display := strings.ToLower(module.DisplayName())
 			desc := strings.ToLower(module.Description)
 			domain := strings.ToLower(module.Domain)
+			tagsStr := strings.ToLower(strings.Join(module.Tags, " "))
 
 			if !strings.Contains(display, queryLower) &&
 				!strings.Contains(desc, queryLower) &&
-				!strings.Contains(domain, queryLower) {
+				!strings.Contains(domain, queryLower) &&
+				!strings.Contains(tagsStr, queryLower) {
 				continue
 			}
 		}

@@ -31,9 +31,11 @@ apx breaking <module-path>
 ## `apx inspect`
 
 Inspect API identity, releases, and derived coordinates.
+When a catalog is available (local or remote via `catalog_url`), `inspect identity`
+also shows latest versions, owners, and tags.
 
 ```bash
-apx inspect identity <api-id>              # Show full API identity
+apx inspect identity <api-id>              # Show full API identity + catalog data
 apx inspect release <api-id>@<version>     # Show identity for a release
 ```
 
@@ -49,6 +51,10 @@ Line:       v1
 Source:     github.com/acme/apis/proto/payments/ledger/v1
 Go module:  github.com/acme/apis/proto/payments/ledger
 Go import:  github.com/acme/apis/proto/payments/ledger/v1
+Latest stable:      v1.2.3
+Latest prerelease:  v1.3.0-beta.1
+Owners:     @platform/payments
+Tags:       public, core
 ```
 
 ## `apx explain`
@@ -65,10 +71,12 @@ Publish an API module. See [Publishing Commands](publishing-commands.md).
 
 ## `apx search`
 
-Search the API catalog.
+Search the API catalog. Supports local file paths and remote URLs.
 
 ```bash
 apx search <query>
+apx search --tag=public --lifecycle=stable
+apx search --catalog=https://raw.githubusercontent.com/org/apis/main/catalog/catalog.yaml
 ```
 
 ## `apx show`
@@ -76,17 +84,19 @@ apx search <query>
 Display full identity and catalog data for a given API.
 
 ```bash
-apx show <api-id>                                # Show API with config-derived source repo
-apx show --source-repo github.com/acme/apis <id> # Override source repo
-apx show --catalog path/to/catalog.yaml <id>     # Custom catalog path
-apx --json show <api-id>                         # JSON output
+apx show <api-id>                                           # Show API with config-derived source repo
+apx show --source-repo github.com/acme/apis <id>            # Override source repo
+apx show --catalog path/to/catalog.yaml <id>                # Custom catalog path
+apx show --catalog https://example.com/catalog.yaml <id>    # Remote catalog URL
+apx --json show <api-id>                                    # JSON output
 ```
 
 This command merges two data sources:
 
 1. **Derived fields** computed from the API ID — Go module/import paths, tag pattern, source path
-2. **Catalog fields** from `catalog/catalog.yaml` — latest stable/prerelease versions, lifecycle, owners
+2. **Catalog fields** from `catalog.yaml` — latest stable/prerelease versions, lifecycle, owners, tags
 
+The catalog source is resolved in order: `--catalog` flag → `catalog_url` from `apx.yaml` → `catalog/catalog.yaml`.
 If no catalog is available, only derived fields are shown, with a note to run `apx catalog generate`.
 
 Example:

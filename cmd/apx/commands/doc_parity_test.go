@@ -257,6 +257,9 @@ func TestDocParity_AllCommandsExist(t *testing.T) {
 		{"sync"}, {"unlink"}, {"update"}, {"upgrade"},
 		{"config"}, {"config", "init"}, {"config", "validate"},
 		{"fetch"},
+		{"show"},
+		{"inspect"}, {"inspect", "identity"}, {"inspect", "release"},
+		{"explain"}, {"explain", "go-path"},
 		// Note: "completion" is Cobra's built-in command, added lazily at Execute() time;
 		// verified separately in TestDocParity_CompletionCommand.
 	}
@@ -285,7 +288,7 @@ func TestDocParity_AllFlagsExist(t *testing.T) {
 		{[]string{"semver", "suggest"}, []string{"against"}},
 		{[]string{"gen"}, []string{"out", "clean", "manifest"}},
 		{[]string{"publish"}, []string{"module-path", "canonical-repo", "version", "dry-run", "create-pr"}},
-		{[]string{"search"}, []string{"format", "catalog"}},
+		{[]string{"search"}, []string{"format", "catalog", "lifecycle", "domain", "api-line", "origin", "tag"}},
 		{[]string{"sync"}, []string{"clean", "dry-run"}},
 		{[]string{"fetch"}, []string{"config", "output", "verify"}},
 		{[]string{"lint"}, []string{"format"}},

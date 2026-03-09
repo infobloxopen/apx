@@ -14,6 +14,7 @@ type Config struct {
 	Version         int                       `yaml:"version"`
 	Org             string                    `yaml:"org"`
 	Repo            string                    `yaml:"repo"`
+	CatalogURL      string                    `yaml:"catalog_url,omitempty"` // remote catalog URL for discovery
 	ModuleRoots     []string                  `yaml:"module_roots"`
 	LanguageTargets map[string]LanguageTarget `yaml:"language_targets"`
 	Policy          Policy                    `yaml:"policy"`

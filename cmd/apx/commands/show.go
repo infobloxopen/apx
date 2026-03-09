@@ -3,7 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/infobloxopen/apx/internal/catalog"
@@ -23,7 +22,9 @@ This merges two data sources:
   1. Derived fields computed from the API ID (Go module, import path, tag pattern)
   2. Catalog fields read from catalog.yaml (latest stable/prerelease, lifecycle, owners)
 
-If no catalog is available, only derived fields are shown.
+The catalog can be a local file path or a remote URL (http:// or https://).
+When --catalog is not specified, APX checks catalog_url from apx.yaml first,
+then falls back to catalog/catalog.yaml.
 
 The API ID format is: <format>/<domain>/<name>/<line>
 
@@ -37,7 +38,7 @@ Examples:
 	}
 
 	cmd.Flags().String("source-repo", "", "Source repository (defaults to github.com/<org>/<repo> from apx.yaml)")
-	cmd.Flags().String("catalog", "", "Path to catalog.yaml (default: catalog/catalog.yaml)")
+	cmd.Flags().String("catalog", "", "Path or URL to catalog.yaml (default: catalog_url from apx.yaml, then catalog/catalog.yaml)")
 
 	return cmd
 }
@@ -62,6 +63,7 @@ type showRelease struct {
 type showCatalog struct {
 	Lifecycle string   `json:"lifecycle,omitempty"`
 	Owners    []string `json:"owners,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
 	Version   string   `json:"version,omitempty"`
 }
 
@@ -95,7 +97,7 @@ func showAction(cmd *cobra.Command, args []string) error {
 
 	// Resolve catalog path
 	if catalogPath == "" {
-		catalogPath = filepath.Join("catalog", "catalog.yaml")
+		catalogPath = resolveCatalogPath(cmd)
 	}
 
 	// Build identity from API ID
@@ -138,6 +140,7 @@ func showAction(cmd *cobra.Command, args []string) error {
 				info.Catalog = &showCatalog{
 					Lifecycle: m.Lifecycle,
 					Owners:    m.Owners,
+					Tags:      m.Tags,
 					Version:   m.Version,
 				}
 
@@ -257,6 +260,11 @@ func printShowText(info *showInfo, catalogFound bool) {
 	// Owners from catalog
 	if info.Catalog != nil && len(info.Catalog.Owners) > 0 {
 		ui.Info("Owners:     %s", strings.Join(info.Catalog.Owners, ", "))
+	}
+
+	// Tags from catalog
+	if info.Catalog != nil && len(info.Catalog.Tags) > 0 {
+		ui.Info("Tags:       %s", strings.Join(info.Catalog.Tags, ", "))
 	}
 
 	if !catalogFound {

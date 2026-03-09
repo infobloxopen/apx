@@ -2,6 +2,23 @@
 
 APX provides two commands for discovering APIs published to the canonical repository: `apx search` for finding APIs by keyword or filter, and `apx show` for viewing full identity and release details of a specific API.
 
+Both commands accept a local file path **or** a remote URL as the catalog
+source, so you can query the canonical catalog without cloning the repo.
+
+## Configuring Remote Catalog Access
+
+Add `catalog_url` to your `apx.yaml` to avoid passing `--catalog` every time:
+
+```yaml
+org: acme
+repo: myapp
+catalog_url: https://raw.githubusercontent.com/acme/apis/main/catalog/catalog.yaml
+```
+
+With this setting, `apx search` and `apx show` automatically fetch the
+remote catalog. You can still override with `--catalog` for local or
+alternate sources.
+
 ## `apx search`
 
 Search the canonical repository catalog for available APIs.
@@ -18,7 +35,7 @@ apx search [query] [flags]
 # List all APIs in the catalog
 apx search
 
-# Search by keyword
+# Search by keyword (matches ID, description, domain, tags)
 apx search payments
 apx search ledger
 
@@ -39,6 +56,15 @@ apx search payment --format=proto --lifecycle=stable
 # Filter by API line
 apx search --api-line=v2
 
+# Filter by tag
+apx search --tag=public
+
+# Filter by origin
+apx search --origin=external
+
+# Use a remote catalog directly
+apx search --catalog=https://raw.githubusercontent.com/acme/apis/main/catalog/catalog.yaml
+
 # JSON output (pipe to jq, scripts, etc.)
 apx --json search payments
 ```
@@ -52,7 +78,8 @@ apx --json search payments
 | `--domain` | `-d` | Filter by domain (e.g. `payments`, `billing`) |
 | `--api-line` | | Filter by API line (e.g. `v1`, `v2`) |
 | `--origin` | | Filter by origin (`first-party`, `external`, `forked`) |
-| `--catalog` | `-c` | Path to catalog file (default: `catalog/catalog.yaml`) |
+| `--tag` | | Filter by tag (exact match, case-insensitive) |
+| `--catalog` | `-c` | Path or URL to catalog file (default: `catalog_url` from `apx.yaml`, then `catalog/catalog.yaml`) |
 
 ### Output
 
@@ -67,16 +94,20 @@ For each matching API, search displays:
 - **Version** — latest version
 - **Latest stable** — latest stable release tag
 - **Latest prerelease** — latest prerelease tag
+- **Tags** — user-defined tags
 - **Owners** — team or individual owners
 
 Use `apx --json search` for machine-readable output.
 
 ### How It Works
 
-`apx search` reads the `catalog/catalog.yaml` file in the canonical repository. This file is automatically maintained by `apx catalog generate` (run by canonical CI on merge). To search the catalog, you need either:
+`apx search` reads the catalog from one of these sources (in priority order):
 
-- A local clone of the canonical repo, or
-- A fetched copy via `apx fetch`
+1. The `--catalog` flag (file path or URL)
+2. The `catalog_url` field in `apx.yaml` (remote URL)
+3. The local file `catalog/catalog.yaml`
+
+The catalog file is maintained by `apx catalog generate` (run by canonical CI on merge).
 
 ---
 
@@ -108,14 +139,14 @@ apx --json show proto/payments/ledger/v1
 | Flag | Description |
 |------|-------------|
 | `--source-repo` | Source repository (defaults to `github.com/<org>/<repo>` from `apx.yaml`) |
-| `--catalog` | Path to `catalog.yaml` (default: `catalog/catalog.yaml`) |
+| `--catalog` | Path or URL to `catalog.yaml` (default: `catalog_url` from `apx.yaml`, then `catalog/catalog.yaml`) |
 
 ### Output
 
 `apx show` merges two data sources:
 
 1. **Derived fields** computed from the API ID — Go module path, import path, tag pattern, source path
-2. **Catalog fields** read from `catalog.yaml` — latest stable/prerelease versions, lifecycle, owners
+2. **Catalog fields** read from `catalog.yaml` — latest stable/prerelease versions, lifecycle, owners, tags
 
 Example output:
 
