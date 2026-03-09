@@ -1,0 +1,28 @@
+# Test Java/Maven identity derivation in inspect and unlink commands
+
+# --- Setup: create apx.yaml with org ---
+exec sh -c 'echo "version: 1" > apx.yaml'
+exec sh -c 'echo "org: acme" >> apx.yaml'
+exec sh -c 'echo "repo: apis" >> apx.yaml'
+
+# --- inspect identity shows Maven coords and Java package when org is set ---
+exec apx inspect identity proto/payments/ledger/v1 --source-repo github.com/acme/apis
+stdout 'Maven:      com.acme.apis:payments-ledger-v1-proto'
+stdout 'Java pkg:   com.acme.apis.payments.ledger.v1'
+stdout 'Py dist:    acme-payments-ledger-v1'
+stdout 'Py import:  acme_apis.payments.ledger.v1'
+
+# --- inspect identity 3-part (no domain) ---
+exec apx inspect identity proto/orders/v1 --source-repo github.com/acme/apis
+stdout 'Maven:      com.acme.apis:orders-v1-proto'
+stdout 'Java pkg:   com.acme.apis.orders.v1'
+
+# --- inspect release shows Maven coords ---
+exec apx inspect release proto/payments/ledger/v1@v1.0.0-beta.1 --source-repo github.com/acme/apis
+stdout 'Maven:      com.acme.apis:payments-ledger-v1-proto'
+stdout 'Java pkg:   com.acme.apis.payments.ledger.v1'
+
+# --- JSON output includes Java coords ---
+exec apx --json inspect identity proto/payments/ledger/v1 --source-repo github.com/acme/apis
+stdout '"module": "com.acme.apis:payments-ledger-v1-proto"'
+stdout '"import": "com.acme.apis.payments.ledger.v1"'

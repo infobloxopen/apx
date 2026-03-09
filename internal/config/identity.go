@@ -182,6 +182,63 @@ func DerivePythonImport(org string, api *APIIdentity) string {
 	return strings.Join(parts, ".")
 }
 
+// DeriveMavenGroupId computes the Maven groupId for an organization.
+//
+// Rules:
+//   - Pattern: com.<org>.apis
+//   - Lowercased, hyphens replaced with dots
+//   - Example: org="acme" → "com.acme.apis"
+//   - Example: org="Acme-Corp" → "com.acme.corp.apis"
+func DeriveMavenGroupId(org string) string {
+	normalized := strings.ToLower(org)
+	normalized = strings.ReplaceAll(normalized, "-", ".")
+	return "com." + normalized + ".apis"
+}
+
+// DeriveMavenArtifactId computes the Maven artifactId for an API.
+//
+// Rules:
+//   - Combines domain (if present), name, and line with hyphens
+//   - Appends "-proto" suffix to distinguish schema artifacts
+//   - Example: proto/payments/ledger/v1 → "payments-ledger-v1-proto"
+//   - Example: proto/orders/v1 (3-part) → "orders-v1-proto"
+func DeriveMavenArtifactId(api *APIIdentity) string {
+	var parts []string
+	if api.Domain != "" {
+		parts = append(parts, strings.ToLower(api.Domain))
+	}
+	parts = append(parts, strings.ToLower(api.Name))
+	parts = append(parts, strings.ToLower(api.Line))
+	parts = append(parts, "proto")
+	return strings.Join(parts, "-")
+}
+
+// DeriveMavenCoords returns the full Maven coordinate string (groupId:artifactId).
+//
+// Example: org="acme", proto/payments/ledger/v1 → "com.acme.apis:payments-ledger-v1-proto"
+func DeriveMavenCoords(org string, api *APIIdentity) string {
+	return DeriveMavenGroupId(org) + ":" + DeriveMavenArtifactId(api)
+}
+
+// DeriveJavaPackage computes the Java package name for an API.
+//
+// Rules:
+//   - Pattern: com.<org>.apis.<domain>.<name>.<line>
+//   - Lowercased, hyphens replaced with dots
+//   - Example: org="acme", proto/payments/ledger/v1 → "com.acme.apis.payments.ledger.v1"
+//   - Example: org="acme", proto/orders/v1 → "com.acme.apis.orders.v1"
+func DeriveJavaPackage(org string, api *APIIdentity) string {
+	normalized := strings.ToLower(org)
+	normalized = strings.ReplaceAll(normalized, "-", ".")
+	parts := []string{"com", normalized, "apis"}
+	if api.Domain != "" {
+		parts = append(parts, strings.ToLower(api.Domain))
+	}
+	parts = append(parts, strings.ToLower(api.Name))
+	parts = append(parts, strings.ToLower(api.Line))
+	return strings.Join(parts, ".")
+}
+
 // pep440PreRe matches SemVer pre-release tags: alpha, beta, rc with optional dot-separator.
 var pep440PreRe = regexp.MustCompile(`-(alpha|beta|rc)\.?(\d+)`)
 
@@ -268,6 +325,10 @@ func DeriveLanguageCoordsWithRoot(sourceRepo, importRoot, org string, api *APIId
 			Module: DerivePythonDistName(org, api),
 			Import: DerivePythonImport(org, api),
 		}
+		coords["java"] = LanguageCoords{
+			Module: DeriveMavenCoords(org, api),
+			Import: DeriveJavaPackage(org, api),
+		}
 	}
 
 	return coords, nil
@@ -342,6 +403,11 @@ func FormatIdentityReport(api *APIIdentity, source *SourceIdentity, release *Rel
 	if pyCoords, ok := langs["python"]; ok {
 		sb.WriteString(fmt.Sprintf("Py dist:    %s\n", pyCoords.Module))
 		sb.WriteString(fmt.Sprintf("Py import:  %s\n", pyCoords.Import))
+	}
+
+	if javaCoords, ok := langs["java"]; ok {
+		sb.WriteString(fmt.Sprintf("Maven:      %s\n", javaCoords.Module))
+		sb.WriteString(fmt.Sprintf("Java pkg:   %s\n", javaCoords.Import))
 	}
 
 	return sb.String()

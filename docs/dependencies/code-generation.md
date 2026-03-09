@@ -121,19 +121,64 @@ Your import paths stay the same — `from acme_apis.payments.ledger.v1 import ..
 
 ## Java Generation
 
+Java takes a different approach from Go and Python: **schemas are the published artifact**. Rather than generating and publishing Java stubs, APX publishes schema files (proto zip/jar) to a Maven repository. Consumers generate Java code locally via Maven's `generate-sources` phase.
+
+### Maven Coordinate Derivation
+
+APX deterministically derives Maven coordinates from the API identity:
+
+| Component | Pattern | Example |
+|-----------|---------|---------|
+| groupId | `com.<org>.apis` | `com.acme.apis` |
+| artifactId | `<domain>-<name>-<line>-proto` | `payments-ledger-v1-proto` |
+| Java package | `com.<org>.apis.<domain>.<name>.<line>` | `com.acme.apis.payments.ledger.v1` |
+
+The `-proto` suffix on the artifactId distinguishes schema artifacts from hypothetical code artifacts.
+
+### Consumer Workflow
+
+Add the schema artifact to your `pom.xml`:
+
+```xml
+<dependency>
+  <groupId>com.acme.apis</groupId>
+  <artifactId>payments-ledger-v1-proto</artifactId>
+  <version>1.2.3</version>
+</dependency>
+```
+
+Configure `protobuf-maven-plugin` to generate Java from the schema artifact during `generate-sources`:
+
+```xml
+<plugin>
+  <groupId>org.xolstice.maven.plugins</groupId>
+  <artifactId>protobuf-maven-plugin</artifactId>
+  <configuration>
+    <protocArtifact>com.google.protobuf:protoc:${protoc.version}:exe:${os.detected.classifier}</protocArtifact>
+  </configuration>
+  <executions>
+    <execution>
+      <goals><goal>compile</goal><goal>compile-custom</goal></goals>
+    </execution>
+  </executions>
+</plugin>
+```
+
+Generated Java code lands in `target/generated-sources/protobuf/` and is compiled as part of the normal Maven build.
+
+### Local Development
+
+For local development before schemas are released, use `apx link java` (planned) to install schema artifacts to `~/.m2/repository`:
+
 ```bash
-apx gen java
+# Generate and install to local Maven cache
+apx link java   # planned — installs to ~/.m2
+
+# Maven resolves from local cache
+mvn compile
 ```
 
-### Output Structure
-
-```
-internal/gen/java/
-└── proto/payments/ledger/
-    └── LedgerServiceGrpc.java
-```
-
-Java overlays use their own classpath configuration.
+This mirrors Go's `go.work` overlay and Python's `pip install -e` — same identity in dev and prod, only the resolution backend changes.
 
 ---
 

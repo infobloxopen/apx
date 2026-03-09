@@ -45,6 +45,8 @@ type ReleaseManifest struct {
 	GoImport       string `yaml:"go_import,omitempty" json:"go_import,omitempty"`
 	PythonDistName string `yaml:"python_dist_name,omitempty" json:"python_dist_name,omitempty"`
 	PythonImport   string `yaml:"python_import,omitempty" json:"python_import,omitempty"`
+	MavenCoords    string `yaml:"maven_coords,omitempty" json:"maven_coords,omitempty"`
+	JavaPackage    string `yaml:"java_package,omitempty" json:"java_package,omitempty"`
 
 	// Tag
 	Tag string `yaml:"tag" json:"tag"`
@@ -129,6 +131,11 @@ func NewManifest(
 	if pyCoords, ok := langs["python"]; ok {
 		m.PythonDistName = pyCoords.Module
 		m.PythonImport = pyCoords.Import
+	}
+
+	if javaCoords, ok := langs["java"]; ok {
+		m.MavenCoords = javaCoords.Module
+		m.JavaPackage = javaCoords.Import
 	}
 
 	return m
@@ -221,6 +228,10 @@ func FormatManifestReport(m *ReleaseManifest) string {
 	if m.PythonDistName != "" {
 		lines = append(lines, fmt.Sprintf("Py dist:     %s", m.PythonDistName))
 		lines = append(lines, fmt.Sprintf("Py import:   %s", m.PythonImport))
+	}
+	if m.MavenCoords != "" {
+		lines = append(lines, fmt.Sprintf("Maven:       %s", m.MavenCoords))
+		lines = append(lines, fmt.Sprintf("Java pkg:    %s", m.JavaPackage))
 	}
 	if m.PRURL != "" {
 		lines = append(lines, fmt.Sprintf("PR URL:      %s", m.PRURL))

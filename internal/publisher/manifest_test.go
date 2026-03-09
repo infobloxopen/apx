@@ -211,7 +211,7 @@ func TestFormatManifestReport_WithPRMetadata(t *testing.T) {
 	assert.Contains(t, report, "PR branch:   apx/release/proto-payments-ledger-v1/v1.2.0")
 }
 
-func TestNewManifest_WithPythonCoords(t *testing.T) {
+func TestNewManifest_WithAllCoords(t *testing.T) {
 	api := &config.APIIdentity{
 		ID: "proto/payments/ledger/v1", Format: "proto",
 		Domain: "payments", Name: "ledger", Line: "v1",
@@ -229,14 +229,25 @@ func TestNewManifest_WithPythonCoords(t *testing.T) {
 			Module: "acme-payments-ledger-v1",
 			Import: "acme_apis.payments.ledger.v1",
 		},
+		"java": {
+			Module: "com.acme.apis:payments-ledger-v1-proto",
+			Import: "com.acme.apis.payments.ledger.v1",
+		},
 	}
 
 	m := NewManifest(api, source, langs, "v1.0.0", "github.com/acme/apis")
 
+	// Python coords
 	assert.Equal(t, "acme-payments-ledger-v1", m.PythonDistName)
 	assert.Equal(t, "acme_apis.payments.ledger.v1", m.PythonImport)
+
+	// Java coords
+	assert.Equal(t, "com.acme.apis:payments-ledger-v1-proto", m.MavenCoords)
+	assert.Equal(t, "com.acme.apis.payments.ledger.v1", m.JavaPackage)
 
 	report := FormatManifestReport(m)
 	assert.Contains(t, report, "Py dist:     acme-payments-ledger-v1")
 	assert.Contains(t, report, "Py import:   acme_apis.payments.ledger.v1")
+	assert.Contains(t, report, "Maven:       com.acme.apis:payments-ledger-v1-proto")
+	assert.Contains(t, report, "Java pkg:    com.acme.apis.payments.ledger.v1")
 }

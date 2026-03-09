@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"os"
+	"fmt"
 
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/overlay"
@@ -28,7 +28,7 @@ Examples:
 func unlinkAction(cmd *cobra.Command, args []string) error {
 	modulePath := args[0]
 
-	depMgr := config.NewDependencyManager("apx.yaml", "apx.lock")
+	depMgr := config.NewDependencyManager("apx.yaml", "apx.lock", "")
 
 	ui.Info("Removing overlay for %s...", modulePath)
 	if err := depMgr.Remove(modulePath); err != nil {
@@ -43,28 +43,24 @@ func unlinkAction(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := updateGoModForReleased(modulePath); err != nil {
-		ui.Error("Failed to update go.mod: %v", err)
-		return err
-	}
-
+	printGoUnlinkHint(modulePath)
 	printPythonUnlinkHint(modulePath)
+	printJavaUnlinkHint(modulePath)
 	ui.Success("Unlinked %s - now using released module", modulePath)
 	return nil
 }
 
-func updateGoModForReleased(modulePath string) error {
-	goModPath := "go.mod"
-	if _, err := os.Stat(goModPath); os.IsNotExist(err) {
-		return nil
+func printGoUnlinkHint(modulePath string) {
+	cfg, _ := config.LoadRaw("")
+	repo := "github.com/<org>/<repo>"
+	if cfg != nil && cfg.Org != "" && cfg.Repo != "" {
+		repo = fmt.Sprintf("github.com/%s/%s", cfg.Org, cfg.Repo)
 	}
-
-	ui.Info("Note: Run 'go get github.com/<org>/apis/%s' to add released module", modulePath)
-	return nil
+	ui.Info("Go: Run 'go get %s/%s' to add released module", repo, modulePath)
 }
 
 func printPythonUnlinkHint(modulePath string) {
-	cfg, _ := config.Load("")
+	cfg, _ := config.LoadRaw("")
 	if cfg == nil || cfg.Org == "" {
 		return
 	}
@@ -74,4 +70,17 @@ func printPythonUnlinkHint(modulePath string) {
 	}
 	distName := config.DerivePythonDistName(cfg.Org, api)
 	ui.Info("Python: Run 'pip install %s' to install the released package", distName)
+}
+
+func printJavaUnlinkHint(modulePath string) {
+	cfg, _ := config.LoadRaw("")
+	if cfg == nil || cfg.Org == "" {
+		return
+	}
+	api, err := config.ParseAPIID(modulePath)
+	if err != nil {
+		return
+	}
+	coords := config.DeriveMavenCoords(cfg.Org, api)
+	ui.Info("Java: Add %s:<version> to your pom.xml", coords)
 }

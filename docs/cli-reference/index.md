@@ -134,6 +134,16 @@ type Service struct {
 | `proto/users/profile/v1` | `<org>-users-profile-v1` | `<org>_apis.users.profile.v1` |
 | `proto/orders/v1` (3-part) | `<org>-orders-v1` | `<org>_apis.orders.v1` |
 
+**APX API Path → Java / Maven**
+
+| APX API Path | Maven GroupId | Maven ArtifactId | Java Package |
+|---|---|---|---|
+| `proto/payments/ledger/v1` | `com.<org>.apis` | `payments-ledger-v1-proto` | `com.<org>.apis.payments.ledger.v1` |
+| `proto/users/profile/v1` | `com.<org>.apis` | `users-profile-v1-proto` | `com.<org>.apis.users.profile.v1` |
+| `proto/orders/v1` (3-part) | `com.<org>.apis` | `orders-v1-proto` | `com.<org>.apis.orders.v1` |
+
+**TypeScript** — Planned. npm scope and package name derivation will follow the same deterministic pattern.
+
 **Local Overlay Paths**
 
 | APX API Path | Local Generated Path | Overlay in go.work |

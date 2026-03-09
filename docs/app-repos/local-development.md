@@ -247,6 +247,43 @@ Key differences from Go:
 
 ---
 
+## Java Development Loop
+
+For Java consumers, APX publishes schema artifacts to Maven. Consumers generate Java code locally via Maven's `generate-sources` phase:
+
+```bash
+# 1. Add dependency
+apx add proto/payments/ledger/v1@v1.2.3
+
+# 2. Add Maven dependency to pom.xml
+# com.acme.apis:payments-ledger-v1-proto:1.2.3
+
+# 3. Run Maven build (generates Java in target/generated-sources/)
+mvn compile
+```
+
+For local development before schemas are released:
+
+```bash
+# Install schema artifacts to ~/.m2 (planned)
+apx link java
+
+# Maven resolves from local cache
+mvn compile
+
+# When ready for released artifacts
+apx unlink proto/payments/ledger/v1
+# Update pom.xml with released version
+```
+
+Key differences from Go and Python:
+
+- **No APX code generation** -- Maven's protobuf plugin handles generation in `generate-sources`
+- **Maven-native resolution** -- `~/.m2` for local dev, Maven Central/private registry for released artifacts
+- **Schema artifacts** -- APX publishes `.proto` files as jars, not generated Java stubs
+
+---
+
 ## Adding Dependencies
 
 To use schemas released by other teams:

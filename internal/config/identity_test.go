@@ -491,11 +491,19 @@ func TestDeriveLanguageCoordsWithRoot(t *testing.T) {
 	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger", coords["go"].Module)
 	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger/v1", coords["go"].Import)
 
-	// With org — Python coords are populated.
+	// With org — Python and Java coords are populated.
 	coords, err = DeriveLanguageCoordsWithRoot("github.com/acme/apis", "", "acme", api)
 	require.NoError(t, err)
 	assert.Equal(t, "acme-payments-ledger-v1", coords["python"].Module)
 	assert.Equal(t, "acme_apis.payments.ledger.v1", coords["python"].Import)
+	assert.Equal(t, "com.acme.apis:payments-ledger-v1-proto", coords["java"].Module)
+	assert.Equal(t, "com.acme.apis.payments.ledger.v1", coords["java"].Import)
+
+	// Without org — Java coords should be absent.
+	coords, err = DeriveLanguageCoordsWithRoot("github.com/acme/apis", "", "", api)
+	require.NoError(t, err)
+	_, hasJava := coords["java"]
+	assert.False(t, hasJava, "java coords should be absent when org is empty")
 }
 
 func TestBuildIdentityBlockWithRoot(t *testing.T) {
@@ -621,6 +629,107 @@ func TestDerivePythonImport(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, DerivePythonImport(tt.org, tt.api))
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Java / Maven identity derivation
+// ---------------------------------------------------------------------------
+
+func TestDeriveMavenGroupId(t *testing.T) {
+	tests := []struct {
+		name string
+		org  string
+		want string
+	}{
+		{"simple org", "acme", "com.acme.apis"},
+		{"uppercase org", "ACME", "com.acme.apis"},
+		{"hyphenated org", "acme-corp", "com.acme.corp.apis"},
+		{"mixed case hyphenated", "Acme-Corp", "com.acme.corp.apis"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, DeriveMavenGroupId(tt.org))
+		})
+	}
+}
+
+func TestDeriveMavenArtifactId(t *testing.T) {
+	tests := []struct {
+		name string
+		api  *APIIdentity
+		want string
+	}{
+		{
+			name: "4-part with domain",
+			api:  &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "payments-ledger-v1-proto",
+		},
+		{
+			name: "3-part no domain",
+			api:  &APIIdentity{Format: "proto", Domain: "", Name: "orders", Line: "v1"},
+			want: "orders-v1-proto",
+		},
+		{
+			name: "v0 line",
+			api:  &APIIdentity{Format: "proto", Domain: "events", Name: "click", Line: "v0"},
+			want: "events-click-v0-proto",
+		},
+		{
+			name: "v2 line",
+			api:  &APIIdentity{Format: "proto", Domain: "billing", Name: "invoices", Line: "v2"},
+			want: "billing-invoices-v2-proto",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, DeriveMavenArtifactId(tt.api))
+		})
+	}
+}
+
+func TestDeriveMavenCoords(t *testing.T) {
+	api := &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"}
+	got := DeriveMavenCoords("acme", api)
+	assert.Equal(t, "com.acme.apis:payments-ledger-v1-proto", got)
+}
+
+func TestDeriveJavaPackage(t *testing.T) {
+	tests := []struct {
+		name string
+		org  string
+		api  *APIIdentity
+		want string
+	}{
+		{
+			name: "4-part with domain",
+			org:  "acme",
+			api:  &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "com.acme.apis.payments.ledger.v1",
+		},
+		{
+			name: "3-part no domain",
+			org:  "acme",
+			api:  &APIIdentity{Format: "proto", Domain: "", Name: "orders", Line: "v1"},
+			want: "com.acme.apis.orders.v1",
+		},
+		{
+			name: "hyphenated org",
+			org:  "acme-corp",
+			api:  &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "com.acme.corp.apis.payments.ledger.v1",
+		},
+		{
+			name: "uppercase org normalized",
+			org:  "ACME",
+			api:  &APIIdentity{Format: "proto", Domain: "billing", Name: "invoices", Line: "v2"},
+			want: "com.acme.apis.billing.invoices.v2",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, DeriveJavaPackage(tt.org, tt.api))
 		})
 	}
 }
