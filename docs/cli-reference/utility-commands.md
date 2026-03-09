@@ -238,7 +238,7 @@ Detects the repository type automatically:
 | Repository type | Detection method | Generated files |
 |----------------|-----------------|----------------|
 | Canonical | `ci.yml` or `on-merge.yml` exists, or top-level `proto/`/`catalog/` dirs | `ci.yml`, `on-merge.yml` |
-| App | `apx-publish.yml` exists, or `module_roots` in config | `apx-publish.yml` |
+| App | `apx-release.yml` exists, or `module_roots` in config | `apx-release.yml` |
 
 Reads `org` and `repo` from `apx.yaml` (or falls back to git remote detection).
 
