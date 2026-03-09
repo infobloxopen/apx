@@ -11,6 +11,7 @@ import (
 
 	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/config"
+	"github.com/infobloxopen/apx/internal/policy"
 	"github.com/infobloxopen/apx/internal/publisher"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/infobloxopen/apx/internal/validator"
@@ -82,6 +83,12 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	strict, _ := cmd.Flags().GetBool("strict")
 	skipGomod, _ := cmd.Flags().GetBool("skip-gomod")
 	force, _ := cmd.Flags().GetBool("force")
+
+	cfg, err := loadConfig(cmd)
+	if err != nil {
+		ui.Warning("Could not load config for policy check: %v", err)
+		cfg = &config.Config{}
+	}
 
 	// --- State: draft ---
 	ui.Info("Preparing release for %s @ %s", apiID, version)
@@ -259,6 +266,36 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 				manifest.Validation.GoMod = publisher.ValidationPassed
 				ui.Info("go.mod will be generated at %s during submit", goModDir)
 			}
+		}
+	}
+
+	// Policy validation
+	{
+		repoPath, _ := os.Getwd()
+		schemaDir := filepath.Join(repoPath, source.Path)
+		if _, statErr := os.Stat(schemaDir); statErr == nil {
+			polResult, polErr := policy.Check(cfg.Policy, schemaDir)
+			if polErr != nil {
+				ui.Warning("Policy check error: %v", polErr)
+				manifest.Validation.Policy = publisher.ValidationSkipped
+			} else if !polResult.Passed() {
+				manifest.Validation.Policy = publisher.ValidationFailed
+				for _, v := range polResult.Violations {
+					ui.Error("[%s] %s", v.Rule, v.Message)
+				}
+				manifest.Fail(string(publisher.ErrCodePolicyFailed),
+					fmt.Sprintf("%d policy violation(s)", len(polResult.Violations)), "prepare")
+				_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
+				return &publisher.PublishError{
+					Code:    publisher.ErrCodePolicyFailed,
+					Message: fmt.Sprintf("policy check failed: %d violation(s)", len(polResult.Violations)),
+				}
+			} else {
+				manifest.Validation.Policy = publisher.ValidationPassed
+				ui.Info("Policy check passed (%d rule(s) evaluated)", polResult.Checked)
+			}
+		} else {
+			manifest.Validation.Policy = publisher.ValidationSkipped
 		}
 	}
 
@@ -676,6 +713,12 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 	skipCatalog, _ := cmd.Flags().GetBool("skip-catalog")
 	recordPath, _ := cmd.Flags().GetString("record-path")
 
+	cfg, err := loadConfig(cmd)
+	if err != nil {
+		ui.Warning("Could not load config for policy check: %v", err)
+		cfg = &config.Config{}
+	}
+
 	// Read manifest
 	manifest, err := publisher.ReadManifest(".apx-release.yaml")
 	if err != nil {
@@ -763,8 +806,30 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// Policy validation (extensible — currently a pass-through)
-	manifest.Validation.Policy = publisher.ValidationPassed
+	// Policy re-validation during finalize
+	{
+		schemaDir := filepath.Join(repoPath, manifest.SourcePath)
+		if _, statErr := os.Stat(schemaDir); statErr == nil {
+			polResult, polErr := policy.Check(cfg.Policy, schemaDir)
+			if polErr != nil {
+				ui.Warning("Policy re-check error: %v", polErr)
+				manifest.Validation.Policy = publisher.ValidationSkipped
+			} else if !polResult.Passed() {
+				manifest.Validation.Policy = publisher.ValidationFailed
+				manifest.Fail(string(publisher.ErrCodePolicyFailed),
+					fmt.Sprintf("%d policy violation(s)", len(polResult.Violations)), "finalize")
+				_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
+				return &publisher.PublishError{
+					Code:    publisher.ErrCodePolicyFailed,
+					Message: fmt.Sprintf("policy check failed: %d violation(s)", len(polResult.Violations)),
+				}
+			} else {
+				manifest.Validation.Policy = publisher.ValidationPassed
+			}
+		} else {
+			manifest.Validation.Policy = publisher.ValidationSkipped
+		}
+	}
 
 	// Transition to canonical-validated
 	if err := manifest.SetState(publisher.StateCanonicalValidated); err != nil {
@@ -1092,6 +1157,12 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 	canonicalRepo, _ := cmd.Flags().GetString("canonical-repo")
 	force, _ := cmd.Flags().GetBool("force")
 
+	cfg, err := loadConfig(cmd)
+	if err != nil {
+		ui.Warning("Could not load config for policy check: %v", err)
+		cfg = &config.Config{}
+	}
+
 	// Validate target lifecycle
 	if err := config.ValidateLifecycle(targetLifecycle); err != nil {
 		return err
@@ -1222,7 +1293,33 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 	manifest.Validation = &publisher.ValidationResults{
 		Lint:     publisher.ValidationSkipped,
 		Breaking: publisher.ValidationSkipped,
-		Policy:   publisher.ValidationPassed,
+		Policy:   publisher.ValidationSkipped,
+	}
+
+	// Policy check for promote
+	{
+		promoteRepoPath, _ := os.Getwd()
+		schemaDir := filepath.Join(promoteRepoPath, source.Path)
+		if _, statErr := os.Stat(schemaDir); statErr == nil {
+			polResult, polErr := policy.Check(cfg.Policy, schemaDir)
+			if polErr != nil {
+				ui.Warning("Policy check error: %v", polErr)
+			} else if !polResult.Passed() {
+				manifest.Validation.Policy = publisher.ValidationFailed
+				for _, v := range polResult.Violations {
+					ui.Error("[%s] %s", v.Rule, v.Message)
+				}
+				manifest.Fail(string(publisher.ErrCodePolicyFailed),
+					fmt.Sprintf("%d policy violation(s)", len(polResult.Violations)), "promote")
+				_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
+				return &publisher.PublishError{
+					Code:    publisher.ErrCodePolicyFailed,
+					Message: fmt.Sprintf("policy check failed: %d violation(s)", len(polResult.Violations)),
+				}
+			} else {
+				manifest.Validation.Policy = publisher.ValidationPassed
+			}
+		}
 	}
 
 	// Capture source commit

@@ -1,7 +1,10 @@
 package commands
 
 import (
+	"fmt"
+
 	"github.com/infobloxopen/apx/internal/config"
+	"github.com/infobloxopen/apx/internal/policy"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -41,6 +44,28 @@ func policyCheckAction(cmd *cobra.Command, args []string) error {
 
 func checkPolicy(cfg *config.Config, path string) error {
 	ui.Info("Checking policy compliance in %s...", path)
-	ui.Success("All policies are compliant")
-	return nil
+
+	result, err := policy.Check(cfg.Policy, path)
+	if err != nil {
+		ui.Error("Policy check failed: %v", err)
+		return err
+	}
+
+	if result.Checked == 0 {
+		ui.Info("No policy rules configured")
+		return nil
+	}
+
+	ui.Info("Evaluated %d policy rule(s)", result.Checked)
+
+	if result.Passed() {
+		ui.Success("All policies are compliant")
+		return nil
+	}
+
+	for _, v := range result.Violations {
+		ui.Error("[%s] %s", v.Rule, v.Message)
+	}
+
+	return fmt.Errorf("policy check failed: %d violation(s) found", len(result.Violations))
 }
