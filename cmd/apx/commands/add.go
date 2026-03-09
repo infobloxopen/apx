@@ -40,7 +40,7 @@ func addAction(cmd *cobra.Command, args []string) error {
 		modulePath = arg
 	}
 
-	mgr := config.NewDependencyManager("apx.yaml", "apx.lock")
+	mgr := config.NewDependencyManager("apx.yaml", "apx.lock", resolveSourceRepo(cmd))
 
 	// Look up the catalog to see if this is an external API
 	var provenance *config.ExternalProvenance

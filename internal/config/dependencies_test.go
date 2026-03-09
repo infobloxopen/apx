@@ -45,7 +45,7 @@ func TestAddDependency(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mgr := NewDependencyManager(configPath, lockPath)
+			mgr := NewDependencyManager(configPath, lockPath, "github.com/acme/apis")
 			err := mgr.Add(tt.modulePath, tt.version)
 
 			if tt.expectError && err == nil {
@@ -78,6 +78,44 @@ func TestAddDependency(t *testing.T) {
 	}
 }
 
+func TestAddDependency_SourceRepoInLock(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "apx.yaml")
+	lockPath := filepath.Join(tmpDir, "apx.lock")
+
+	os.WriteFile(configPath, []byte("dependencies: []\n"), 0644)
+	os.WriteFile(lockPath, []byte("dependencies: {}\n"), 0644)
+
+	mgr := NewDependencyManager(configPath, lockPath, "github.com/acme/apis")
+	if err := mgr.Add("proto/payments/ledger/v1", "v1.2.3"); err != nil {
+		t.Fatalf("failed to add: %v", err)
+	}
+
+	// Read lock file and verify repo field
+	lockFile, err := mgr.loadLock()
+	if err != nil {
+		t.Fatalf("failed to load lock: %v", err)
+	}
+	dep, ok := lockFile.Dependencies["proto/payments/ledger/v1"]
+	if !ok {
+		t.Fatal("dependency not found in lock")
+	}
+	if dep.Repo != "github.com/acme/apis" {
+		t.Errorf("expected repo github.com/acme/apis, got %s", dep.Repo)
+	}
+
+	// Verify empty sourceRepo falls back to placeholder
+	mgr2 := NewDependencyManager(configPath, lockPath, "")
+	if err := mgr2.Add("proto/orders/v1", "v1.0.0"); err != nil {
+		t.Fatalf("failed to add: %v", err)
+	}
+	lockFile2, _ := mgr2.loadLock()
+	dep2 := lockFile2.Dependencies["proto/orders/v1"]
+	if dep2.Repo != "github.com/<org>/<repo>" {
+		t.Errorf("expected placeholder repo, got %s", dep2.Repo)
+	}
+}
+
 func TestRemoveDependency(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "apx.yaml")
@@ -95,7 +133,7 @@ func TestRemoveDependency(t *testing.T) {
 		t.Fatalf("failed to create initial apx.lock: %v", err)
 	}
 
-	mgr := NewDependencyManager(configPath, lockPath)
+	mgr := NewDependencyManager(configPath, lockPath, "github.com/acme/apis")
 
 	// Add a dependency
 	if err := mgr.Add("proto/payments/ledger/v1", "v1.2.3"); err != nil {
@@ -136,7 +174,7 @@ func TestUpdateDependencyVersion(t *testing.T) {
 		t.Fatalf("failed to create initial apx.lock: %v", err)
 	}
 
-	mgr := NewDependencyManager(configPath, lockPath)
+	mgr := NewDependencyManager(configPath, lockPath, "github.com/acme/apis")
 
 	// Add dependency
 	if err := mgr.Add("proto/payments/ledger/v1", "v1.2.3"); err != nil {
@@ -184,7 +222,7 @@ func TestListDependencies(t *testing.T) {
 		t.Fatalf("failed to create initial apx.lock: %v", err)
 	}
 
-	mgr := NewDependencyManager(configPath, lockPath)
+	mgr := NewDependencyManager(configPath, lockPath, "github.com/acme/apis")
 
 	// Add multiple dependencies
 	deps := []struct {

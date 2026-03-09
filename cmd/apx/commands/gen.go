@@ -57,7 +57,7 @@ func genAction(cmd *cobra.Command, args []string) error {
 func generateCode(opts GenerateOptions) error {
 	ui.Info("Generating %s code from dependencies...", opts.Language)
 
-	dm := config.NewDependencyManager("apx.yaml", "apx.lock")
+	dm := config.NewDependencyManager("apx.yaml", "apx.lock", "")
 	deps, err := dm.List()
 	if err != nil {
 		return fmt.Errorf("failed to list dependencies: %w", err)

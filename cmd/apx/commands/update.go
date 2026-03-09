@@ -62,7 +62,7 @@ func updateAction(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load current dependencies from lock file
-	mgr := config.NewDependencyManager("apx.yaml", "apx.lock")
+	mgr := config.NewDependencyManager("apx.yaml", "apx.lock", resolveSourceRepo(cmd))
 	deps, err := mgr.List()
 	if err != nil {
 		return fmt.Errorf("failed to list dependencies: %w", err)

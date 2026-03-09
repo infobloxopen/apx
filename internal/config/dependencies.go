@@ -18,13 +18,17 @@ type Dependency struct {
 type DependencyManager struct {
 	configPath string
 	lockPath   string
+	sourceRepo string
 }
 
-// NewDependencyManager creates a new dependency manager
-func NewDependencyManager(configPath, lockPath string) *DependencyManager {
+// NewDependencyManager creates a new dependency manager.
+// sourceRepo is the canonical source repository URL (e.g. "github.com/acme/apis").
+// If empty, a placeholder is used for lock entries.
+func NewDependencyManager(configPath, lockPath, sourceRepo string) *DependencyManager {
 	return &DependencyManager{
 		configPath: configPath,
 		lockPath:   lockPath,
+		sourceRepo: sourceRepo,
 	}
 }
 
@@ -62,8 +66,12 @@ func (dm *DependencyManager) AddWithProvenance(modulePath, version string, prove
 	}
 
 	// Build lock entry
+	repo := dm.sourceRepo
+	if repo == "" {
+		repo = "github.com/<org>/<repo>"
+	}
 	lock := DependencyLock{
-		Repo:    "github.com/org/apis", // TODO: Get from config
+		Repo:    repo,
 		Ref:     version,
 		Modules: []string{modulePath},
 	}

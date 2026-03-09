@@ -208,11 +208,13 @@ func (m *Manager) Remove(modulePath string) error {
 	}
 
 	removed := false
-	for _, overlay := range overlays {
-		if overlay.ModulePath == modulePath {
-			if err := os.RemoveAll(overlay.Path); err != nil && !os.IsNotExist(err) {
+	for _, ov := range overlays {
+		if ov.ModulePath == modulePath {
+			if err := os.RemoveAll(ov.Path); err != nil && !os.IsNotExist(err) {
 				return fmt.Errorf("failed to remove overlay: %w", err)
 			}
+			// Clean up empty parent directories up to the language root
+			m.pruneEmptyParents(ov.Path, ov.Language)
 			removed = true
 		}
 	}
@@ -224,10 +226,27 @@ func (m *Manager) Remove(modulePath string) error {
 			if err := os.RemoveAll(overlayPath); err != nil && !os.IsNotExist(err) {
 				return fmt.Errorf("failed to remove overlay: %w", err)
 			}
+			m.pruneEmptyParents(overlayPath, lang)
 		}
 	}
 
 	return m.Sync()
+}
+
+// pruneEmptyParents removes empty parent directories between the removed
+// overlay and the language root (internal/gen/{lang}/). This prevents stale
+// intermediate directories from being detected as new overlays by List().
+func (m *Manager) pruneEmptyParents(removedPath, language string) {
+	langRoot := filepath.Join(m.overlayDir, language)
+	dir := filepath.Dir(removedPath)
+	for dir != langRoot && strings.HasPrefix(dir, langRoot) {
+		entries, err := os.ReadDir(dir)
+		if err != nil || len(entries) > 0 {
+			break // directory is not empty or unreadable
+		}
+		os.Remove(dir) // remove empty dir
+		dir = filepath.Dir(dir)
+	}
 }
 
 // List returns all overlays in the workspace.

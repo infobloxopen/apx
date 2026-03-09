@@ -55,7 +55,7 @@ func upgradeAction(cmd *cobra.Command, args []string) error {
 	jsonOut, _ := cmd.Root().PersistentFlags().GetBool("json")
 
 	// Verify the current dependency exists
-	mgr := config.NewDependencyManager("apx.yaml", "apx.lock")
+	mgr := config.NewDependencyManager("apx.yaml", "apx.lock", resolveSourceRepo(cmd))
 	deps, err := mgr.List()
 	if err != nil {
 		return fmt.Errorf("failed to list dependencies: %w", err)
