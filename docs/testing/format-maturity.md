@@ -7,14 +7,14 @@ this page documents exactly which capabilities are available today.
 
 | Capability | Proto | OpenAPI | Avro | JSON Schema | Parquet |
 |------------|:-----:|:-------:|:----:|:-----------:|:-------:|
-| **Linting** | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Breaking-change detection** | ✅ | ✅ | ❌ | ✅ | ❌ |
+| **Linting** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Breaking-change detection** | ✅ | ✅ | ✅ | Partial | ✅ |
 | **Release** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Code generation** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Catalog / discovery** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Policy enforcement** | ✅ | Partial | Partial | Partial | ❌ |
+| **Policy enforcement** | ✅ | Partial | Partial | Partial | Partial |
 
-**Legend:** ✅ = implemented and tested, Partial = config validation only,
+**Legend:** ✅ = implemented and tested, Partial = limited scope (see format details),
 ❌ = returns `ErrNotImplemented` or is a stub
 
 ## Format Details
@@ -46,46 +46,68 @@ ruleset file existence.
 | Catalog | Tag-based discovery |
 | Policy | Checks that the configured Spectral ruleset file exists (does not run Spectral) |
 
-### Avro — Tier 3 (partially supported)
+### Avro — Tier 2 (fully supported)
 
-Lint works via `avro-tools`; breaking-change detection is not yet implemented.
+Both lint and breaking-change detection are implemented natively in Go — no
+external tools required.
 
 | Feature | Implementation |
 |---------|----------------|
-| Lint | Delegates to `java -jar avro-tools compile schema` |
-| Breaking | **Not implemented** — returns `ErrNotImplemented` |
+| Lint | Native Go: parses JSON, validates `type`/`name`/`fields` structure |
+| Breaking | Native Go: BACKWARD/FORWARD/FULL/NONE compatibility rules |
 | Release | Format-agnostic pipeline |
 | Codegen | Overlay system (format-agnostic) |
 | Catalog | Tag-based discovery |
-| Policy | Validates compatibility mode string (`BACKWARD`, `FORWARD`, etc.) |
+| Policy | Validates compatibility mode string (`BACKWARD`, `FORWARD`, `FULL`, `NONE`) |
 
-### JSON Schema — Tier 4 (partially supported)
+**Avro breaking-change rules (BACKWARD mode):**
 
-Breaking-change detection works via `jsonschema-diff`; linting is not yet
-implemented.
+- New field without a default: **breaking** (old data lacks the field)
+- New field with a default or nullable union (`["null", ...]`): safe
+- Field type change: **breaking**
+- Removed field: safe (reader ignores unknown writer fields)
+
+### JSON Schema — Tier 3 (mostly supported)
+
+Linting is implemented natively in Go. Breaking-change detection delegates to
+`jsonschema-diff` (must be installed separately).
 
 | Feature | Implementation |
 |---------|----------------|
-| Lint | **Not implemented** — returns `ErrNotImplemented` |
-| Breaking | Delegates to `jsonschema-diff` |
+| Lint | Native Go: validates JSON syntax, `$schema` URI, `type`, `properties`, `required` |
+| Breaking | Delegates to `jsonschema-diff` (requires external tool) |
 | Release | Format-agnostic pipeline |
 | Codegen | Overlay system (format-agnostic) |
 | Catalog | Tag-based discovery |
 | Policy | Validates `breaking_mode` string (`strict` or `lenient`) |
 
-### Parquet — Tier 5 (scaffold only)
+### Parquet — Tier 2 (fully supported)
 
-Release, codegen, and catalog work because they are format-agnostic. Format-specific
-features (lint, breaking, policy) are stubs.
+Both lint and breaking-change detection are implemented natively in Go using the
+Parquet message-notation schema format.
+
+APX represents Parquet schemas as `.parquet` text files using the message notation
+(`message name { required binary id (STRING); ... }`). This is the same schema
+format that `parquet-tools schema` outputs.
 
 | Feature | Implementation |
 |---------|----------------|
-| Lint | **Not implemented** — returns `ErrNotImplemented` |
-| Breaking | **Not implemented** — returns `ErrNotImplemented` |
+| Lint | Native Go: parses message notation, validates physical types and repetition levels |
+| Breaking | Native Go: additive-nullable policy enforcement |
 | Release | Format-agnostic pipeline |
 | Codegen | Overlay system (format-agnostic) |
 | Catalog | Tag-based discovery |
-| Policy | Stub (no-op) |
+| Policy | Validates additive-nullable-only policy |
+
+**Parquet breaking-change rules:**
+
+- New optional column: safe (additive nullable)
+- New required column: **breaking** (old data has no values for it)
+- Removed column: **breaking**
+- Physical type change: **breaking**
+- `optional` → `required`: **breaking** (old data may contain nulls)
+- `required` → `optional`: safe (relaxing the constraint)
+- Logical type annotation change: **breaking** (affects deserialization)
 
 ## Format-Agnostic vs Format-Specific
 
@@ -94,25 +116,16 @@ are format-agnostic by design. They work for any format string because they oper
 on directory structure and git tags, not on schema file contents. These show as ✅
 for all formats.
 
-The truly format-specific capabilities are **linting**, **breaking-change detection**,
-and **policy enforcement**. These delegate to external tools and require format-specific
-integration:
+The format-specific capabilities are **linting**, **breaking-change detection**,
+and **policy enforcement**:
 
-| Format | Lint tool | Breaking tool |
-|--------|-----------|---------------|
-| Proto | `buf lint` | `buf breaking` |
-| OpenAPI | Spectral | oasdiff |
-| Avro | `avro-tools` | *(not yet wired)* |
-| JSON Schema | *(not yet wired)* | `jsonschema-diff` |
-| Parquet | *(not yet wired)* | *(not yet wired)* |
-
-## Roadmap
-
-Formats with missing capabilities are tracked for future implementation:
-
-- **Avro breaking detection**: Integrate Avro schema compatibility checker
-- **JSON Schema linting**: Integrate a JSON Schema linter (e.g. `ajv`)
-- **Parquet lint and breaking**: Requires a Parquet schema evolution tool
+| Format | Lint | Breaking | External tool required? |
+|--------|------|----------|------------------------|
+| Proto | `buf lint` | `buf breaking` | Yes (`buf`) |
+| OpenAPI | Spectral | oasdiff | Yes (`spectral`, `oasdiff`) |
+| Avro | Native Go | Native Go | No |
+| JSON Schema | Native Go | `jsonschema-diff` | Breaking only (`jsonschema-diff`) |
+| Parquet | Native Go | Native Go | No |
 
 ## See Also
 

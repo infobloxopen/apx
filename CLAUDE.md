@@ -9,6 +9,9 @@ The `specs/` directory contains feature specifications that are instructions/sou
 
 If you find specs/ files modified, run: `git checkout -- specs/`
 
+### Commit Messages
+**NEVER add any Claude/Anthropic attribution to commit messages.** No `Co-Authored-By: Claude`, no `Generated with Claude Code`, nothing referencing Claude or Anthropic. Commit messages should only describe the change.
+
 ### Build
 ```bash
 GOTOOLCHAIN=auto go build ./...

@@ -1,0 +1,4 @@
+message user {
+  required supertype id (STRING);
+  required binary name;
+}
