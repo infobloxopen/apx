@@ -80,8 +80,9 @@ func (s *AppScaffolder) Generate(baseDir string) error {
 	if err := os.MkdirAll(workflowDir, 0755); err != nil {
 		return fmt.Errorf("failed to create .github/workflows: %w", err)
 	}
+	// Always overwrite so upgrades pick up new templates
 	releasePath := filepath.Join(workflowDir, "apx-release.yml")
-	if err := writeIfNotExists(releasePath, templates.GenerateAppRelease(s.org, "apis")); err != nil {
+	if err := os.WriteFile(releasePath, []byte(templates.GenerateAppRelease(s.org, "apis")), 0644); err != nil {
 		return fmt.Errorf("failed to write apx-release.yml: %w", err)
 	}
 

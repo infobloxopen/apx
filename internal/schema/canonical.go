@@ -77,13 +77,13 @@ func (s *CanonicalScaffolder) Generate(targetDir string) error {
 
 	// Generate catalog/.gitignore so generated catalog data is not committed
 	catalogGitignorePath := filepath.Join(targetDir, "catalog", ".gitignore")
-	if err := writeIfNotExists(catalogGitignorePath, "catalog.yaml\n"); err != nil {
+	if err := os.WriteFile(catalogGitignorePath, []byte("catalog.yaml\n"), 0644); err != nil {
 		return fmt.Errorf("failed to write catalog/.gitignore: %w", err)
 	}
 
 	// Generate catalog/Dockerfile for CI-based container builds
 	dockerfilePath := filepath.Join(targetDir, "catalog", "Dockerfile")
-	if err := writeIfNotExists(dockerfilePath, templates.GenerateCatalogDockerfile(s.org)); err != nil {
+	if err := os.WriteFile(dockerfilePath, []byte(templates.GenerateCatalogDockerfile(s.org)), 0644); err != nil {
 		return fmt.Errorf("failed to write catalog/Dockerfile: %w", err)
 	}
 
@@ -117,26 +117,17 @@ func (s *CanonicalScaffolder) Generate(targetDir string) error {
 		}
 	}
 
-	// Generate CI workflow
+	// Generate CI workflow — always overwrite so upgrades pick up new templates
 	ciPath := filepath.Join(targetDir, ".github", "workflows", "ci.yml")
-	if err := writeIfNotExists(ciPath, templates.GenerateCanonicalCI()); err != nil {
+	if err := os.WriteFile(ciPath, []byte(templates.GenerateCanonicalCI()), 0644); err != nil {
 		return fmt.Errorf("failed to write ci.yml: %w", err)
 	}
 
-	// Generate on-merge workflow
+	// Generate on-merge workflow — always overwrite so upgrades pick up new templates
 	onMergePath := filepath.Join(targetDir, ".github", "workflows", "on-merge.yml")
-	if err := writeIfNotExists(onMergePath, templates.GenerateCanonicalOnMerge(s.org)); err != nil {
+	if err := os.WriteFile(onMergePath, []byte(templates.GenerateCanonicalOnMerge(s.org)), 0644); err != nil {
 		return fmt.Errorf("failed to write on-merge.yml: %w", err)
 	}
 
 	return nil
-}
-
-// writeIfNotExists writes content to path only if the file does not
-// already exist, making scaffolding idempotent.
-func writeIfNotExists(path, content string) error {
-	if _, err := os.Stat(path); err == nil {
-		return nil // already exists — skip
-	}
-	return os.WriteFile(path, []byte(content), 0644)
 }
