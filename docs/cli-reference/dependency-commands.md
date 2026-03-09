@@ -138,6 +138,85 @@ Your import paths remain unchanged — they now resolve to the published module 
 
 ---
 
+## `apx update`
+
+Check for compatible (same API line) updates and apply them.
+
+```bash
+apx update [module-path]
+```
+
+Without arguments, checks all dependencies. With a module path, updates only
+that dependency.
+
+### Flags
+
+| Flag | Shorthand | Type | Default | Description |
+|------|-----------|------|---------|-------------|
+| `--dry-run` | | bool | `false` | Preview updates without applying them |
+| `--catalog` | `-c` | string | `catalog/catalog.yaml` | Path to catalog file |
+
+### Examples
+
+```bash
+# Check and apply all compatible updates
+apx update
+
+# Update a specific dependency
+apx update proto/payments/ledger/v1
+
+# Preview what would be updated
+apx update --dry-run
+
+# JSON output
+apx --json update
+```
+
+After updating, regenerate code:
+
+```bash
+apx gen go && apx sync
+```
+
+---
+
+## `apx upgrade`
+
+Upgrade a dependency to a new API line (major version transition).
+
+```bash
+apx upgrade <module-path> --to <line>
+```
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--to` | string | (required) | Target API line (e.g. `v2`) |
+| `--dry-run` | bool | `false` | Preview upgrade without applying |
+| `--catalog` | string | `catalog/catalog.yaml` | Path to catalog file |
+
+### Examples
+
+```bash
+# Upgrade from v1 to v2
+apx upgrade proto/payments/ledger/v1 --to v2
+
+# Preview the upgrade plan
+apx upgrade proto/payments/ledger/v1 --to v2 --dry-run
+
+# JSON output for CI
+apx --json upgrade proto/payments/ledger/v1 --to v2 --dry-run
+```
+
+After upgrading:
+
+1. Regenerate code: `apx gen go && apx sync`
+2. Update import paths in your code (the command prints the mapping)
+3. Run `apx breaking` to inspect breaking changes
+
+---
+
 ## Workflow
 
 ```bash

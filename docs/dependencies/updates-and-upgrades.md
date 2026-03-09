@@ -1,13 +1,65 @@
 # Updates and Upgrades
 
-```{admonition} Planned
-:class: note
-`apx update` and `apx upgrade` commands are planned for a future release. This page documents the intended design and the current manual workaround.
+APX provides two commands for managing dependency versions:
+
+- **`apx update`** — compatible updates within the same API line (minor/patch bumps)
+- **`apx upgrade`** — major version transitions across API lines (e.g. v1 → v2)
+
+Both commands query the canonical catalog for available versions and update `apx.lock`.
+
+## `apx update`
+
+Check for compatible (same API line, higher minor/patch) updates and apply them:
+
+```bash
+# Check and apply all compatible updates
+apx update
+
+# Update a specific dependency
+apx update proto/payments/ledger/v1
+
+# Preview what would be updated
+apx update --dry-run
 ```
 
-## Current Workaround
+**Behavior:**
 
-To pin a newer version of a dependency today, re-add it at the desired version:
+- Reads `apx.lock` for currently pinned versions
+- Queries the canonical repo catalog for newer versions within the same API line
+- Applies only **compatible** updates (same major version, higher minor/patch)
+- Respects lifecycle: prefers latest stable version, falls back to prerelease
+- Updates `apx.lock` with new pinned versions
+- Supports `--dry-run` for previewing changes and `--json` for CI integration
+
+## `apx upgrade`
+
+Handle major version upgrades that involve API line transitions:
+
+```bash
+# Upgrade from v1 to v2
+apx upgrade proto/payments/ledger/v1 --to v2
+
+# Preview breaking changes before upgrading
+apx upgrade proto/payments/ledger/v1 --to v2 --dry-run
+```
+
+**Behavior:**
+
+- Verifies the target API line exists in the catalog
+- Reports the import path change (e.g. `proto/payments/ledger/v1` → `proto/payments/ledger/v2`)
+- Removes the old API line from `apx.lock` and adds the new one
+- Pins the latest available version on the target line
+- Supports `--dry-run` for previewing the upgrade plan
+
+**After upgrading:**
+
+1. Regenerate code: `apx gen go && apx sync`
+2. Update import paths in your code (the command prints the mapping)
+3. Run `apx breaking` to inspect breaking changes between API lines
+
+## Manual Workaround
+
+You can also update a dependency manually by re-adding it at the desired version:
 
 ```bash
 # Update to a newer version
@@ -19,50 +71,6 @@ apx sync
 ```
 
 This updates `apx.lock`, regenerates code into `internal/gen/`, and refreshes `go.work` overlays.
-
-## Planned: `apx update`
-
-`apx update` will check for compatible (patch and minor) updates for all pinned dependencies and apply them:
-
-```bash
-# Check for compatible updates across all dependencies
-apx update
-
-# Update a specific dependency
-apx update proto/payments/ledger/v1
-
-# Preview what would be updated
-apx update --dry-run
-```
-
-**Intended behavior:**
-
-- Reads `apx.lock` for currently pinned versions
-- Queries the canonical repo catalog for newer versions within the same API line
-- Applies only **compatible** updates (patch and minor bumps)
-- Respects lifecycle transitions (won't downgrade from `stable` to `beta`)
-- Updates `apx.lock` with new pinned versions
-- Regenerates code automatically
-
-## Planned: `apx upgrade`
-
-`apx upgrade` will handle major version upgrades that may involve breaking changes or API line transitions:
-
-```bash
-# Upgrade to a new API line (breaking change)
-apx upgrade proto/payments/ledger/v1 --to v2
-
-# Preview breaking changes before upgrading
-apx upgrade proto/payments/ledger/v1 --to v2 --dry-run
-```
-
-**Intended behavior:**
-
-- Analyzes breaking changes between the current version and the target
-- Reports import path changes (e.g. `ledger/v1` → `ledger/v2`)
-- Updates `apx.lock` with the new API line and version
-- Regenerates code with new import paths
-- Updates `go.work` overlays accordingly
 
 ## Version Selection Strategy
 

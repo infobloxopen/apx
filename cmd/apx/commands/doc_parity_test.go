@@ -254,7 +254,7 @@ func TestDocParity_AllCommandsExist(t *testing.T) {
 		{"gen"}, {"policy"}, {"policy", "check"},
 		{"catalog"},
 		{"publish"}, {"search"}, {"add"},
-		{"sync"}, {"unlink"},
+		{"sync"}, {"unlink"}, {"update"}, {"upgrade"},
 		{"config"}, {"config", "init"}, {"config", "validate"},
 		{"fetch"},
 		// Note: "completion" is Cobra's built-in command, added lazily at Execute() time;

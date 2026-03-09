@@ -61,6 +61,8 @@ func NewRootCmd(version string) *cobra.Command {
 		newAddCmd(),
 		newSyncCmd(),
 		newUnlinkCmd(),
+		newUpdateCmd(),
+		newUpgradeCmd(),
 		newConfigCmd(),
 		newFetchCmd(),
 		newInspectCmd(),
