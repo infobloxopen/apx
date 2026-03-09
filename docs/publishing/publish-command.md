@@ -61,6 +61,14 @@ apx publish proto/payments/ledger/v1 --version v1.0.0 --dry-run
 | `--dry-run` | Show what would be published without publishing |
 | `--strict` | Make `go_package` mismatches an error instead of a warning |
 | `--skip-gomod` | Skip `go.mod` generation and validation |
+| `--create-pr` | Create a pull request on the canonical repo (default behavior) |
+
+:::{tip}
+For CI pipelines and production releases, consider using the
+[release pipeline](../cli-reference/release-commands.md) instead.
+It provides a manifest, idempotency checks, catalog updates, and
+an immutable release record.
+:::
 
 ## What Publish Does
 

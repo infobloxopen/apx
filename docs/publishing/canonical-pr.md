@@ -1,6 +1,6 @@
 # Canonical Pull Request
 
-When you run `apx publish`, APX opens a pull request against the
+Both `apx publish` and `apx release submit` open a pull request against the
 canonical repository (`github.com/<org>/apis`).  This page describes the
 end-to-end flow.
 
@@ -17,9 +17,10 @@ end-to-end flow.
 ```
 App repo                          Canonical repo
 ────────                          ──────────────
- 1. apx publish
+ 1. apx publish  (or)
+    apx release submit
     ├─ shallow-clone canonical
-    ├─ checkout -b apx/publish/<api>/<ver>
+    ├─ checkout -b apx/{publish,release}/<api>/<ver>
     ├─ copy module files
     ├─ generate go.mod (if missing)
     ├─ git commit + push
@@ -33,7 +34,8 @@ App repo                          Canonical repo
                                   3. Reviewer merges PR
                                    │
                                    ▼
-                                  4. CI tags + publishes packages
+                                  4. apx release finalize
+                                     (tag, catalog, release record)
 ```
 
 ## Branch Naming
@@ -41,10 +43,11 @@ App repo                          Canonical repo
 Feature branches follow the pattern:
 
 ```
-apx/publish/<api-id-dashes>/<version>
+apx/release/<api-id-dashes>/<version>    # apx release submit
+apx/publish/<api-id-dashes>/<version>    # apx publish
 ```
 
-For example, `apx/publish/proto-payments-ledger-v1/v1.0.0-beta.1`.
+For example, `apx/release/proto-payments-ledger-v1/v1.0.0-beta.1`.
 
 ## PR Metadata
 
@@ -69,6 +72,24 @@ proto/payments/ledger/
 ```
 
 ## Example
+
+### Using the release pipeline
+
+```bash
+# From your app repo
+apx release prepare proto/payments/ledger/v1 \
+  --version v1.0.0-beta.1 \
+  --lifecycle beta
+
+apx release submit
+
+# Output:
+#   Submitting release proto/payments/ledger/v1 @ v1.0.0-beta.1
+#   ✓ Release submitted successfully
+#   PR: https://github.com/acme/apis/pull/42
+```
+
+### Using quick publish
 
 ```bash
 # From your app repo
