@@ -161,7 +161,7 @@ apx release finalize --skip-catalog
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--catalog` | string | `catalog.yaml` | Path to the catalog file |
-| `--skip-packages` | bool | false | Skip language package publication |
+| `--skip-packages` | bool | false | Skip recording Go module artifact metadata |
 | `--skip-catalog` | bool | false | Skip catalog update |
 | `--record-path` | string | `.apx-release-record.yaml` | Path to write the release record |
 
@@ -172,7 +172,7 @@ apx release finalize --skip-catalog
 3. Policy validation is run
 4. An annotated git tag is created and pushed
 5. The catalog entry is created or updated (version, lifecycle, latest-stable/prerelease)
-6. Language package artifacts are recorded
+6. Go module artifact metadata is recorded (Go modules are published implicitly via the tag; other language packages require separate CI steps)
 7. An immutable **release record** (`.apx-release-record.yaml`) is written with CI provenance (auto-detects GitHub Actions, GitLab CI, Jenkins)
 
 ---
@@ -312,7 +312,7 @@ The immutable release record (`.apx-release-record.yaml`) is emitted by
 `finalize`.  It captures everything from the manifest plus:
 
 - **Canonical commit** — the commit SHA in the canonical repo
-- **Published artifacts** — type, name, version, status for each language package
+- **Published artifacts** — type, name, version, status (Go module recorded automatically; other packages require CI plugins)
 - **Catalog update** — whether the catalog was updated and which file
 - **CI provenance** — auto-detected CI system name, job ID, run URL
 

@@ -85,6 +85,29 @@ APX uses a single canonical repository (`github.com/<org>/apis`) as both the sou
 
 Release artifacts and tags belong to this one repo. Local overlays (`go.work`) are a development convenience — they do not represent a distinct public distribution identity.
 
+## Responsibility Boundary
+
+APX handles schema lifecycle management end-to-end. Language-specific package
+builds are the responsibility of CI plugins or workflow steps that teams
+configure outside APX.
+
+| Step | Who | What |
+|------|-----|------|
+| Schema validation | APX | `lint`, `breaking`, `policy check` |
+| Identity & coordinates | APX | API ID → paths, Go module, tag pattern |
+| PR to canonical | APX | `publish` or `release submit` |
+| Tag creation | APX (finalize) | Annotated subdirectory git tag |
+| Catalog update | APX (finalize) | `catalog.yaml` entry |
+| Go module availability | Git + Go proxy | Automatic once the tag exists |
+| Maven JARs | External CI | Team-configured workflow step |
+| Python wheels | External CI | Team-configured workflow step |
+| npm packages | External CI | Team-configured workflow step |
+| OCI bundles | External CI | Team-configured workflow step |
+
+The `--skip-packages` flag on `release finalize` controls whether Go module
+artifact metadata is _recorded_ in the release record — it does not build or
+publish packages to any registry.
+
 ## Two Publishing Paths
 
 APX provides two ways to get an API into the canonical repository:

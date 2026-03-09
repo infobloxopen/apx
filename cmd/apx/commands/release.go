@@ -689,8 +689,13 @@ func newReleaseFinalizeCmd() *cobra.Command {
 		Short: "Run canonical CI release processing",
 		Long: `Finalize is run by canonical CI after a release has been submitted.
 It re-validates the schema, creates the official canonical tag,
-updates the catalog, publishes language packages, and emits an
+updates the catalog, records artifact metadata, and emits an
 immutable release record.
+
+Go modules are published implicitly via the subdirectory tag — the Go
+module proxy picks them up automatically. Other language packages
+(Maven, wheels, OCI) require separate CI workflow steps that teams
+configure outside APX.
 
 The manifest must be in 'submitted' or 'canonical-pr-open' state.
 
@@ -701,7 +706,7 @@ Examples:
 		RunE: releaseFinalizeAction,
 	}
 	cmd.Flags().String("catalog", "catalog.yaml", "Path to catalog.yaml")
-	cmd.Flags().Bool("skip-packages", false, "Skip language package publication")
+	cmd.Flags().Bool("skip-packages", false, "Skip recording Go module artifact metadata")
 	cmd.Flags().Bool("skip-catalog", false, "Skip catalog update")
 	cmd.Flags().String("record-path", ".apx-release-record.yaml", "Path to write the release record")
 	return cmd

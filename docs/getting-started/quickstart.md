@@ -370,7 +370,8 @@ On PR merge, canonical CI:
 - Re-validates schema
 - Verifies SemVer
 - Creates subdirectory tag (`proto/payments/ledger/v1/v1.0.0-beta.1`)
-- Publishes language packages (Maven, wheels, OCI)
+- Go modules work automatically (Go proxy picks up the tag)
+- Other language packages (Maven, wheels, OCI) require optional CI plugins
 
 ## 6. Consuming APIs with Canonical Import Paths
 

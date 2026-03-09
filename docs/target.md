@@ -44,7 +44,7 @@
 **Key ideas**
 - Canonical source of truth: `github.com/<org>/apis` (one repo, many submodules).
 - App teams tag releases **in their app repo**; `apx publish` opens a PR to the canonical repo.
-- Only CI in the canonical repo creates tags and optional language packages (Maven, wheels, OCI bundles).
+- Only CI in the canonical repo creates tags; Go modules work automatically via the tag. Other language packages (Maven, wheels, OCI) require CI plugins teams configure separately.
 - **Canonical import paths everywhere**: Generated code uses the canonical import path (e.g. `github.com/<org>/apis/proto/<domain>/<api>`) even during local development.
 - **go.work overlays**: Local development uses workspace overlays to resolve canonical paths to local generated stubs.
 - Protobuf is primary; OpenAPI/Avro/JSONSchema/Parquet supported with format-specific breaking checks.
@@ -199,7 +199,7 @@ func main() {
 2. Tag & publish schemas (no generated code)
 
    * Tag from app or directly in the monorepo (your process), open PR to `/<org>/apis`.
-   * Canonical CI: re-checks, creates **subdirectory tag**, optionally triggers language package builds (e.g., Go module in `apis`, Maven, wheels).
+   * Canonical CI: re-checks, creates **subdirectory tag**. Go modules are available immediately via the Go module proxy. Other language packages (Maven, wheels) require optional CI workflow steps.
 
 3. Switch app off overlay once published
 

@@ -97,7 +97,7 @@ View source code, report issues, and contribute to APX.
 
 - **Canonical source of truth**: `github.com/<org>/apis` (one repo, many submodules)
 - **App teams tag releases** in their app repo; `apx publish` opens a PR to the canonical repo (files are copied to a feature branch and submitted for review)
-- **Only CI** in the canonical repo creates tags and optional language packages (Maven, wheels, OCI bundles)
+- **Only CI** in the canonical repo creates tags; Go modules are available automatically via the tag, while other language packages (Maven, wheels, OCI) require CI plugins teams configure separately
 - **Protobuf is primary**; OpenAPI/Avro/JSONSchema/Parquet supported with format-specific breaking checks
 
 ### Architecture Overview
