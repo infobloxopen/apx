@@ -13,7 +13,7 @@
 - 🎯 **Canonical Import Paths**: Single import path that works in development and production
 - 🔄 **go.work Overlays**: Seamless transition between local development and published modules
 - 🏢 **Organization-Wide Catalog**: Centralized API discovery across all teams
-- 🚀 **Multi-Format Support**: Protocol Buffers, OpenAPI, Avro, JSON Schema, Parquet
+- 🚀 **Multi-Format Support**: Protocol Buffers, OpenAPI, Avro, JSON Schema, Parquet (see [Format Maturity](docs/testing/format-maturity.md))
 - 🔍 **Schema Validation**: Automated linting and breaking change detection
 - 📦 **Code Generation**: Generate client code for Go, Python, and Java
 - 🔐 **Policy Enforcement**: Org-wide lint and breaking change policies
