@@ -8,9 +8,12 @@ Common issues and solutions when working with APX.
 common-errors
 buf-issues
 versioning-problems
-release-failures
+publishing-failures
 code-generation
+e2e-tests
 faq
+../testing/e2e-tests
+../testing/format-maturity
 ```
 
 ## Common Error Categories
@@ -304,5 +307,5 @@ If using APX in an organization:
 - [Review common errors](common-errors.md) for your specific issue
 - [Debug Buf integration](buf-issues.md) for Protocol Buffer problems
 - [Resolve versioning problems](versioning-problems.md) for Go module issues
-- [Fix release failures](release-failures.md) for CI problems
+- [Fix publishing failures](publishing-failures.md) for CI problems
 - [Check the FAQ](faq.md) for frequently asked questions

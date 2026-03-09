@@ -253,7 +253,7 @@ apx release prepare proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
 apx release prepare proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle stable
 ```
 
-See [Release Overview](../releasing/overview.md) for the full lifecycle model.
+See [Release Overview](../publishing/overview.md) for the full lifecycle model.
 
 ---
 

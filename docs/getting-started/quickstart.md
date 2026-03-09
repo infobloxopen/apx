@@ -282,7 +282,7 @@ payment-service/
 
 **go.work overlay:**
 
-```txt
+```text
 go 1.22
 use .
 # Pattern: use ./internal/gen/go/proto/<domain>/<api>@v1.2.3
@@ -569,10 +569,9 @@ Interactive mode works normally in a terminal with TTY support.
 ## What's Next?
 
 - Learn about [Interactive Initialization](interactive-init.md) features
-- Explore the [User Guide](../user-guide/index.md) for advanced workflows
-- Check out [Examples](../examples/index.md) for specific use cases
+- Explore [Local Development](../app-repos/local-development.md) for advanced workflows
 - Review the [CLI Reference](../cli-reference/index.md) for all commands
 
 ---
 
-**Questions?** Check the [FAQ](../user-guide/faq.md) or open a [discussion](https://github.com/infobloxopen/apx/discussions).
+**Questions?** Check the [Troubleshooting FAQ](../troubleshooting/faq.md) or open a [discussion](https://github.com/infobloxopen/apx/discussions).

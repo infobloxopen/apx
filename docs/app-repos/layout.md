@@ -190,7 +190,7 @@ Do not edit `go.work` manually. Use `apx sync` to regenerate it. CI environments
 
 Must exclude generated code and cached tools:
 
-```gitignore
+```text
 # APX generated code — regenerated from apx.lock
 internal/gen/
 

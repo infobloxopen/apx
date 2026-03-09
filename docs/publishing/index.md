@@ -1,5 +1,16 @@
 # Release Workflow
 
+```{toctree}
+:hidden:
+
+overview
+lifecycle
+canonical-pr
+tagging-strategy
+release-guardrails
+validation
+```
+
 APX implements a **PR-first release model**: every API change reaches the
 canonical repository through a pull request that is validated before merge
 and tagged after merge.

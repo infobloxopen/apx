@@ -61,6 +61,6 @@ Jump straight into creating your first schema
 
 Once you've completed the getting started guide, you can:
 
-- Explore the [User Guide](../user-guide/index.md) for detailed workflows
-- Check out [Examples](../examples/index.md) for real-world use cases  
+- Learn about [Local Development](../app-repos/local-development.md) for detailed workflows
+- Explore the [Dependencies Guide](../dependencies/index.md) for managing API dependencies
 - Reference the [CLI Documentation](../cli-reference/index.md) for all commands

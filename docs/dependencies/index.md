@@ -1,5 +1,18 @@
 # API Dependencies Management
 
+```{toctree}
+:hidden:
+
+adding-dependencies
+code-generation
+discovery
+versioning-strategy
+updates-and-upgrades
+external-apis
+catalog-schema
+../concepts/multi-language-strategy
+```
+
 APX provides powerful tools for discovering, adding, and managing API dependencies across your organization.
 
 :::{note}

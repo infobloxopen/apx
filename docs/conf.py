@@ -26,7 +26,7 @@ extensions = [
 ]
 
 templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'venv', 'README.md', 'target.md']
+exclude_patterns = ['_build', '_generated', 'Thumbs.db', '.DS_Store', 'venv', 'README.md', 'target.md']
 
 # -- MyST Configuration ------------------------------------------------------
 myst_enable_extensions = [
@@ -46,6 +46,9 @@ myst_enable_extensions = [
 ]
 
 myst_heading_anchors = 3
+
+# Suppress false-positive topmatter warnings from included fragments
+suppress_warnings = ["myst.topmatter"]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
@@ -78,11 +81,10 @@ copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: 
 copybutton_prompt_is_regexp = True
 copybutton_remove_prompts = True
 
-# -- Favicon -----------------------------------------------------------------
-html_favicon = '_static/favicon.ico'
-
-# -- Logo --------------------------------------------------------------------
-html_logo = '_static/logo.png'
+# -- Favicon / Logo ----------------------------------------------------------
+# Uncomment when assets are added to _static/
+# html_favicon = '_static/favicon.ico'
+# html_logo = '_static/logo.png'
 
 # -- Social cards ------------------------------------------------------------
 html_meta = {

@@ -262,7 +262,7 @@ Toolchain versions are pinned in `apx.lock` and downloaded with `apx fetch`.
 
 Generated code must **never be committed**. Add to `.gitignore`:
 
-```gitignore
+```text
 internal/gen/
 ```
 

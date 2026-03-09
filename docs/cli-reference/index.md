@@ -1,5 +1,18 @@
 # CLI Reference
 
+```{toctree}
+:hidden:
+
+core-commands
+dependency-commands
+release-commands
+validation-commands
+utility-commands
+external-commands
+configuration
+global-options
+```
+
 Complete reference for all APX commands and options.
 
 ## Command Categories

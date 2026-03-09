@@ -422,4 +422,4 @@ If approvals keep getting dismissed, it's because `dismiss_stale_reviews` is ena
 - [Canonical Repository Setup](setup.md) — Full setup walkthrough including `--setup-github`
 - [CI Templates](ci-templates.md) — The workflows that depend on these protections
 - [Repository Structure](structure.md) — Directory layout and CODEOWNERS patterns
-- [Tagging Strategy](../releasing/tagging-strategy.md) — How tags are formatted and versioned
+- [Tagging Strategy](../publishing/tagging-strategy.md) — How tags are formatted and versioned

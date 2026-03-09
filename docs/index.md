@@ -8,7 +8,7 @@ getting-started/index
 canonical-repo/index
 app-repos/index
 dependencies/index
-releasing/index
+publishing/index
 cli-reference/index
 troubleshooting/index
 ```
@@ -65,7 +65,7 @@ Discover, add, and update API dependencies with versioning.
 :::
 
 :::{grid-item-card}
-:link: releasing/index
+:link: publishing/index
 :link-type: doc
 :class-header: bg-light
 

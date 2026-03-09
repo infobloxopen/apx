@@ -127,7 +127,7 @@ func writeIdentityTable(outDir string, docs []pluginDoc) error {
 
 func writePathMappings(path, langName string, mappings []language.PathMapping) error {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("#### %s Path Mappings\n\n", strings.Title(langName)))
+	sb.WriteString(fmt.Sprintf("### %s Path Mappings\n\n", strings.Title(langName)))
 	sb.WriteString("| APX Path | Target Coordinate | Description |\n")
 	sb.WriteString("|----------|-------------------|-------------|\n")
 
