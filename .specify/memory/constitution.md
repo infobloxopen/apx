@@ -127,7 +127,7 @@ APX MUST use **git subtree** (not copy/snapshot) for publishing to canonical rep
 - `apx publish` uses `git subtree split` to extract schema subdirectories
 - Commit history, authors, and timestamps are preserved in canonical repo
 - PRs to canonical repo show full git history for auditability
-- Tag format: app repo uses `proto/<domain>/<api>/v1/v1.2.3`, canonical repo uses `proto/<domain>/<api>/v1.2.3`
+- Tag format: both app and canonical repos use `proto/<domain>/<api>/v1/v1.2.3` (5-segment: format/domain/api/line/version)
 
 **Rationale:** History preservation enables debugging API evolution, maintains authorship credit, and provides transparent audit trails. This aligns with documented publishing workflow in `/docs/publishing/`.
 

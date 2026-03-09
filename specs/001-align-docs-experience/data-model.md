@@ -52,7 +52,7 @@ The feature coordinates documentation-driven CLI workflows for managing canonica
 - **Fields**:
   - `version` (semver string, required): e.g., `v1.2.3`.
   - `sourceTag` (GitTagRef, required): Tag in app repo, `proto/<domain>/<api>/v1/v1.2.3`.
-  - `canonicalTag` (GitTagRef, required): Tag in canonical repo, `proto/<domain>/<api>/v1.2.3`.
+  - `canonicalTag` (GitTagRef, required): Tag in canonical repo, `proto/<domain>/<api>/v1/v1.2.3`.
   - `artifactDigest` (string): Hash of schema contents post-validation.
   - `validationReport` (ValidationSummary): Results from lint/breaking checks.
   - `generatedOutputs` (array<GeneratedArtifactRef>): Codegen outputs (Go, Python, etc.).

@@ -119,7 +119,7 @@ apx gen go
    dependencies:
      proto/payments/ledger/v1:
        repo: github.com/myorg/apis
-       ref: proto/payments/ledger/v1.2.3
+       ref: proto/payments/ledger/v1/v1.2.3
    ```
 2. For each dependency, APX:
    - Creates overlay directory: `internal/gen/go/proto/payments/ledger@v1.2.3/`

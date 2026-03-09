@@ -119,7 +119,7 @@ As a developer, I need to verify that git subtree publishing preserves commit hi
 - **FR-015**: Test suite MUST validate that `apx sync` correctly updates go.work with active overlays
 - **FR-016**: Test suite MUST support running tests in CI environments (GitHub Actions, GitLab CI) without requiring privileged Docker access
 - **FR-017**: Test suite MUST provide clear test output showing which phase failed (Gitea startup, repo creation, apx command execution, validation)
-- **FR-018**: Test suite MUST validate that published tags follow the correct format (proto/payments/ledger/v1/v1.0.0 in app repo, proto/payments/ledger/v1.0.0 in canonical repo)
+- **FR-018**: Test suite MUST validate that published tags follow the correct format (proto/payments/ledger/v1/v1.0.0 in both app and canonical repos)
 
 ### Key Entities
 

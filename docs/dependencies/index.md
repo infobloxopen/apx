@@ -98,12 +98,12 @@ toolchains:
 dependencies:
   proto/payments/ledger/v1:
     repo: github.com/myorg/apis
-    ref: proto/payments/ledger/v1.2.3
+    ref: proto/payments/ledger/v1/v1.2.3
     modules:
       - proto/payments/ledger
   proto/users/v1:
     repo: github.com/myorg/apis
-    ref: proto/users/v1.0.5
+    ref: proto/users/v1/v1.0.5
     modules:
       - proto/users
 ```

@@ -148,7 +148,7 @@ apx publish \
 **In canonical repository**:
 - Branch: `publish/proto/payments/ledger/v1`
 - Pull Request: Title "Publish proto/payments/ledger/v1"
-- Tag (after PR merge): `proto/payments/ledger/v1.0.0`
+- Tag (after PR merge): `proto/payments/ledger/v1/v1.0.0`
 - Files:
   ```
   proto/payments/ledger/v1/
@@ -266,7 +266,7 @@ apx publish \
 **In canonical repository**:
 - Branch: `publish/proto/users/profile/v1`
 - Pull Request: Title "Publish proto/users/profile/v1"
-- Tag (after PR merge): `proto/users/profile/v1.0.0`
+- Tag (after PR merge): `proto/users/profile/v1/v1.0.0`
 - Files:
   ```
   proto/users/profile/v1/

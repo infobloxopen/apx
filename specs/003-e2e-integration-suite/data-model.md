@@ -116,7 +116,7 @@ Represents a schema module published from an app repository to the canonical rep
 - `ModulePath` (string): Module path in repository (e.g., `proto/payments/ledger/v1`)
 - `Version` (string): Semantic version (e.g., `v1.0.0`)
 - `AppTag` (string): Git tag in app repository (e.g., `proto/payments/ledger/v1/v1.0.0`)
-- `CanonicalTag` (string): Git tag in canonical repository (e.g., `proto/payments/ledger/v1.0.0`)
+- `CanonicalTag` (string): Git tag in canonical repository (e.g., `proto/payments/ledger/v1/v1.0.0`)
 - `PRID` (int64): Pull request ID in canonical repository (0 if not yet created)
 - `PRState` (string): Pull request state (`open`, `merged`, `closed`)
 
@@ -242,7 +242,7 @@ These entities model Gitea API responses used for repository operations and vali
 **Use Cases**:
 - Validate tags exist after `apx publish`
 - Verify app repo tag format (`proto/payments/ledger/v1/v1.0.0`)
-- Verify canonical repo tag format (`proto/payments/ledger/v1.0.0`)
+- Verify canonical repo tag format (`proto/payments/ledger/v1/v1.0.0`)
 
 #### 7.4 Gitea User
 

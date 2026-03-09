@@ -345,7 +345,7 @@ app1_payment:
     - module: proto/payments/ledger/v1
       version: v1.0.0
       tag: proto/payments/ledger/v1/v1.0.0
-      canonical_tag: proto/payments/ledger/v1.0.0
+      canonical_tag: proto/payments/ledger/v1/v1.0.0
   validation:
     - file_exists: internal/apis/proto/payments/ledger/v1/ledger.proto
     - git_tag_exists: proto/payments/ledger/v1/v1.0.0

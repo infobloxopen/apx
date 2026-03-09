@@ -437,7 +437,7 @@ apx publish \
 5) **Canonical CI on PR merge**
 - Re-runs checks.
 - Verifies semver compatibility.
-- Creates the **subdirectory tag** (`proto/payments/ledger/v1.2.3`).
+- Creates the **subdirectory tag** (`proto/payments/ledger/v1/v1.2.3`).
 - Publishes optional language packages.
 
 ---
@@ -482,8 +482,8 @@ proto/payments/ledger/
 ```
 
 **Tags**
-- v1 releases: `proto/payments/ledger/v1.2.3`
-- v2 releases: `proto/payments/ledger/v2.0.0`
+- v1 releases: `proto/payments/ledger/v1/v1.2.3`
+- v2 releases: `proto/payments/ledger/v2/v2.0.0`
 
 ---
 
