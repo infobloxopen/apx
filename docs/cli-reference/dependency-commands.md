@@ -124,6 +124,45 @@ apx gen go && apx sync
 
 ---
 
+## `apx link`
+
+Link generated overlays for local development.
+
+```bash
+apx link <language> [module-path]
+```
+
+### What It Does
+
+For **Python**: runs `pip install -e` for each overlay in the active virtualenv, enabling editable imports of locally generated code.
+
+For **Go**: prints a hint to use `apx sync` instead (Go uses `go.work` overlays).
+
+### Flags
+
+None.
+
+### Examples
+
+```bash
+# Link all Python overlays into the active virtualenv
+apx link python
+
+# Link a specific overlay
+apx link python proto/payments/ledger/v1
+
+# Go redirects to sync
+apx link go
+# → "Go uses go.work overlays — run 'apx sync' instead."
+```
+
+### Prerequisites
+
+- A Python virtualenv must be active (`VIRTUAL_ENV` env var set)
+- Overlays must be scaffolded first (`apx gen python`)
+
+---
+
 ## `apx unlink`
 
 Remove a local overlay and switch to the published module.
@@ -135,8 +174,10 @@ apx unlink <module-path>
 ### What It Does
 
 1. Removes the dependency from `apx.lock`
-2. Deletes the overlay directory from `internal/gen/`
-3. Prints a hint to run `go get` to add the published module to `go.mod`
+2. Deletes the overlay directory from `internal/gen/` (all languages)
+3. Prints hints for consuming the released module:
+   - Go: `go get github.com/<org>/apis/<module-path>`
+   - Python: `pip install <org>-<domain>-<api>-<line>`
 
 ### Example
 
@@ -144,6 +185,7 @@ apx unlink <module-path>
 apx unlink proto/payments/ledger/v1
 # → Removed overlay for proto/payments/ledger/v1
 # → Run: go get github.com/acme-corp/apis/proto/payments/ledger@v1.2.3
+# → Python: Run 'pip install acme-payments-ledger-v1' to install the released package
 ```
 
 Your import paths remain unchanged — they now resolve to the published module instead of the local overlay.

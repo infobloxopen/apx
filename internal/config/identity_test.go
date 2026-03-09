@@ -477,17 +477,25 @@ func TestEffectiveGoRoot(t *testing.T) {
 func TestDeriveLanguageCoordsWithRoot(t *testing.T) {
 	api := &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"}
 
-	// Without import root — same as DeriveLanguageCoords.
-	coords, err := DeriveLanguageCoordsWithRoot("github.com/acme/apis", "", api)
+	// Without import root or org — only Go coords.
+	coords, err := DeriveLanguageCoordsWithRoot("github.com/acme/apis", "", "", api)
 	require.NoError(t, err)
 	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", coords["go"].Module)
 	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", coords["go"].Import)
+	_, hasPython := coords["python"]
+	assert.False(t, hasPython, "python coords should be absent when org is empty")
 
 	// With import root — Go paths use the custom root.
-	coords, err = DeriveLanguageCoordsWithRoot("github.com/acme/apis", "go.acme.dev/apis", api)
+	coords, err = DeriveLanguageCoordsWithRoot("github.com/acme/apis", "go.acme.dev/apis", "", api)
 	require.NoError(t, err)
 	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger", coords["go"].Module)
 	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger/v1", coords["go"].Import)
+
+	// With org — Python coords are populated.
+	coords, err = DeriveLanguageCoordsWithRoot("github.com/acme/apis", "", "acme", api)
+	require.NoError(t, err)
+	assert.Equal(t, "acme-payments-ledger-v1", coords["python"].Module)
+	assert.Equal(t, "acme_apis.payments.ledger.v1", coords["python"].Import)
 }
 
 func TestBuildIdentityBlockWithRoot(t *testing.T) {
@@ -497,6 +505,7 @@ func TestBuildIdentityBlockWithRoot(t *testing.T) {
 		"proto/payments/ledger/v1",
 		"github.com/acme/apis",
 		"go.acme.dev/apis",
+		"acme",
 		"beta",
 		"v1.0.0-beta.1",
 	)
@@ -510,13 +519,18 @@ func TestBuildIdentityBlockWithRoot(t *testing.T) {
 	// Go paths use the import root, not the source repo.
 	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger", langs["go"].Module)
 	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger/v1", langs["go"].Import)
+
+	// Python coords use the org.
+	assert.Equal(t, "acme-payments-ledger-v1", langs["python"].Module)
+	assert.Equal(t, "acme_apis.payments.ledger.v1", langs["python"].Import)
 }
 
 func TestBuildIdentityBlockWithRootEmpty(t *testing.T) {
-	// Empty import root behaves identically to BuildIdentityBlock.
+	// Empty import root and org behaves identically to BuildIdentityBlock.
 	api, source, _, langs, err := BuildIdentityBlockWithRoot(
 		"proto/payments/ledger/v1",
 		"github.com/acme/apis",
+		"",
 		"",
 		"beta",
 		"v1.0.0-beta.1",
@@ -527,4 +541,107 @@ func TestBuildIdentityBlockWithRootEmpty(t *testing.T) {
 	assert.Equal(t, "github.com/acme/apis", source.Repo)
 	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", langs["go"].Module)
 	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", langs["go"].Import)
+}
+
+// ---------------------------------------------------------------------------
+// Python identity derivation
+// ---------------------------------------------------------------------------
+
+func TestDerivePythonDistName(t *testing.T) {
+	tests := []struct {
+		name string
+		org  string
+		api  *APIIdentity
+		want string
+	}{
+		{
+			name: "4-part with domain",
+			org:  "acme",
+			api:  &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "acme-payments-ledger-v1",
+		},
+		{
+			name: "3-part no domain",
+			org:  "acme",
+			api:  &APIIdentity{Format: "proto", Domain: "", Name: "orders", Line: "v1"},
+			want: "acme-orders-v1",
+		},
+		{
+			name: "uppercase org normalized",
+			org:  "ACME",
+			api:  &APIIdentity{Format: "proto", Domain: "Payments", Name: "Ledger", Line: "v2"},
+			want: "acme-payments-ledger-v2",
+		},
+		{
+			name: "v0 line",
+			org:  "myorg",
+			api:  &APIIdentity{Format: "avro", Domain: "events", Name: "click", Line: "v0"},
+			want: "myorg-events-click-v0",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, DerivePythonDistName(tt.org, tt.api))
+		})
+	}
+}
+
+func TestDerivePythonImport(t *testing.T) {
+	tests := []struct {
+		name string
+		org  string
+		api  *APIIdentity
+		want string
+	}{
+		{
+			name: "4-part with domain",
+			org:  "acme",
+			api:  &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "acme_apis.payments.ledger.v1",
+		},
+		{
+			name: "3-part no domain",
+			org:  "acme",
+			api:  &APIIdentity{Format: "proto", Domain: "", Name: "orders", Line: "v1"},
+			want: "acme_apis.orders.v1",
+		},
+		{
+			name: "uppercase org normalized",
+			org:  "ACME",
+			api:  &APIIdentity{Format: "proto", Domain: "Payments", Name: "Ledger", Line: "v2"},
+			want: "acme_apis.payments.ledger.v2",
+		},
+		{
+			name: "v0 line",
+			org:  "myorg",
+			api:  &APIIdentity{Format: "avro", Domain: "events", Name: "click", Line: "v0"},
+			want: "myorg_apis.events.click.v0",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, DerivePythonImport(tt.org, tt.api))
+		})
+	}
+}
+
+func TestNormalizePEP440Version(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"v1.2.3", "1.2.3"},
+		{"1.2.3", "1.2.3"},
+		{"v1.0.0-beta.1", "1.0.0b1"},
+		{"v1.0.0-alpha.2", "1.0.0a2"},
+		{"v1.0.0-rc.1", "1.0.0rc1"},
+		{"v2.1.0-beta.3", "2.1.0b3"},
+		{"v0.1.0-alpha.1", "0.1.0a1"},
+		{"v1.0.0", "1.0.0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			assert.Equal(t, tt.want, NormalizePEP440Version(tt.input))
+		})
+	}
 }

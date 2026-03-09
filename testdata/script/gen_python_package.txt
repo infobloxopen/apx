@@ -1,0 +1,36 @@
+# Test: apx gen python — produces a proper Python package
+#
+# Verifies that 'apx gen python' scaffolds pyproject.toml and __init__.py
+# hierarchy from API identity when org is configured.
+
+# Setup: Create app with dependency
+mkdir app
+cd app
+exec git init
+exec apx init app --org=testorg --repo=myapp --non-interactive internal/apis/proto/services/users
+exec apx add proto/payments/ledger/v1@v1.2.3
+
+# Generate Python overlays
+exec apx gen python
+exists internal/gen/python/proto/payments/ledger/v1
+
+# pyproject.toml must exist with correct dist name
+exists internal/gen/python/proto/payments/ledger/v1/pyproject.toml
+grep 'name = "testorg-payments-ledger-v1"' internal/gen/python/proto/payments/ledger/v1/pyproject.toml
+grep 'include = \["testorg_apis\*"\]' internal/gen/python/proto/payments/ledger/v1/pyproject.toml
+grep 'protobuf>=4.25' internal/gen/python/proto/payments/ledger/v1/pyproject.toml
+
+# Namespace __init__.py uses pkgutil.extend_path
+exists internal/gen/python/proto/payments/ledger/v1/testorg_apis/__init__.py
+grep 'extend_path' internal/gen/python/proto/payments/ledger/v1/testorg_apis/__init__.py
+
+# Intermediate packages have __init__.py
+exists internal/gen/python/proto/payments/ledger/v1/testorg_apis/payments/__init__.py
+exists internal/gen/python/proto/payments/ledger/v1/testorg_apis/payments/ledger/__init__.py
+
+# Leaf __init__.py exists
+exists internal/gen/python/proto/payments/ledger/v1/testorg_apis/payments/ledger/v1/__init__.py
+
+# Regeneration is idempotent
+exec apx gen python
+exists internal/gen/python/proto/payments/ledger/v1/pyproject.toml

@@ -254,6 +254,27 @@ func Load(configPath string) (*Config, error) {
 	return &cfg, nil
 }
 
+// LoadRaw reads and parses the config YAML without schema validation.
+// This is useful for extracting basic fields (like Org) from configs that
+// may have been modified by other tools (e.g. apx add) and don't pass
+// strict validation.
+func LoadRaw(configPath string) (*Config, error) {
+	if configPath == "" {
+		configPath = "apx.yaml"
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+	return &cfg, nil
+}
+
 // Init creates a default configuration file
 func Init() error {
 	configPath := "apx.yaml"

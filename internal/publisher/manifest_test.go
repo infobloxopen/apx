@@ -210,3 +210,33 @@ func TestFormatManifestReport_WithPRMetadata(t *testing.T) {
 	assert.Contains(t, report, "PR number:   42")
 	assert.Contains(t, report, "PR branch:   apx/release/proto-payments-ledger-v1/v1.2.0")
 }
+
+func TestNewManifest_WithPythonCoords(t *testing.T) {
+	api := &config.APIIdentity{
+		ID: "proto/payments/ledger/v1", Format: "proto",
+		Domain: "payments", Name: "ledger", Line: "v1",
+	}
+	source := &config.SourceIdentity{
+		Repo: "github.com/acme/apis",
+		Path: "proto/payments/ledger/v1",
+	}
+	langs := map[string]config.LanguageCoords{
+		"go": {
+			Module: "github.com/acme/apis/proto/payments/ledger",
+			Import: "github.com/acme/apis/proto/payments/ledger/v1",
+		},
+		"python": {
+			Module: "acme-payments-ledger-v1",
+			Import: "acme_apis.payments.ledger.v1",
+		},
+	}
+
+	m := NewManifest(api, source, langs, "v1.0.0", "github.com/acme/apis")
+
+	assert.Equal(t, "acme-payments-ledger-v1", m.PythonDistName)
+	assert.Equal(t, "acme_apis.payments.ledger.v1", m.PythonImport)
+
+	report := FormatManifestReport(m)
+	assert.Contains(t, report, "Py dist:     acme-payments-ledger-v1")
+	assert.Contains(t, report, "Py import:   acme_apis.payments.ledger.v1")
+}

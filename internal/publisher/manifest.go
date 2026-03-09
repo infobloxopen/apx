@@ -41,8 +41,10 @@ type ReleaseManifest struct {
 	CanonicalPath string `yaml:"canonical_path" json:"canonical_path"`
 
 	// Language coordinates
-	GoModule string `yaml:"go_module,omitempty" json:"go_module,omitempty"`
-	GoImport string `yaml:"go_import,omitempty" json:"go_import,omitempty"`
+	GoModule       string `yaml:"go_module,omitempty" json:"go_module,omitempty"`
+	GoImport       string `yaml:"go_import,omitempty" json:"go_import,omitempty"`
+	PythonDistName string `yaml:"python_dist_name,omitempty" json:"python_dist_name,omitempty"`
+	PythonImport   string `yaml:"python_import,omitempty" json:"python_import,omitempty"`
 
 	// Tag
 	Tag string `yaml:"tag" json:"tag"`
@@ -122,6 +124,11 @@ func NewManifest(
 	if goCoords, ok := langs["go"]; ok {
 		m.GoModule = goCoords.Module
 		m.GoImport = goCoords.Import
+	}
+
+	if pyCoords, ok := langs["python"]; ok {
+		m.PythonDistName = pyCoords.Module
+		m.PythonImport = pyCoords.Import
 	}
 
 	return m
@@ -210,6 +217,10 @@ func FormatManifestReport(m *ReleaseManifest) string {
 	if m.GoModule != "" {
 		lines = append(lines, fmt.Sprintf("Go module:   %s", m.GoModule))
 		lines = append(lines, fmt.Sprintf("Go import:   %s", m.GoImport))
+	}
+	if m.PythonDistName != "" {
+		lines = append(lines, fmt.Sprintf("Py dist:     %s", m.PythonDistName))
+		lines = append(lines, fmt.Sprintf("Py import:   %s", m.PythonImport))
 	}
 	if m.PRURL != "" {
 		lines = append(lines, fmt.Sprintf("PR URL:      %s", m.PRURL))

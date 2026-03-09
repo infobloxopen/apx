@@ -1,0 +1,22 @@
+# Test: apx link python — virtualenv detection and Go hint
+#
+# Verifies link command behavior without a virtualenv and the Go redirect.
+
+# Setup
+mkdir app
+cd app
+exec git init
+exec apx init app --org=testorg --repo=myapp --non-interactive internal/apis/proto/services/users
+exec apx add proto/payments/ledger/v1@v1.2.3
+
+# link python without VIRTUAL_ENV should fail
+! exec apx link python
+stderr 'no active virtualenv'
+
+# link go should redirect to apx sync
+exec apx link go
+stdout 'apx sync'
+
+# link unsupported language should fail
+! exec apx link java
+stderr 'unsupported language'

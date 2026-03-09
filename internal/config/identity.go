@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -146,6 +147,78 @@ func DeriveGoImport(sourceRepo string, api *APIIdentity) (string, error) {
 	return fmt.Sprintf("%s/v%d", base, major), nil
 }
 
+// DerivePythonDistName computes a PEP 625 distribution name for a Python package.
+//
+// Rules:
+//   - Combines org, domain (if present), API name, and line
+//   - All lowercase, joined with hyphens
+//   - Example: org="acme", proto/payments/ledger/v1 → "acme-payments-ledger-v1"
+//   - Example: org="acme", proto/orders/v1 (3-part, no domain) → "acme-orders-v1"
+func DerivePythonDistName(org string, api *APIIdentity) string {
+	parts := []string{strings.ToLower(org)}
+	if api.Domain != "" {
+		parts = append(parts, strings.ToLower(api.Domain))
+	}
+	parts = append(parts, strings.ToLower(api.Name))
+	parts = append(parts, strings.ToLower(api.Line))
+	return strings.Join(parts, "-")
+}
+
+// DerivePythonImport computes a dotted Python import path for an API.
+//
+// Rules:
+//   - Top-level namespace: {org}_apis (underscore-joined, Python identifier safe)
+//   - Sub-packages: domain (if present), name, line
+//   - Example: org="acme", proto/payments/ledger/v1 → "acme_apis.payments.ledger.v1"
+//   - Example: org="acme", proto/orders/v1 → "acme_apis.orders.v1"
+func DerivePythonImport(org string, api *APIIdentity) string {
+	namespace := strings.ToLower(org) + "_apis"
+	parts := []string{namespace}
+	if api.Domain != "" {
+		parts = append(parts, strings.ToLower(api.Domain))
+	}
+	parts = append(parts, strings.ToLower(api.Name))
+	parts = append(parts, strings.ToLower(api.Line))
+	return strings.Join(parts, ".")
+}
+
+// pep440PreRe matches SemVer pre-release tags: alpha, beta, rc with optional dot-separator.
+var pep440PreRe = regexp.MustCompile(`-(alpha|beta|rc)\.?(\d+)`)
+
+// NormalizePEP440Version converts a SemVer version string to PEP 440 format.
+//
+// Rules:
+//   - Strips leading "v" prefix
+//   - Converts -alpha.N → aN
+//   - Converts -beta.N → bN
+//   - Converts -rc.N → rcN
+//   - Example: "v1.2.3" → "1.2.3"
+//   - Example: "v1.0.0-beta.1" → "1.0.0b1"
+//   - Example: "v1.0.0-alpha.2" → "1.0.0a2"
+//   - Example: "v1.0.0-rc.1" → "1.0.0rc1"
+func NormalizePEP440Version(semver string) string {
+	v := strings.TrimPrefix(semver, "v")
+
+	v = pep440PreRe.ReplaceAllStringFunc(v, func(match string) string {
+		sub := pep440PreRe.FindStringSubmatch(match)
+		if len(sub) < 3 {
+			return match
+		}
+		tag, num := sub[1], sub[2]
+		switch tag {
+		case "alpha":
+			return "a" + num
+		case "beta":
+			return "b" + num
+		case "rc":
+			return "rc" + num
+		}
+		return match
+	})
+
+	return v
+}
+
 // DeriveTag computes the git tag for a release of an API.
 //
 // Format: <api-id>/v<semver>
@@ -164,12 +237,15 @@ func DeriveTag(apiID, version string) string {
 // and source repository. If importRoot is non-empty, it is used as the Go
 // module prefix instead of sourceRepo.
 func DeriveLanguageCoords(sourceRepo string, api *APIIdentity) (map[string]LanguageCoords, error) {
-	return DeriveLanguageCoordsWithRoot(sourceRepo, "", api)
+	return DeriveLanguageCoordsWithRoot(sourceRepo, "", "", api)
 }
 
-// DeriveLanguageCoordsWithRoot is like DeriveLanguageCoords but accepts an
-// optional importRoot that overrides sourceRepo for Go module/import paths.
-func DeriveLanguageCoordsWithRoot(sourceRepo, importRoot string, api *APIIdentity) (map[string]LanguageCoords, error) {
+// DeriveLanguageCoordsWithRoot derives language coordinates for all supported
+// languages. Parameters:
+//   - sourceRepo: Git hosting path (e.g. "github.com/acme/apis")
+//   - importRoot: optional Go-specific import root override
+//   - org: organization name for Python package naming; if empty, Python coords are omitted
+func DeriveLanguageCoordsWithRoot(sourceRepo, importRoot, org string, api *APIIdentity) (map[string]LanguageCoords, error) {
 	goRoot := EffectiveGoRoot(sourceRepo, importRoot)
 	goMod, err := DeriveGoModule(goRoot, api)
 	if err != nil {
@@ -180,24 +256,34 @@ func DeriveLanguageCoordsWithRoot(sourceRepo, importRoot string, api *APIIdentit
 		return nil, fmt.Errorf("deriving Go import: %w", err)
 	}
 
-	return map[string]LanguageCoords{
+	coords := map[string]LanguageCoords{
 		"go": {
 			Module: goMod,
 			Import: goImport,
 		},
-	}, nil
+	}
+
+	if org != "" {
+		coords["python"] = LanguageCoords{
+			Module: DerivePythonDistName(org, api),
+			Import: DerivePythonImport(org, api),
+		}
+	}
+
+	return coords, nil
 }
 
 // BuildIdentityBlock creates a full identity section from an API ID string
 // and source repository. This is the primary entry point for populating
 // identity fields from minimal inputs.
 func BuildIdentityBlock(apiID, sourceRepo, lifecycle, currentVersion string) (*APIIdentity, *SourceIdentity, *ReleaseInfo, map[string]LanguageCoords, error) {
-	return BuildIdentityBlockWithRoot(apiID, sourceRepo, "", lifecycle, currentVersion)
+	return BuildIdentityBlockWithRoot(apiID, sourceRepo, "", "", lifecycle, currentVersion)
 }
 
 // BuildIdentityBlockWithRoot is like BuildIdentityBlock but accepts an
-// optional importRoot that overrides sourceRepo for Go module/import paths.
-func BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, lifecycle, currentVersion string) (*APIIdentity, *SourceIdentity, *ReleaseInfo, map[string]LanguageCoords, error) {
+// optional importRoot (Go import root override) and org (organization name
+// for Python package naming).
+func BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, org, lifecycle, currentVersion string) (*APIIdentity, *SourceIdentity, *ReleaseInfo, map[string]LanguageCoords, error) {
 	api, err := ParseAPIID(apiID)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -216,7 +302,7 @@ func BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, lifecycle, curren
 		release = &ReleaseInfo{Current: currentVersion}
 	}
 
-	langs, err := DeriveLanguageCoordsWithRoot(sourceRepo, importRoot, api)
+	langs, err := DeriveLanguageCoordsWithRoot(sourceRepo, importRoot, org, api)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -251,6 +337,11 @@ func FormatIdentityReport(api *APIIdentity, source *SourceIdentity, release *Rel
 	if goCoords, ok := langs["go"]; ok {
 		sb.WriteString(fmt.Sprintf("Go module:  %s\n", goCoords.Module))
 		sb.WriteString(fmt.Sprintf("Go import:  %s\n", goCoords.Import))
+	}
+
+	if pyCoords, ok := langs["python"]; ok {
+		sb.WriteString(fmt.Sprintf("Py dist:    %s\n", pyCoords.Module))
+		sb.WriteString(fmt.Sprintf("Py import:  %s\n", pyCoords.Import))
 	}
 
 	return sb.String()

@@ -137,8 +137,10 @@ internal/gen/
 │           ├── ledger.pb.go       # package ledgerv1
 │           └── ledger_grpc.pb.go  # gRPC stubs
 └── python/
-    └── proto/payments/ledger@v1.2.3/
-        └── ledger_pb2.py
+    └── proto/payments/ledger/v1/
+        ├── pyproject.toml            # name = "acme-payments-ledger-v1"
+        └── acme_apis/payments/ledger/v1/
+            └── __init__.py           # leaf for generated code
 ```
 
 The generated `go.mod` uses the **canonical module path** (`github.com/<org>/apis/proto/...`), which is the key to the overlay system.
@@ -211,6 +213,37 @@ func main() {
 ```
 
 During local development, Go resolves these imports via `go.work` to the local overlay. After releasing, you can switch to the real released module with no import changes.
+
+---
+
+## Python Development Loop
+
+For Python consumers, the workflow parallels Go but uses editable installs instead of `go.work`:
+
+```bash
+# 1. Generate Python packages
+apx gen python
+
+# 2. Link into your virtualenv (editable install)
+source .venv/bin/activate
+apx link python
+
+# 3. Import generated code in your Python app
+# from acme_apis.payments.ledger.v1 import ledger_pb2
+
+# 4. Test
+pytest
+
+# 5. When ready for released packages
+apx unlink proto/payments/ledger/v1
+pip install acme-payments-ledger-v1==1.2.3
+```
+
+Key differences from Go:
+
+- **No `go.work` equivalent** — Python uses `pip install -e` (editable installs) for local resolution
+- **Namespace packages** — all overlays share the `<org>_apis` namespace via `pkgutil.extend_path`
+- **Code is always generated locally** — never pulled from PyPI. You control your own grpc/protobuf versions.
 
 ---
 

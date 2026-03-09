@@ -15,6 +15,7 @@ APX commands are organized into logical categories:
 - `apx fetch` - Download toolchain  
 - `apx gen` - Generate code with canonical imports
 - `apx sync` - Update go.work overlays
+- `apx link` - Link Python overlays for local dev
 - `apx unlink` - Remove overlays for released APIs
 :::
 
@@ -125,6 +126,14 @@ type Service struct {
 | `proto/inventory/products/v2` | `github.com/<org>/apis/proto/inventory/products/v2` | `github.com/<org>/apis/proto/inventory/products/v2` |
 | `proto/billing/invoices/v1` | `github.com/<org>/apis/proto/billing/invoices` | `github.com/<org>/apis/proto/billing/invoices/v1` |
 
+**APX API Path → Python Package**
+
+| APX API Path | Python Dist Name | Python Import Path |
+|--------------|-------------------|--------------------|
+| `proto/payments/ledger/v1` | `<org>-payments-ledger-v1` | `<org>_apis.payments.ledger.v1` |
+| `proto/users/profile/v1` | `<org>-users-profile-v1` | `<org>_apis.users.profile.v1` |
+| `proto/orders/v1` (3-part) | `<org>-orders-v1` | `<org>_apis.orders.v1` |
+
 **Local Overlay Paths**
 
 | APX API Path | Local Generated Path | Overlay in go.work |
@@ -198,7 +207,7 @@ language_targets:
 policy:
   forbidden_proto_options:
     - "^gorm\\."
-releasing:
+release:
   tag_format: "{subdir}/v{version}"
   ci_only: true
 tools:

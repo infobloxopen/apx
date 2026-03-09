@@ -48,6 +48,7 @@ func unlinkAction(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	printPythonUnlinkHint(modulePath)
 	ui.Success("Unlinked %s - now using released module", modulePath)
 	return nil
 }
@@ -60,4 +61,17 @@ func updateGoModForReleased(modulePath string) error {
 
 	ui.Info("Note: Run 'go get github.com/<org>/apis/%s' to add released module", modulePath)
 	return nil
+}
+
+func printPythonUnlinkHint(modulePath string) {
+	cfg, _ := config.Load("")
+	if cfg == nil || cfg.Org == "" {
+		return
+	}
+	api, err := config.ParseAPIID(modulePath)
+	if err != nil {
+		return
+	}
+	distName := config.DerivePythonDistName(cfg.Org, api)
+	ui.Info("Python: Run 'pip install %s' to install the released package", distName)
 }

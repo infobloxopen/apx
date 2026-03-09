@@ -79,8 +79,9 @@ func inspectIdentityAction(cmd *cobra.Command, args []string) error {
 		sourceRepo = resolveSourceRepo(cmd)
 	}
 	importRoot := resolveImportRoot(cmd)
+	org := resolveOrg(cmd)
 
-	api, source, release, langs, err := config.BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, lifecycle, "")
+	api, source, release, langs, err := config.BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, org, lifecycle, "")
 	if err != nil {
 		return err
 	}
@@ -160,6 +161,7 @@ func inspectReleaseAction(cmd *cobra.Command, args []string) error {
 		sourceRepo = resolveSourceRepo(cmd)
 	}
 	importRoot := resolveImportRoot(cmd)
+	org2 := resolveOrg(cmd)
 
 	// Derive lifecycle from version prerelease if not explicit
 	lifecycle := ""
@@ -171,7 +173,7 @@ func inspectReleaseAction(cmd *cobra.Command, args []string) error {
 		lifecycle = "beta"
 	}
 
-	api, source, release, langs, err := config.BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, lifecycle, version)
+	api, source, release, langs, err := config.BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, org2, lifecycle, version)
 	if err != nil {
 		return err
 	}
@@ -204,6 +206,16 @@ func resolveImportRoot(cmd *cobra.Command) string {
 	cfg, err := config.Load(configPath)
 	if err == nil {
 		return cfg.ImportRoot
+	}
+	return ""
+}
+
+// resolveOrg returns the configured org from apx.yaml, or "" if not set.
+func resolveOrg(cmd *cobra.Command) string {
+	configPath, _ := cmd.Root().PersistentFlags().GetString("config")
+	cfg, err := config.Load(configPath)
+	if err == nil {
+		return cfg.Org
 	}
 	return ""
 }

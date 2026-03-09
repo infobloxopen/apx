@@ -70,16 +70,52 @@ Go resolves this to the local overlay via `go.work` during development.
 apx gen python
 ```
 
+When `org` is configured in `apx.yaml`, `apx gen python` scaffolds each overlay as an installable Python package with:
+
+- **`pyproject.toml`** — PEP 621 metadata with deterministic dist name (`<org>-<domain>-<api>-<line>`)
+- **`__init__.py` hierarchy** — namespace packages using `pkgutil.extend_path`
+
 ### Output Structure
 
 ```
 internal/gen/python/
-└── proto/payments/ledger/
-    ├── ledger_pb2.py
-    └── ledger_pb2_grpc.py
+└── proto/payments/ledger/v1/
+    ├── pyproject.toml                    # name = "acme-payments-ledger-v1"
+    └── acme_apis/
+        ├── __init__.py                   # pkgutil.extend_path (namespace root)
+        └── payments/
+            ├── __init__.py
+            └── ledger/
+                ├── __init__.py
+                └── v1/
+                    └── __init__.py       # leaf — generated code lands here
 ```
 
-Python overlays don't use `go.work`. Instead, add the output directory to `PYTHONPATH` or use relative imports.
+### Editable Install
+
+Link Python overlays into your virtualenv for import resolution:
+
+```bash
+# Activate your virtualenv
+source .venv/bin/activate
+
+# Link all Python overlays (runs pip install -e for each)
+apx link python
+
+# Then import in your code:
+# from acme_apis.payments.ledger.v1 import ledger_pb2
+```
+
+This mirrors Go's `go.work` overlay approach — code is generated locally, not pulled from a registry. You control the grpc/protobuf versions in your own virtualenv.
+
+### Switching to Released Package
+
+```bash
+apx unlink proto/payments/ledger/v1
+pip install acme-payments-ledger-v1==1.2.3
+```
+
+Your import paths stay the same — `from acme_apis.payments.ledger.v1 import ...`
 
 ---
 
@@ -151,12 +187,20 @@ CI regenerates code from `apx.lock` during each pipeline run, ensuring consisten
 
 ## Workflow Integration
 
-### Local Development
+### Local Development — Go
 
 ```bash
-# Generate and test
 apx gen go && apx sync
 go test ./...
+```
+
+### Local Development — Python
+
+```bash
+apx gen python
+source .venv/bin/activate
+apx link python
+pytest
 ```
 
 ### CI Pipeline

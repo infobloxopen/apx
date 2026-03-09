@@ -68,11 +68,27 @@ func generateCode(opts GenerateOptions) error {
 		return nil
 	}
 
+	cfg, _ := config.LoadRaw("")
+
 	mgr := overlay.NewManager(".")
 	for _, dep := range deps {
 		ui.Info("Creating overlay for %s...", dep.ModulePath)
-		if _, err := mgr.Create(dep.ModulePath, opts.Language); err != nil {
+		ov, err := mgr.Create(dep.ModulePath, opts.Language)
+		if err != nil {
 			return fmt.Errorf("failed to create overlay: %w", err)
+		}
+
+		// Scaffold Python packages when org is configured.
+		if opts.Language == "python" && cfg != nil && cfg.Org != "" {
+			api, parseErr := config.ParseAPIID(dep.ModulePath)
+			if parseErr != nil {
+				return fmt.Errorf("parsing API ID %s: %w", dep.ModulePath, parseErr)
+			}
+			distName := config.DerivePythonDistName(cfg.Org, api)
+			importRoot := config.DerivePythonImport(cfg.Org, api)
+			if err := overlay.ScaffoldPythonPackage(ov.Path, distName, importRoot); err != nil {
+				return fmt.Errorf("scaffolding Python package for %s: %w", dep.ModulePath, err)
+			}
 		}
 	}
 
