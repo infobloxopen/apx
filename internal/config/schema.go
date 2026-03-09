@@ -172,6 +172,16 @@ func buildV1Schema() SchemaVersion {
 			Required:    true,
 			Description: "Canonical API repository name",
 		},
+		"import_root": {
+			Name:        "import_root",
+			Type:        TypeString,
+			Description: "Custom public Go import prefix (e.g. go.acme.dev/apis). Overrides source.repo for Go module/import paths.",
+		},
+		"catalog_url": {
+			Name:        "catalog_url",
+			Type:        TypeString,
+			Description: "Remote catalog URL for dependency discovery. Used by apx search and apx show when --catalog is not specified.",
+		},
 		"module_roots": {
 			Name:        "module_roots",
 			Type:        TypeList,

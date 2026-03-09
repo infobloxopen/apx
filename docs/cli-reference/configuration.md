@@ -48,6 +48,7 @@ version: 1
 | `org` | string | yes |  |  | GitHub organization name |
 | `repo` | string | yes |  |  | Canonical API repository name |
 | `import_root` | string | no |  |  | Custom public Go import prefix (e.g. `go.acme.dev/apis`). Overrides `source.repo` for Go module/import paths. |
+| `catalog_url` | string | no |  |  | Remote catalog URL for dependency discovery. Used by `apx search`, `apx show`, `apx add`, `apx update`, and `apx upgrade` when `--catalog` is not specified. |
 | `module_roots` | list | no | `[proto]` |  | Directories containing schema modules |
 | `language_targets` | map | no |  |  | Code generation targets keyed by language |
 | `language_targets.<key>` | struct |  |  |  | Code generation target for a language |
@@ -143,6 +144,27 @@ The `source.repo` field still reflects the actual Git repository. Only the publi
 - Custom module registries (`buf.build/gen/go/acme/apis`)
 
 **Affected commands:** `inspect identity`, `inspect release`, `explain go-path`, `show`, `release prepare`, `release promote`.
+
+### `catalog_url`
+
+Points `apx search`, `apx show`, `apx add`, `apx update`, and `apx upgrade` at your organization's canonical catalog without passing `--catalog` on every command. Accepts a local file path or an `https://` URL.
+
+```yaml
+catalog_url: https://raw.githubusercontent.com/acme/apis/main/catalog/catalog.yaml
+```
+
+**Resolution order** for all five commands:
+
+1. `--catalog` flag (if provided)
+2. `catalog_url` from `apx.yaml` (this field)
+3. Local `catalog/catalog.yaml`
+
+**Use cases:**
+- App repos that don't clone the canonical repo still get `apx search`/`apx show` working
+- CI pipelines that pin a specific catalog revision via URL
+- Teams on a fork pointing at the upstream catalog
+
+See [Dependency Discovery](../dependencies/discovery.md) for full examples.
 
 ### `module_roots`
 

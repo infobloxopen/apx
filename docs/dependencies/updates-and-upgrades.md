@@ -7,6 +7,17 @@ APX provides two commands for managing dependency versions:
 
 Both commands query the canonical catalog for available versions and update `apx.lock`.
 
+**Catalog resolution** (same for both commands):
+1. `--catalog` flag (file path or URL)
+2. `catalog_url` from `apx.yaml`
+3. Local `catalog/catalog.yaml`
+
+Set `catalog_url` in `apx.yaml` so app repos that don't clone the canonical repo still get version checks:
+
+```yaml
+catalog_url: https://raw.githubusercontent.com/acme/apis/main/catalog/catalog.yaml
+```
+
 ## `apx update`
 
 Check for compatible (same API line, higher minor/patch) updates and apply them:
@@ -20,16 +31,20 @@ apx update proto/payments/ledger/v1
 
 # Preview what would be updated
 apx update --dry-run
+
+# Use a remote catalog explicitly
+apx update --catalog https://raw.githubusercontent.com/acme/apis/main/catalog/catalog.yaml
 ```
+
+**Flags:** `--dry-run`, `--catalog` / `-c`, `--json`
 
 **Behavior:**
 
 - Reads `apx.lock` for currently pinned versions
-- Queries the canonical repo catalog for newer versions within the same API line
+- Queries the catalog for newer versions within the same API line
 - Applies only **compatible** updates (same major version, higher minor/patch)
 - Respects lifecycle: prefers latest stable version, falls back to prerelease
 - Updates `apx.lock` with new pinned versions
-- Supports `--dry-run` for previewing changes and `--json` for CI integration
 
 ## `apx upgrade`
 
@@ -39,9 +54,14 @@ Handle major version upgrades that involve API line transitions:
 # Upgrade from v1 to v2
 apx upgrade proto/payments/ledger/v1 --to v2
 
-# Preview breaking changes before upgrading
+# Preview the upgrade plan
 apx upgrade proto/payments/ledger/v1 --to v2 --dry-run
+
+# Use a remote catalog
+apx upgrade proto/payments/ledger/v1 --to v2 --catalog https://raw.githubusercontent.com/acme/apis/main/catalog/catalog.yaml
 ```
+
+**Flags:** `--to` (required), `--dry-run`, `--catalog` / `-c`, `--json`
 
 **Behavior:**
 
@@ -49,7 +69,6 @@ apx upgrade proto/payments/ledger/v1 --to v2 --dry-run
 - Reports the import path change (e.g. `proto/payments/ledger/v1` → `proto/payments/ledger/v2`)
 - Removes the old API line from `apx.lock` and adds the new one
 - Pins the latest available version on the target line
-- Supports `--dry-run` for previewing the upgrade plan
 
 **After upgrading:**
 
@@ -74,14 +93,12 @@ This updates `apx.lock`, regenerates code into `internal/gen/`, and refreshes `g
 
 ## Version Selection Strategy
 
-When choosing versions (manually today, or via `update`/`upgrade` in the future):
-
 | Goal | Command | Version constraint |
 |------|---------|--------------------|
-| Latest patch fix | Re-add at new version | Same minor, higher patch |
-| Latest compatible | Re-add at new version | Same major, higher minor/patch |
-| Breaking upgrade | New API line | New major/line |
+| Latest compatible patch/minor | `apx update` | Same major, higher minor/patch |
+| Breaking upgrade to new line | `apx upgrade --to v2` | New major/line |
 | Pin exact version | `apx add ...@vX.Y.Z` | Exact match |
+| Re-pin to specific version | `apx add ...@vX.Y.Z` | Overwrites existing lock entry |
 
 ## Best Practices
 

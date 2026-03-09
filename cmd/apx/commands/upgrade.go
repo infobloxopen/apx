@@ -3,7 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/infobloxopen/apx/internal/catalog"
@@ -39,7 +38,7 @@ Use --dry-run to preview the upgrade without applying changes.`,
 
 	cmd.Flags().String("to", "", "target API line (e.g. v2) — required")
 	cmd.Flags().Bool("dry-run", false, "preview upgrade without applying")
-	cmd.Flags().StringP("catalog", "c", filepath.Join("catalog", "catalog.yaml"), "path to catalog file")
+	cmd.Flags().StringP("catalog", "c", "", "Path or URL to catalog file (default: catalog_url from apx.yaml, then catalog/catalog.yaml)")
 	_ = cmd.MarkFlagRequired("to")
 
 	return cmd
@@ -50,6 +49,9 @@ func upgradeAction(cmd *cobra.Command, args []string) error {
 	targetLine, _ := cmd.Flags().GetString("to")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	catalogPath, _ := cmd.Flags().GetString("catalog")
+	if catalogPath == "" {
+		catalogPath = resolveCatalogPath(cmd)
+	}
 	jsonOut, _ := cmd.Root().PersistentFlags().GetBool("json")
 
 	// Verify the current dependency exists

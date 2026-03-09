@@ -64,16 +64,14 @@ apx show proto/payments/ledger/v1
 
 ### Dependency Management
 ```bash
-# Add specific version
+# Add at a specific version
 apx add proto/payments/ledger/v1@v1.2.3
 
-# Update to newer version (re-add at new version)
-apx add proto/payments/ledger/v1@v1.3.0
-```
+# Apply compatible minor/patch updates for all dependencies
+apx update
 
-```{admonition} Planned
-:class: note
-`apx update` and `apx upgrade` commands are planned for a future release to automate this workflow.
+# Upgrade a dependency to a new API line
+apx upgrade proto/payments/ledger/v1 --to v2
 ```
 
 ### Code Generation
@@ -159,3 +157,4 @@ internal/gen/
 4. [Understand update strategies](updates-and-upgrades.md)
 5. [Review versioning best practices](versioning-strategy.md)
 6. [Register and manage external APIs](external-apis.md)
+7. [Catalog schema reference](catalog-schema.md)

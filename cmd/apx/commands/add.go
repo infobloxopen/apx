@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"path/filepath"
 	"strings"
 
 	"github.com/infobloxopen/apx/internal/catalog"
@@ -11,7 +10,7 @@ import (
 )
 
 func newAddCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "add <module-path>[@version]",
 		Short: "Add a dependency to apx.yaml and apx.lock",
 		Long: `Add a schema module dependency to the project.
@@ -25,6 +24,8 @@ Examples:
 		Args: cobra.ExactArgs(1),
 		RunE: addAction,
 	}
+	cmd.Flags().StringP("catalog", "c", "", "Path or URL to catalog file (default: catalog_url from apx.yaml, then catalog/catalog.yaml)")
+	return cmd
 }
 
 func addAction(cmd *cobra.Command, args []string) error {
@@ -43,7 +44,10 @@ func addAction(cmd *cobra.Command, args []string) error {
 
 	// Look up the catalog to see if this is an external API
 	var provenance *config.ExternalProvenance
-	catalogPath := filepath.Join("catalog", "catalog.yaml")
+	catalogPath, _ := cmd.Flags().GetString("catalog")
+	if catalogPath == "" {
+		catalogPath = resolveCatalogPath(cmd)
+	}
 	gen := catalog.NewGenerator(catalogPath)
 	cat, err := gen.Load()
 	if err == nil {

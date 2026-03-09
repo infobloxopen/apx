@@ -21,7 +21,8 @@ Without a query, lists all APIs in the catalog.
 | `--domain` | `-d` | string | `""` | Filter by domain |
 | `--api-line` | | string | `""` | Filter by API line (v1, v2, etc.) |
 | `--origin` | | string | `""` | Filter by origin (first-party, external, forked) |
-| `--catalog` | `-c` | string | `catalog/catalog.yaml` | Path to catalog file |
+| `--tag` | | string | `""` | Filter by tag |
+| `--catalog` | `-c` | string | (see below) | Path or URL to catalog file (default: `catalog_url` from `apx.yaml`, then `catalog/catalog.yaml`) |
 
 ### Examples
 
@@ -61,7 +62,7 @@ Merges two data sources:
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--source-repo` | string | `""` | Source repository (defaults from apx.yaml) |
-| `--catalog` | string | `catalog/catalog.yaml` | Path to catalog.yaml |
+| `--catalog` | string | (see search) | Path or URL to catalog file (default: `catalog_url` from `apx.yaml`, then `catalog/catalog.yaml`) |
 
 ### Example
 
@@ -94,6 +95,14 @@ apx add <module-path>[@version]
 
 The `@version` suffix is optional. If omitted, the latest version is used.
 
+### Flags
+
+| Flag | Shorthand | Type | Default | Description |
+|------|-----------|------|---------|-------------|
+| `--catalog` | `-c` | string | (see search) | Path or URL to catalog file (default: `catalog_url` from `apx.yaml`, then `catalog/catalog.yaml`) |
+
+The catalog is consulted to detect external API provenance (origin, managed repo, import mode). If the catalog cannot be loaded, the dependency is still added without provenance metadata.
+
 ### Examples
 
 ```bash
@@ -102,6 +111,9 @@ apx add proto/payments/ledger/v1@v1.2.3
 
 # Add latest version
 apx add proto/users/profile/v1
+
+# Add using a remote catalog
+apx add proto/payments/ledger/v1 --catalog https://raw.githubusercontent.com/acme/apis/main/catalog/catalog.yaml
 ```
 
 After adding, generate code:
@@ -154,7 +166,7 @@ that dependency.
 | Flag | Shorthand | Type | Default | Description |
 |------|-----------|------|---------|-------------|
 | `--dry-run` | | bool | `false` | Preview updates without applying them |
-| `--catalog` | `-c` | string | `catalog/catalog.yaml` | Path to catalog file |
+| `--catalog` | `-c` | string | (see search) | Path or URL to catalog file (default: `catalog_url` from `apx.yaml`, then `catalog/catalog.yaml`) |
 
 ### Examples
 
@@ -194,7 +206,7 @@ apx upgrade <module-path> --to <line>
 |------|------|---------|-------------|
 | `--to` | string | (required) | Target API line (e.g. `v2`) |
 | `--dry-run` | bool | `false` | Preview upgrade without applying |
-| `--catalog` | string | `catalog/catalog.yaml` | Path to catalog file |
+| `--catalog` | string | (see search) | Path or URL to catalog file (default: `catalog_url` from `apx.yaml`, then `catalog/catalog.yaml`) |
 
 ### Examples
 
