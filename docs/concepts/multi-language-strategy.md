@@ -14,15 +14,8 @@ APX provides a symmetric developer experience across languages. The core princip
 
 ## Language Support Matrix
 
-| Concern | Go | Python | Java | TypeScript |
-|---------|-----|--------|------|------------|
-| Published artifact | Go module | sdist / wheel | Schema zip / jar | npm package |
-| Local overlay | `go.work use` | `pip install -e` | `mvn install:install-file` | `npm link` |
-| Resolution mechanism | go.work -> go.mod | pkgutil namespace | Maven dependency resolution | npm / workspace |
-| Code generation | `apx gen go` | `apx gen python` | `mvn generate-sources` | `apx gen typescript` (planned) |
-| Dev command | `apx sync` | `apx link python` | `apx link java` (planned) | `apx link typescript` (planned) |
-| Unlink hint | `go get ...` | `pip install ...` | pom.xml dependency | `npm install ...` |
-| Status | **Tier 1** | **Tier 2** | **Tier 2** | **Tier 2** |
+```{include} ../_generated/language-support-matrix.md
+```
 
 ### Tier definitions
 
@@ -34,15 +27,8 @@ APX provides a symmetric developer experience across languages. The core princip
 
 Given `org=acme` and API path `proto/payments/ledger/v1`:
 
-| Language | Coordinate Type | Derived Value |
-|----------|----------------|---------------|
-| Go | Module | `github.com/acme/apis/proto/payments/ledger` |
-| Go | Import | `github.com/acme/apis/proto/payments/ledger/v1` |
-| Python | Dist name | `acme-payments-ledger-v1` |
-| Python | Import | `acme_apis.payments.ledger.v1` |
-| Java | Maven coords | `com.acme.apis:payments-ledger-v1-proto` |
-| Java | Package | `com.acme.apis.payments.ledger.v1` |
-| TypeScript | npm package | `@acme/payments-ledger-v1-proto` |
+```{include} ../_generated/identity-derivation-table.md
+```
 
 ## Go Workflow
 

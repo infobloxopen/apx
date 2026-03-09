@@ -28,7 +28,7 @@ help:
 	@echo ""
 	@echo "Note: Use 'make setup' for first-time local development"
 
-.PHONY: help Makefile setup venv-check
+.PHONY: help Makefile setup venv-check gen
 
 # Create virtual environment and install dependencies (local development)
 setup: $(VENV)/bin/activate
@@ -57,8 +57,22 @@ venv-check:
 install: venv-check
 	pip install -r requirements.txt
 
-# Build documentation
-html: venv-check
+# Generate language plugin doc includes (requires Go toolchain).
+# Skips gracefully if Go is not available (e.g. editing prose docs locally).
+gen:
+	@if command -v go >/dev/null 2>&1; then \
+		echo "Generating language plugin doc includes..."; \
+		cd .. && GOTOOLCHAIN=go1.26.1 go generate ./internal/language/...; \
+	elif [ ! -d "_generated" ]; then \
+		echo "⚠️  Go toolchain not found and _generated/ is missing."; \
+		echo "   Install Go or run 'go generate ./internal/language/...' from the repo root."; \
+		exit 1; \
+	else \
+		echo "Skipping doc generation (Go not available, using existing _generated/)."; \
+	fi
+
+# Build documentation (regenerates plugin includes first)
+html: venv-check gen
 	@$(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 # Clean build directory

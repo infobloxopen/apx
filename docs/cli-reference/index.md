@@ -117,39 +117,17 @@ type Service struct {
 
 ## Path Mapping Reference
 
-**APX API Path → Go Import Path**
+```{include} ../_generated/path-mapping-go.md
+```
 
-| APX API Path | Go Module Path | Go Import Path |
-|--------------|----------------|----------------|
-| `proto/payments/ledger/v1` | `github.com/<org>/apis/proto/payments/ledger` | `github.com/<org>/apis/proto/payments/ledger/v1` |
-| `proto/users/profile/v1` | `github.com/<org>/apis/proto/users/profile` | `github.com/<org>/apis/proto/users/profile/v1` |
-| `proto/inventory/products/v2` | `github.com/<org>/apis/proto/inventory/products/v2` | `github.com/<org>/apis/proto/inventory/products/v2` |
-| `proto/billing/invoices/v1` | `github.com/<org>/apis/proto/billing/invoices` | `github.com/<org>/apis/proto/billing/invoices/v1` |
+```{include} ../_generated/path-mapping-python.md
+```
 
-**APX API Path → Python Package**
+```{include} ../_generated/path-mapping-java.md
+```
 
-| APX API Path | Python Dist Name | Python Import Path |
-|--------------|-------------------|--------------------|
-| `proto/payments/ledger/v1` | `<org>-payments-ledger-v1` | `<org>_apis.payments.ledger.v1` |
-| `proto/users/profile/v1` | `<org>-users-profile-v1` | `<org>_apis.users.profile.v1` |
-| `proto/orders/v1` (3-part) | `<org>-orders-v1` | `<org>_apis.orders.v1` |
-
-**APX API Path → Java / Maven**
-
-| APX API Path | Maven GroupId | Maven ArtifactId | Java Package |
-|---|---|---|---|
-| `proto/payments/ledger/v1` | `com.<org>.apis` | `payments-ledger-v1-proto` | `com.<org>.apis.payments.ledger.v1` |
-| `proto/users/profile/v1` | `com.<org>.apis` | `users-profile-v1-proto` | `com.<org>.apis.users.profile.v1` |
-| `proto/orders/v1` (3-part) | `com.<org>.apis` | `orders-v1-proto` | `com.<org>.apis.orders.v1` |
-
-**APX API Path → TypeScript / npm**
-
-| APX API Path | npm Package |
-|---|---|
-| `proto/payments/ledger/v1` | `@<org>/payments-ledger-v1-proto` |
-| `proto/users/profile/v1` | `@<org>/users-profile-v1-proto` |
-| `proto/orders/v1` (3-part) | `@<org>/orders-v1-proto` |
-| `openapi/billing/invoices/v1` | `@<org>/billing-invoices-v1-proto` |
+```{include} ../_generated/path-mapping-typescript.md
+```
 
 **Local Overlay Paths**
 
