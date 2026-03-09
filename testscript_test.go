@@ -1,6 +1,7 @@
 package apx_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,11 +12,13 @@ import (
 )
 
 func TestScript(t *testing.T) {
-	// Build the binary once before running tests to avoid race conditions
-	binPath := filepath.Join(".", "bin", getBinaryName("apx"))
+	// Ensure the binary exists before running tests.
+	binPath, err := filepath.Abs(filepath.Join("bin", getBinaryName("apx")))
+	if err != nil {
+		t.Fatalf("failed to resolve bin path: %v", err)
+	}
 	if _, err := os.Stat(binPath); os.IsNotExist(err) {
-		// Binary not pre-built, build it now
-		if err := os.MkdirAll("./bin", 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(binPath), 0755); err != nil {
 			t.Fatalf("failed to create bin directory: %v", err)
 		}
 		if err := buildBinary(binPath); err != nil {
@@ -42,74 +45,24 @@ func TestScript(t *testing.T) {
 }
 
 func setupTestScript(env *testscript.Env) error {
-	// Create bin directory in the test workspace
-	binDir := filepath.Join(env.WorkDir, "bin")
-	if err := os.MkdirAll(binDir, 0755); err != nil {
-		return err
+	// Use the absolute path to the pre-built binary directory directly on PATH.
+	// This avoids copying the binary per-test, which can trigger ETXTBSY
+	// (text file busy) on Linux when parallel tests share the same source
+	// binary while other packages rebuild it.
+	absDir, err := filepath.Abs("bin")
+	if err != nil {
+		return fmt.Errorf("failed to resolve bin directory: %w", err)
 	}
 
-	// Get the correct binary names for the current OS
-	preBuildBinaryName := getBinaryName("apx")
-	destBinaryName := getBinaryName("apx")
-
-	// Debug logging
 	if os.Getenv("CI") != "" {
 		println("DEBUG: GOOS =", runtime.GOOS)
-		println("DEBUG: preBuildBinaryName =", preBuildBinaryName)
-		println("DEBUG: destBinaryName =", destBinaryName)
-		println("DEBUG: binDir =", binDir)
-	}
-
-	// Check if the binary already exists in ./bin/ (built by CI)
-	apxBinaryPath := filepath.Join(".", "bin", preBuildBinaryName)
-	if _, err := os.Stat(apxBinaryPath); err == nil {
-		if os.Getenv("CI") != "" {
-			println("DEBUG: Found pre-built binary at", apxBinaryPath)
-		}
-		// Copy the pre-built binary to the test workspace
-		destPath := filepath.Join(binDir, destBinaryName)
-		if err := copyFile(apxBinaryPath, destPath); err != nil {
-			return err
-		}
-		if err := os.Chmod(destPath, 0755); err != nil {
-			return err
-		}
-		if os.Getenv("CI") != "" {
-			println("DEBUG: Copied binary to", destPath)
-			// Verify the binary exists and is executable
-			if stat, err := os.Stat(destPath); err == nil {
-				println("DEBUG: Binary exists, size:", stat.Size(), "mode:", stat.Mode())
-			} else {
-				println("DEBUG: Error stating binary:", err)
-			}
-		}
-	} else {
-		if os.Getenv("CI") != "" {
-			println("DEBUG: Pre-built binary not found at", apxBinaryPath, "- building fresh")
-		}
-		// Binary doesn't exist, build it in the test workspace
-		destPath := filepath.Join(binDir, destBinaryName)
-		if err := buildBinary(destPath); err != nil {
-			return err
-		}
-		if os.Getenv("CI") != "" {
-			println("DEBUG: Built binary at", destPath)
-			// Verify the binary exists and is executable
-			if stat, err := os.Stat(destPath); err == nil {
-				println("DEBUG: Binary exists, size:", stat.Size(), "mode:", stat.Mode())
-			} else {
-				println("DEBUG: Error stating binary:", err)
-			}
-		}
-	}
-
-	// Add the bin directory to PATH
-	newPath := binDir + string(os.PathListSeparator) + env.Getenv("PATH")
-	env.Setenv("PATH", newPath)
-	if os.Getenv("CI") != "" {
-		println("DEBUG: PATH =", newPath[:100], "...")
+		println("DEBUG: absDir =", absDir)
 		println("DEBUG: PathListSeparator =", string(os.PathListSeparator))
 	}
+
+	// Add the absolute bin directory to PATH
+	newPath := absDir + string(os.PathListSeparator) + env.Getenv("PATH")
+	env.Setenv("PATH", newPath)
 
 	// Set testing environment variables
 	env.Setenv("APX_DISABLE_TTY", "1")
@@ -117,25 +70,6 @@ func setupTestScript(env *testscript.Env) error {
 	env.Setenv("CI", "1")
 
 	return nil
-}
-
-// copyFile copies a file from src to dst using atomic rename to avoid
-// "text file busy" (ETXTBSY) errors on Linux when the binary is executed
-// immediately after being written.
-func copyFile(src, dst string) error {
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-
-	// Write to a temp file in the same directory, then rename atomically.
-	// This ensures the destination inode is never open for writing when
-	// another goroutine tries to exec it.
-	tmp := dst + ".tmp"
-	if err := os.WriteFile(tmp, data, 0755); err != nil {
-		return err
-	}
-	return os.Rename(tmp, dst)
 }
 
 // buildBinary builds the apx binary to the specified path

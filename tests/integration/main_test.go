@@ -26,7 +26,7 @@ func getBinaryName(baseName string) string {
 	return baseName
 }
 
-// getBinaryPath returns the path to the binary for building
+// getBinaryPath returns the path to the binary relative to the repo root
 func getBinaryPath() string {
 	return filepath.Join(".", "bin", getBinaryName("apx"))
 }
@@ -36,31 +36,33 @@ func getRelativeBinaryPath() string {
 	return filepath.Join("..", "..", "bin", getBinaryName("apx"))
 }
 
+// TestMain builds the binary once before all integration tests run.
+// Building in each test function is wasteful and causes ETXTBSY (text file
+// busy) on Linux when multiple tests rebuild the same binary in parallel
+// with testscript tests reading from it.
+func TestMain(m *testing.M) {
+	absPath, err := filepath.Abs(getRelativeBinaryPath())
+	if err != nil {
+		panic("failed to resolve binary path: " + err.Error())
+	}
+
+	// Only build if the binary doesn't exist (CI pre-builds it; local dev may not)
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
+			panic("failed to create bin directory: " + err.Error())
+		}
+		buildCmd := exec.Command("go", "build", "-o", getBinaryPath(), cmdPath)
+		buildCmd.Dir = "../.."
+		if err := buildCmd.Run(); err != nil {
+			panic("failed to build binary: " + err.Error())
+		}
+	}
+
+	os.Exit(m.Run())
+}
+
 func TestBinaryExecution(t *testing.T) {
-	// Debug logging
-	if os.Getenv("CI") != "" {
-		t.Logf("DEBUG: GOOS = %s", runtime.GOOS)
-		t.Logf("DEBUG: getBinaryPath() = %s", getBinaryPath())
-		t.Logf("DEBUG: getRelativeBinaryPath() = %s", getRelativeBinaryPath())
-	}
-
-	// Build the binary first
-	buildCmd := exec.Command("go", "build", "-o", getBinaryPath(), cmdPath)
-	buildCmd.Dir = "../.."
-	err := buildCmd.Run()
-	require.NoError(t, err, buildFailMsg)
-
-	// Check if binary was actually created
-	binaryPath := getBinaryPath()
-	if _, err := os.Stat(filepath.Join("..", "..", binaryPath)); err != nil {
-		t.Fatalf("Binary was not created at %s: %v", binaryPath, err)
-	}
-
-	// Test basic commands
 	apxBinary := getRelativeBinaryPath()
-	if os.Getenv("CI") != "" {
-		t.Logf("DEBUG: About to execute binary at: %s", apxBinary)
-	}
 
 	// Test version command
 	versionCmd := exec.Command(apxBinary, "--version")
@@ -80,12 +82,6 @@ func TestBinaryExecution(t *testing.T) {
 }
 
 func TestConfigCommands(t *testing.T) {
-	// Build the binary first
-	buildCmd := exec.Command("go", "build", "-o", getBinaryPath(), cmdPath)
-	buildCmd.Dir = "../.."
-	err := buildCmd.Run()
-	require.NoError(t, err, buildFailMsg)
-
 	// Get absolute path to binary before changing directories
 	oldCwd, _ := os.Getwd()
 	apxBinary, err := filepath.Abs(getRelativeBinaryPath())
@@ -115,19 +111,13 @@ func TestConfigCommands(t *testing.T) {
 }
 
 func TestErrorHandling(t *testing.T) {
-	// Build the binary first
-	buildCmd := exec.Command("go", "build", "-o", getBinaryPath(), cmdPath)
-	buildCmd.Dir = "../.."
-	err := buildCmd.Run()
-	require.NoError(t, err, buildFailMsg)
-
 	apxBinary := getRelativeBinaryPath()
 
 	// Test with invalid command - urfave/cli shows help for unknown commands
 	// and returns 0, so we test with invalid flags instead which should error
 	invalidCmd := exec.Command(apxBinary, "init", "--invalid-flag-that-does-not-exist")
 	invalidCmd.Env = append(os.Environ(), ciEnv, noColorEnv, disableTTY)
-	err = invalidCmd.Run()
+	err := invalidCmd.Run()
 	require.Error(t, err, "Invalid flag should cause an error")
 
 	if exitError, ok := err.(*exec.ExitError); ok {
@@ -136,12 +126,6 @@ func TestErrorHandling(t *testing.T) {
 }
 
 func TestDeterministicOutput(t *testing.T) {
-	// Build the binary first
-	buildCmd := exec.Command("go", "build", "-o", getBinaryPath(), cmdPath)
-	buildCmd.Dir = "../.."
-	err := buildCmd.Run()
-	require.NoError(t, err, buildFailMsg)
-
 	apxBinary := getRelativeBinaryPath()
 
 	// Run the same command multiple times and verify output is identical
