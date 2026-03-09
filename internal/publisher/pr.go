@@ -189,13 +189,13 @@ func SubmitReleaseWithPR(
 	}
 
 	// ── 4. Generate go.mod if needed ─────────────────────────────────
-	if manifest.GoModule != "" {
+	if goCoords, ok := manifest.Languages["go"]; ok && goCoords.Module != "" {
 		// go.mod lives one level up from the line dir (e.g. proto/payments/ledger/)
 		goModDir := filepath.Dir(destDir)
 		goModPath := filepath.Join(goModDir, "go.mod")
 
 		if _, statErr := os.Stat(goModPath); os.IsNotExist(statErr) {
-			content, genErr := GenerateGoMod(manifest.GoModule, "1.21")
+			content, genErr := GenerateGoMod(goCoords.Module, "1.21")
 			if genErr != nil {
 				return nil, fmt.Errorf("generating go.mod: %w", genErr)
 			}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/config"
+	"github.com/infobloxopen/apx/internal/language"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -113,7 +114,12 @@ func showAction(cmd *cobra.Command, args []string) error {
 		Path: config.DeriveSourcePath(apiID),
 	}
 
-	langs, err := config.DeriveLanguageCoordsWithRoot(sourceRepo, importRoot, org, api)
+	langs, err := language.DeriveAllCoords(language.DerivationContext{
+		SourceRepo: sourceRepo,
+		ImportRoot: importRoot,
+		Org:        org,
+		API:        api,
+	})
 	if err != nil {
 		return err
 	}
@@ -252,11 +258,18 @@ func printShowText(info *showInfo, catalogFound bool) {
 		}
 	}
 
-	// Language coordinates
-	if goCoords, ok := info.Languages["go"]; ok {
+	// Language coordinates — iterate plugins in display order
+	if len(info.Languages) > 0 {
 		ui.Info("")
-		ui.Info("Go module:  %s", goCoords.Module)
-		ui.Info("Go import:  %s", goCoords.Import)
+		for _, p := range language.All() {
+			coords, ok := info.Languages[p.Name()]
+			if !ok {
+				continue
+			}
+			for _, rl := range p.ReportLines(coords) {
+				ui.Info("%-12s%s", rl.Label+":", rl.Value)
+			}
+		}
 	}
 
 	// Owners from catalog

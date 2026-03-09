@@ -46,8 +46,9 @@ func TestNewReleaseRecord(t *testing.T) {
 	assert.Equal(t, "abc123", record.SourceCommit)
 	assert.Equal(t, "v1.2.0-beta.1", record.Version)
 	assert.Equal(t, "proto/payments/ledger/v1/v1.2.0-beta.1", record.Tag)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", record.GoModule)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", record.GoImport)
+	require.NotNil(t, record.Languages["go"])
+	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", record.Languages["go"].Module)
+	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", record.Languages["go"].Import)
 	assert.Equal(t, "2025-01-01T00:00:00Z", record.PreparedAt)
 	assert.Equal(t, "2025-01-01T00:01:00Z", record.SubmittedAt)
 	assert.NotEmpty(t, record.FinalizedAt)
@@ -97,23 +98,27 @@ func TestWriteReadReleaseRecord(t *testing.T) {
 	path := filepath.Join(tmpDir, "release-record.yaml")
 
 	original := &ReleaseRecord{
-		SchemaVersion:  "1",
-		Kind:           "release-record",
-		APIID:          "proto/payments/ledger/v1",
-		Format:         "proto",
-		Domain:         "payments",
-		Name:           "ledger",
-		Line:           "v1",
-		Lifecycle:      "beta",
-		SourceRepo:     "github.com/acme/service",
-		SourcePath:     "proto/payments/ledger/v1",
-		SourceCommit:   "abc123",
-		Version:        "v1.2.0-beta.1",
-		Tag:            "proto/payments/ledger/v1/v1.2.0-beta.1",
-		CanonicalRepo:  "github.com/acme/apis",
-		CanonicalPath:  "proto/payments/ledger/v1",
-		GoModule:       "github.com/acme/apis/proto/payments/ledger",
-		GoImport:       "github.com/acme/apis/proto/payments/ledger/v1",
+		SchemaVersion: "1",
+		Kind:          "release-record",
+		APIID:         "proto/payments/ledger/v1",
+		Format:        "proto",
+		Domain:        "payments",
+		Name:          "ledger",
+		Line:          "v1",
+		Lifecycle:     "beta",
+		SourceRepo:    "github.com/acme/service",
+		SourcePath:    "proto/payments/ledger/v1",
+		SourceCommit:  "abc123",
+		Version:       "v1.2.0-beta.1",
+		Tag:           "proto/payments/ledger/v1/v1.2.0-beta.1",
+		CanonicalRepo: "github.com/acme/apis",
+		CanonicalPath: "proto/payments/ledger/v1",
+		Languages: map[string]config.LanguageCoords{
+			"go": {
+				Module: "github.com/acme/apis/proto/payments/ledger",
+				Import: "github.com/acme/apis/proto/payments/ledger/v1",
+			},
+		},
 		CatalogUpdated: true,
 		CatalogPath:    "catalog.yaml",
 		FinalizedAt:    "2025-01-01T00:02:00Z",
@@ -132,7 +137,7 @@ func TestWriteReadReleaseRecord(t *testing.T) {
 	assert.Equal(t, original.APIID, loaded.APIID)
 	assert.Equal(t, original.Version, loaded.Version)
 	assert.Equal(t, original.Tag, loaded.Tag)
-	assert.Equal(t, original.GoModule, loaded.GoModule)
+	assert.Equal(t, original.Languages["go"].Module, loaded.Languages["go"].Module)
 	assert.Equal(t, original.CatalogUpdated, loaded.CatalogUpdated)
 	assert.Equal(t, original.FinalizedAt, loaded.FinalizedAt)
 	require.Len(t, loaded.Artifacts, 1)
@@ -141,18 +146,22 @@ func TestWriteReadReleaseRecord(t *testing.T) {
 
 func TestFormatRecordReport(t *testing.T) {
 	record := &ReleaseRecord{
-		APIID:          "proto/payments/ledger/v1",
-		Version:        "v1.0.0",
-		Tag:            "proto/payments/ledger/v1/v1.0.0",
-		Lifecycle:      "stable",
-		Format:         "proto",
-		SourceRepo:     "github.com/acme/service",
-		SourcePath:     "proto/payments/ledger/v1",
-		SourceCommit:   "abc123",
-		CanonicalRepo:  "github.com/acme/apis",
-		CanonicalPath:  "proto/payments/ledger/v1",
-		GoModule:       "github.com/acme/apis/proto/payments/ledger",
-		GoImport:       "github.com/acme/apis/proto/payments/ledger/v1",
+		APIID:         "proto/payments/ledger/v1",
+		Version:       "v1.0.0",
+		Tag:           "proto/payments/ledger/v1/v1.0.0",
+		Lifecycle:     "stable",
+		Format:        "proto",
+		SourceRepo:    "github.com/acme/service",
+		SourcePath:    "proto/payments/ledger/v1",
+		SourceCommit:  "abc123",
+		CanonicalRepo: "github.com/acme/apis",
+		CanonicalPath: "proto/payments/ledger/v1",
+		Languages: map[string]config.LanguageCoords{
+			"go": {
+				Module: "github.com/acme/apis/proto/payments/ledger",
+				Import: "github.com/acme/apis/proto/payments/ledger/v1",
+			},
+		},
 		CatalogUpdated: true,
 		FinalizedAt:    "2025-01-01T00:00:00Z",
 		Artifacts: []ReleaseArtifact{

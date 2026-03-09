@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/infobloxopen/apx/internal/config"
+	"github.com/infobloxopen/apx/internal/language"
 	"github.com/infobloxopen/apx/internal/overlay"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/spf13/cobra"
@@ -43,58 +44,41 @@ func unlinkAction(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	printGoUnlinkHint(modulePath)
-	printPythonUnlinkHint(modulePath)
-	printJavaUnlinkHint(modulePath)
-	printTsUnlinkHint(modulePath)
+	// Print unlink hints from all available plugins.
+	printUnlinkHints(modulePath)
 	ui.Success("Unlinked %s - now using released module", modulePath)
 	return nil
 }
 
-func printGoUnlinkHint(modulePath string) {
-	cfg, _ := config.LoadRaw("")
-	repo := "github.com/<org>/<repo>"
-	if cfg != nil && cfg.Org != "" && cfg.Repo != "" {
-		repo = fmt.Sprintf("github.com/%s/%s", cfg.Org, cfg.Repo)
-	}
-	ui.Info("Go: Run 'go get %s/%s' to add released module", repo, modulePath)
-}
-
-func printPythonUnlinkHint(modulePath string) {
-	cfg, _ := config.LoadRaw("")
-	if cfg == nil || cfg.Org == "" {
-		return
-	}
+func printUnlinkHints(modulePath string) {
 	api, err := config.ParseAPIID(modulePath)
 	if err != nil {
 		return
 	}
-	distName := config.DerivePythonDistName(cfg.Org, api)
-	ui.Info("Python: Run 'pip install %s' to install the released package", distName)
-}
 
-func printJavaUnlinkHint(modulePath string) {
 	cfg, _ := config.LoadRaw("")
-	if cfg == nil || cfg.Org == "" {
-		return
+	sourceRepo := "github.com/<org>/<repo>"
+	org := ""
+	importRoot := ""
+	if cfg != nil {
+		if cfg.Org != "" && cfg.Repo != "" {
+			sourceRepo = fmt.Sprintf("github.com/%s/%s", cfg.Org, cfg.Repo)
+		}
+		org = cfg.Org
+		importRoot = cfg.ImportRoot
 	}
-	api, err := config.ParseAPIID(modulePath)
-	if err != nil {
-		return
-	}
-	coords := config.DeriveMavenCoords(cfg.Org, api)
-	ui.Info("Java: Add %s:<version> to your pom.xml", coords)
-}
 
-func printTsUnlinkHint(modulePath string) {
-	cfg, _ := config.LoadRaw("")
-	if cfg == nil || cfg.Org == "" {
-		return
+	ctx := language.DerivationContext{
+		SourceRepo: sourceRepo,
+		ImportRoot: importRoot,
+		Org:        org,
+		API:        api,
 	}
-	api, err := config.ParseAPIID(modulePath)
-	if err != nil {
-		return
+
+	for _, p := range language.Available(ctx) {
+		hint := p.UnlinkHint(ctx)
+		if hint != nil {
+			ui.Info("%s", hint.Message)
+		}
 	}
-	npmPkg := config.DeriveNpmPackage(cfg.Org, api)
-	ui.Info("TypeScript: Run 'npm install %s' to install the released package", npmPkg)
 }

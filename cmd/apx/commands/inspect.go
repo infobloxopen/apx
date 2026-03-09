@@ -7,6 +7,7 @@ import (
 
 	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/config"
+	"github.com/infobloxopen/apx/internal/language"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -81,7 +82,17 @@ func inspectIdentityAction(cmd *cobra.Command, args []string) error {
 	importRoot := resolveImportRoot(cmd)
 	org := resolveOrg(cmd)
 
-	api, source, release, langs, err := config.BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, org, lifecycle, "")
+	api, source, release, err := config.BuildIdentityBlock(apiID, sourceRepo, lifecycle, "")
+	if err != nil {
+		return err
+	}
+
+	langs, err := language.DeriveAllCoords(language.DerivationContext{
+		SourceRepo: sourceRepo,
+		ImportRoot: importRoot,
+		Org:        org,
+		API:        api,
+	})
 	if err != nil {
 		return err
 	}
@@ -113,7 +124,7 @@ func inspectIdentityAction(cmd *cobra.Command, args []string) error {
 		return printIdentityJSON(api, source, release, langs)
 	}
 
-	report := config.FormatIdentityReport(api, source, release, langs)
+	report := language.FormatIdentityReport(api, source, release, langs)
 	fmt.Print(report)
 
 	// Print catalog-enriched data
@@ -173,7 +184,17 @@ func inspectReleaseAction(cmd *cobra.Command, args []string) error {
 		lifecycle = "beta"
 	}
 
-	api, source, release, langs, err := config.BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, org2, lifecycle, version)
+	api, source, release, err := config.BuildIdentityBlock(apiID, sourceRepo, lifecycle, version)
+	if err != nil {
+		return err
+	}
+
+	langs, err := language.DeriveAllCoords(language.DerivationContext{
+		SourceRepo: sourceRepo,
+		ImportRoot: importRoot,
+		Org:        org2,
+		API:        api,
+	})
 	if err != nil {
 		return err
 	}
@@ -183,7 +204,7 @@ func inspectReleaseAction(cmd *cobra.Command, args []string) error {
 		return printIdentityJSON(api, source, release, langs)
 	}
 
-	report := config.FormatIdentityReport(api, source, release, langs)
+	report := language.FormatIdentityReport(api, source, release, langs)
 	fmt.Print(report)
 	return nil
 }

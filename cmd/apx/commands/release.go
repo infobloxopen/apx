@@ -11,6 +11,7 @@ import (
 
 	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/config"
+	"github.com/infobloxopen/apx/internal/language"
 	"github.com/infobloxopen/apx/internal/policy"
 	"github.com/infobloxopen/apx/internal/publisher"
 	"github.com/infobloxopen/apx/internal/ui"
@@ -168,7 +169,17 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build identity
-	api, source, release, langs, err := config.BuildIdentityBlockWithRoot(apiID, sourceRepo, resolveImportRoot(cmd), resolveOrg(cmd), lifecycle, version)
+	api, source, release, err := config.BuildIdentityBlock(apiID, sourceRepo, lifecycle, version)
+	if err != nil {
+		return err
+	}
+
+	langs, err := language.DeriveAllCoords(language.DerivationContext{
+		SourceRepo: sourceRepo,
+		ImportRoot: resolveImportRoot(cmd),
+		Org:        resolveOrg(cmd),
+		API:        api,
+	})
 	if err != nil {
 		return err
 	}
@@ -357,7 +368,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	if dryRun {
 		ui.Info("Dry-run mode: showing what would be prepared")
 		ui.Info("")
-		report := config.FormatIdentityReport(api, source, release, langs)
+		report := language.FormatIdentityReport(api, source, release, langs)
 		fmt.Print(report)
 		ui.Info("Tag:         %s", tag)
 		ui.Info("")
@@ -373,7 +384,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	// Print summary
 	ui.Success("Release prepared successfully")
 	ui.Info("")
-	report := config.FormatIdentityReport(api, source, release, langs)
+	report := language.FormatIdentityReport(api, source, release, langs)
 	fmt.Print(report)
 	ui.Info("Tag:         %s", tag)
 	if manifest.SourceCommit != "" {
@@ -475,8 +486,8 @@ func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
 		}
 
 		// Show go.mod preview if applicable
-		if manifest.GoModule != "" {
-			content, genErr := publisher.GenerateGoMod(manifest.GoModule, "1.21")
+		if goCoords, ok := manifest.Languages["go"]; ok && goCoords.Module != "" {
+			content, genErr := publisher.GenerateGoMod(goCoords.Module, "1.21")
 			if genErr == nil {
 				ui.Info("go.mod preview:")
 				ui.Info("%s", string(content))
@@ -956,12 +967,12 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 	}
 
 	// --- Package publication ---
-	if !skipPackages && manifest.GoModule != "" {
-		ui.Info("Recording Go module artifact: %s", manifest.GoModule)
-		record.AddArtifact("go-module", manifest.GoModule, manifest.RequestedVersion, "published")
-	} else if skipPackages {
-		if manifest.GoModule != "" {
-			record.AddArtifact("go-module", manifest.GoModule, manifest.RequestedVersion, "skipped")
+	if goCoords, ok := manifest.Languages["go"]; ok && goCoords.Module != "" {
+		if !skipPackages {
+			ui.Info("Recording Go module artifact: %s", goCoords.Module)
+			record.AddArtifact("go-module", goCoords.Module, manifest.RequestedVersion, "published")
+		} else {
+			record.AddArtifact("go-module", goCoords.Module, manifest.RequestedVersion, "skipped")
 		}
 	}
 
@@ -1304,7 +1315,17 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build identity
-	api, source, _, langs, err := config.BuildIdentityBlockWithRoot(apiID, sourceRepo, resolveImportRoot(cmd), resolveOrg(cmd), targetLifecycle, version)
+	api, source, _, err := config.BuildIdentityBlock(apiID, sourceRepo, targetLifecycle, version)
+	if err != nil {
+		return err
+	}
+
+	langs, err := language.DeriveAllCoords(language.DerivationContext{
+		SourceRepo: sourceRepo,
+		ImportRoot: resolveImportRoot(cmd),
+		Org:        resolveOrg(cmd),
+		API:        api,
+	})
 	if err != nil {
 		return err
 	}

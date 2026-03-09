@@ -37,4 +37,19 @@ Go 1.24: Follow standard conventions
 
 
 <!-- MANUAL ADDITIONS START -->
+
+## Language Plugin Architecture
+- Multi-language support uses a plugin system in `internal/language/`
+- Each language (Go, Python, Java, TypeScript) is a registered plugin implementing `LanguagePlugin` interface
+- Plugins self-register via `init()` — no central wiring needed
+- Optional interfaces: `Scaffolder`, `PostGenHook`, `Linker`, `DocContributor`
+- Plugins co-locate documentation fragments in `<lang>_doc/` directories
+- To add a new language, follow the step-by-step guide: `internal/language/CONTRIBUTING.md`
+- Generated doc includes live in `docs/_generated/` (never edit manually)
+- Build: `GOTOOLCHAIN=go1.26.1 go generate ./internal/language/...` regenerates doc includes
+- Manifest/record schema uses `Languages map[string]config.LanguageCoords` instead of flat per-language fields
+- Core derivation functions live in `internal/config/identity.go`; plugins wrap them
+- `language.DeriveAllCoords()` replaces the old `config.DeriveLanguageCoordsWithRoot()`
+- `language.FormatIdentityReport()` replaces the old `config.FormatIdentityReport()`
+
 <!-- MANUAL ADDITIONS END -->

@@ -20,6 +20,9 @@ go.work
 # APX binary in root directory only (not subdirectories)
 /apx
 
+# docgen binary (built by go generate)
+/docgen
+
 # Bin directory
 bin/*
 
@@ -64,6 +67,9 @@ env/
 
 # Sphinx build output
 docs/_build/
+
+# Generated doc includes (built by go generate / cmd/docgen)
+docs/_generated/
 
 # GoReleaser dist output
 dist/

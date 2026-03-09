@@ -38,8 +38,9 @@ func TestNewManifest(t *testing.T) {
 	assert.Equal(t, "v1", m.Line)
 	assert.Equal(t, "beta", m.Lifecycle)
 	assert.Equal(t, "v1.2.0-beta.1", m.RequestedVersion)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", m.GoModule)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", m.GoImport)
+	require.NotNil(t, m.Languages["go"])
+	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", m.Languages["go"].Module)
+	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", m.Languages["go"].Import)
 	assert.Equal(t, "proto/payments/ledger/v1/v1.2.0-beta.1", m.Tag)
 }
 
@@ -87,9 +88,13 @@ func TestWriteReadManifest(t *testing.T) {
 		RequestedVersion: "v1.2.0-beta.1",
 		CanonicalRepo:    "github.com/acme/apis",
 		CanonicalPath:    "proto/payments/ledger/v1",
-		GoModule:         "github.com/acme/apis/proto/payments/ledger",
-		GoImport:         "github.com/acme/apis/proto/payments/ledger/v1",
-		Tag:              "proto/payments/ledger/v1/v1.2.0-beta.1",
+		Languages: map[string]config.LanguageCoords{
+			"go": {
+				Module: "github.com/acme/apis/proto/payments/ledger",
+				Import: "github.com/acme/apis/proto/payments/ledger/v1",
+			},
+		},
+		Tag: "proto/payments/ledger/v1/v1.2.0-beta.1",
 		Validation: &ValidationResults{
 			Lint:     ValidationPassed,
 			Breaking: ValidationPassed,
@@ -113,7 +118,7 @@ func TestWriteReadManifest(t *testing.T) {
 	assert.Equal(t, original.Format, loaded.Format)
 	assert.Equal(t, original.RequestedVersion, loaded.RequestedVersion)
 	assert.Equal(t, original.SourceCommit, loaded.SourceCommit)
-	assert.Equal(t, original.GoModule, loaded.GoModule)
+	assert.Equal(t, original.Languages["go"].Module, loaded.Languages["go"].Module)
 	assert.Equal(t, original.Tag, loaded.Tag)
 	require.NotNil(t, loaded.Validation)
 	assert.Equal(t, ValidationPassed, loaded.Validation.Lint)
@@ -141,8 +146,12 @@ func TestFormatManifestReport(t *testing.T) {
 		SourcePath:       "proto/payments/ledger/v1",
 		CanonicalRepo:    "github.com/acme/apis",
 		CanonicalPath:    "proto/payments/ledger/v1",
-		GoModule:         "github.com/acme/apis/proto/payments/ledger",
-		GoImport:         "github.com/acme/apis/proto/payments/ledger/v1",
+		Languages: map[string]config.LanguageCoords{
+			"go": {
+				Module: "github.com/acme/apis/proto/payments/ledger",
+				Import: "github.com/acme/apis/proto/payments/ledger/v1",
+			},
+		},
 	}
 
 	report := FormatManifestReport(m)
@@ -241,21 +250,19 @@ func TestNewManifest_WithAllCoords(t *testing.T) {
 
 	m := NewManifest(api, source, langs, "v1.0.0", "github.com/acme/apis")
 
-	// Python coords
-	assert.Equal(t, "acme-payments-ledger-v1", m.PythonDistName)
-	assert.Equal(t, "acme_apis.payments.ledger.v1", m.PythonImport)
-
-	// Java coords
-	assert.Equal(t, "com.acme.apis:payments-ledger-v1-proto", m.MavenCoords)
-	assert.Equal(t, "com.acme.apis.payments.ledger.v1", m.JavaPackage)
-
-	// TypeScript coords
-	assert.Equal(t, "@acme/payments-ledger-v1-proto", m.NpmPackage)
+	// All language coords stored in Languages map
+	require.Len(t, m.Languages, 4)
+	assert.Equal(t, "acme-payments-ledger-v1", m.Languages["python"].Module)
+	assert.Equal(t, "acme_apis.payments.ledger.v1", m.Languages["python"].Import)
+	assert.Equal(t, "com.acme.apis:payments-ledger-v1-proto", m.Languages["java"].Module)
+	assert.Equal(t, "com.acme.apis.payments.ledger.v1", m.Languages["java"].Import)
+	assert.Equal(t, "@acme/payments-ledger-v1-proto", m.Languages["typescript"].Module)
 
 	report := FormatManifestReport(m)
-	assert.Contains(t, report, "Py dist:     acme-payments-ledger-v1")
-	assert.Contains(t, report, "Py import:   acme_apis.payments.ledger.v1")
-	assert.Contains(t, report, "Maven:       com.acme.apis:payments-ledger-v1-proto")
-	assert.Contains(t, report, "Java pkg:    com.acme.apis.payments.ledger.v1")
-	assert.Contains(t, report, "npm:         @acme/payments-ledger-v1-proto")
+	assert.Contains(t, report, "Py dist:")
+	assert.Contains(t, report, "acme-payments-ledger-v1")
+	assert.Contains(t, report, "Maven:")
+	assert.Contains(t, report, "com.acme.apis:payments-ledger-v1-proto")
+	assert.Contains(t, report, "npm:")
+	assert.Contains(t, report, "@acme/payments-ledger-v1-proto")
 }

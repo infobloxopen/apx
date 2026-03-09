@@ -65,6 +65,12 @@ branchName := "release/" + normalizedPath
 - Business logic: `internal/` packages (independently testable)
 - User output: `internal/ui` package only
 - Error handling: always wrap with `fmt.Errorf("context: %w", err)`
+- Language plugins: `internal/language/` — plugin-based multi-language support
+  - Each language (Go, Python, Java, TypeScript) is a registered plugin implementing `LanguagePlugin`
+  - Adding a new language: see `internal/language/CONTRIBUTING.md`
+  - Doc fragments co-located with plugins in `<lang>_doc/` dirs, assembled by `cmd/docgen`
+  - Generated doc includes live in `docs/_generated/` (never edit manually)
+  - Build: `go generate ./internal/language/...` regenerates doc includes
 
 ## Vocabulary
 - `apx release` is the release pipeline (NOT `apx publish` — that was removed)

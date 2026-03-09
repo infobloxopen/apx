@@ -1,7 +1,6 @@
 package config
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -207,19 +206,8 @@ func TestDeriveTag(t *testing.T) {
 	}
 }
 
-func TestDeriveLanguageCoords(t *testing.T) {
-	api := &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"}
-	coords, err := DeriveLanguageCoords("github.com/acme/apis", api)
-	require.NoError(t, err)
-
-	goCoords, ok := coords["go"]
-	require.True(t, ok)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", goCoords.Module)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", goCoords.Import)
-}
-
 func TestBuildIdentityBlock(t *testing.T) {
-	api, source, release, langs, err := BuildIdentityBlock(
+	api, source, release, err := BuildIdentityBlock(
 		"proto/payments/ledger/v1",
 		"github.com/acme/apis",
 		"beta",
@@ -232,12 +220,10 @@ func TestBuildIdentityBlock(t *testing.T) {
 	assert.Equal(t, "github.com/acme/apis", source.Repo)
 	assert.Equal(t, "proto/payments/ledger/v1", source.Path)
 	assert.Equal(t, "v1.0.0-beta.1", release.Current)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", langs["go"].Module)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", langs["go"].Import)
 }
 
 func TestBuildIdentityBlockV2(t *testing.T) {
-	api, source, release, langs, err := BuildIdentityBlock(
+	api, source, release, err := BuildIdentityBlock(
 		"proto/payments/ledger/v2",
 		"github.com/acme/apis",
 		"experimental",
@@ -249,13 +235,10 @@ func TestBuildIdentityBlockV2(t *testing.T) {
 	assert.Equal(t, "experimental", api.Lifecycle)
 	assert.Equal(t, "proto/payments/ledger/v2", source.Path)
 	assert.Equal(t, "v2.0.0-alpha.1", release.Current)
-	// v2 module path includes /v2 suffix
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v2", langs["go"].Module)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v2", langs["go"].Import)
 }
 
 func TestBuildIdentityBlockNoRelease(t *testing.T) {
-	api, source, release, langs, err := BuildIdentityBlock(
+	api, source, release, err := BuildIdentityBlock(
 		"openapi/billing/invoices/v1",
 		"github.com/acme/apis",
 		"",
@@ -267,26 +250,6 @@ func TestBuildIdentityBlockNoRelease(t *testing.T) {
 	assert.Equal(t, "", api.Lifecycle)
 	assert.Equal(t, "github.com/acme/apis", source.Repo)
 	assert.Nil(t, release)
-	assert.NotNil(t, langs["go"])
-}
-
-func TestFormatIdentityReport(t *testing.T) {
-	api, source, release, langs, err := BuildIdentityBlock(
-		"proto/payments/ledger/v1",
-		"github.com/acme/apis",
-		"beta",
-		"v1.0.0-beta.1",
-	)
-	require.NoError(t, err)
-
-	report := FormatIdentityReport(api, source, release, langs)
-	assert.Contains(t, report, "API:        proto/payments/ledger/v1")
-	assert.Contains(t, report, "Format:     proto")
-	assert.Contains(t, report, "Lifecycle:  beta")
-	assert.Contains(t, report, "Release:    v1.0.0-beta.1")
-	assert.Contains(t, report, "Tag:        proto/payments/ledger/v1/v1.0.0-beta.1")
-	assert.Contains(t, report, "Go module:  github.com/acme/apis/proto/payments/ledger")
-	assert.Contains(t, report, "Go import:  github.com/acme/apis/proto/payments/ledger/v1")
 }
 
 func TestValidateLifecycle(t *testing.T) {
@@ -298,14 +261,15 @@ func TestValidateLifecycle(t *testing.T) {
 	assert.Error(t, ValidateLifecycle("ga"))
 }
 
-func TestFormatIdentityReportNoLifecycle(t *testing.T) {
-	api := &APIIdentity{ID: "proto/payments/ledger/v1", Format: "proto",
-		Domain: "payments", Name: "ledger", Line: "v1"}
-	report := FormatIdentityReport(api, nil, nil, nil)
-	assert.Contains(t, report, "API:        proto/payments/ledger/v1")
-	assert.False(t, strings.Contains(report, "Lifecycle:"))
-	assert.False(t, strings.Contains(report, "Release:"))
-	assert.False(t, strings.Contains(report, "Go module:"))
+func TestBuildIdentityBlockNoLifecycle(t *testing.T) {
+	api, _, _, err := BuildIdentityBlock(
+		"proto/payments/ledger/v1",
+		"github.com/acme/apis",
+		"",
+		"",
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "", api.Lifecycle)
 }
 
 func TestValidateGoPackage(t *testing.T) {
@@ -405,7 +369,7 @@ func TestIsV0Line(t *testing.T) {
 }
 
 func TestBuildIdentityBlockV0(t *testing.T) {
-	api, source, release, langs, err := BuildIdentityBlock(
+	api, source, release, err := BuildIdentityBlock(
 		"proto/payments/ledger/v0",
 		"github.com/acme/apis",
 		"experimental",
@@ -418,9 +382,6 @@ func TestBuildIdentityBlockV0(t *testing.T) {
 	assert.Equal(t, "experimental", api.Lifecycle)
 	assert.Equal(t, "github.com/acme/apis", source.Repo)
 	assert.Equal(t, "v0.1.0-alpha.1", release.Current)
-	// v0 module has no version suffix (like v1)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", langs["go"].Module)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v0", langs["go"].Import)
 }
 
 func TestDeriveGoModuleV0(t *testing.T) {
@@ -474,86 +435,8 @@ func TestEffectiveGoRoot(t *testing.T) {
 	}
 }
 
-func TestDeriveLanguageCoordsWithRoot(t *testing.T) {
-	api := &APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"}
-
-	// Without import root or org — only Go coords.
-	coords, err := DeriveLanguageCoordsWithRoot("github.com/acme/apis", "", "", api)
-	require.NoError(t, err)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", coords["go"].Module)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", coords["go"].Import)
-	_, hasPython := coords["python"]
-	assert.False(t, hasPython, "python coords should be absent when org is empty")
-
-	// With import root — Go paths use the custom root.
-	coords, err = DeriveLanguageCoordsWithRoot("github.com/acme/apis", "go.acme.dev/apis", "", api)
-	require.NoError(t, err)
-	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger", coords["go"].Module)
-	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger/v1", coords["go"].Import)
-
-	// With org — Python, Java, and TypeScript coords are populated.
-	coords, err = DeriveLanguageCoordsWithRoot("github.com/acme/apis", "", "acme", api)
-	require.NoError(t, err)
-	assert.Equal(t, "acme-payments-ledger-v1", coords["python"].Module)
-	assert.Equal(t, "acme_apis.payments.ledger.v1", coords["python"].Import)
-	assert.Equal(t, "com.acme.apis:payments-ledger-v1-proto", coords["java"].Module)
-	assert.Equal(t, "com.acme.apis.payments.ledger.v1", coords["java"].Import)
-	assert.Equal(t, "@acme/payments-ledger-v1-proto", coords["typescript"].Module)
-	assert.Equal(t, "@acme/payments-ledger-v1-proto", coords["typescript"].Import)
-
-	// Without org — Java and TypeScript coords should be absent.
-	coords, err = DeriveLanguageCoordsWithRoot("github.com/acme/apis", "", "", api)
-	require.NoError(t, err)
-	_, hasJava := coords["java"]
-	assert.False(t, hasJava, "java coords should be absent when org is empty")
-	_, hasTs := coords["typescript"]
-	assert.False(t, hasTs, "typescript coords should be absent when org is empty")
-}
-
-func TestBuildIdentityBlockWithRoot(t *testing.T) {
-	// With a custom import root, Go paths should use the import root while
-	// source.Repo should still reflect the actual repository.
-	api, source, release, langs, err := BuildIdentityBlockWithRoot(
-		"proto/payments/ledger/v1",
-		"github.com/acme/apis",
-		"go.acme.dev/apis",
-		"acme",
-		"beta",
-		"v1.0.0-beta.1",
-	)
-	require.NoError(t, err)
-
-	assert.Equal(t, "proto/payments/ledger/v1", api.ID)
-	assert.Equal(t, "beta", api.Lifecycle)
-	assert.Equal(t, "github.com/acme/apis", source.Repo)
-	assert.Equal(t, "v1.0.0-beta.1", release.Current)
-
-	// Go paths use the import root, not the source repo.
-	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger", langs["go"].Module)
-	assert.Equal(t, "go.acme.dev/apis/proto/payments/ledger/v1", langs["go"].Import)
-
-	// Python coords use the org.
-	assert.Equal(t, "acme-payments-ledger-v1", langs["python"].Module)
-	assert.Equal(t, "acme_apis.payments.ledger.v1", langs["python"].Import)
-}
-
-func TestBuildIdentityBlockWithRootEmpty(t *testing.T) {
-	// Empty import root and org behaves identically to BuildIdentityBlock.
-	api, source, _, langs, err := BuildIdentityBlockWithRoot(
-		"proto/payments/ledger/v1",
-		"github.com/acme/apis",
-		"",
-		"",
-		"beta",
-		"v1.0.0-beta.1",
-	)
-	require.NoError(t, err)
-
-	assert.Equal(t, "proto/payments/ledger/v1", api.ID)
-	assert.Equal(t, "github.com/acme/apis", source.Repo)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", langs["go"].Module)
-	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", langs["go"].Import)
-}
+// Note: Language coordinate derivation tests (DeriveAllCoords, per-language
+// coords) have moved to internal/language/ package where the plugin system lives.
 
 // ---------------------------------------------------------------------------
 // Python identity derivation

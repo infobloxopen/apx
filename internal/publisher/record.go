@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/infobloxopen/apx/internal/config"
+	"github.com/infobloxopen/apx/internal/language"
 )
 
 // ReleaseRecord is the immutable audit artifact produced by canonical CI
@@ -38,9 +41,8 @@ type ReleaseRecord struct {
 	CanonicalPath   string `yaml:"canonical_path" json:"canonical_path"`
 	CanonicalCommit string `yaml:"canonical_commit,omitempty" json:"canonical_commit,omitempty"`
 
-	// Language coordinates
-	GoModule string `yaml:"go_module,omitempty" json:"go_module,omitempty"`
-	GoImport string `yaml:"go_import,omitempty" json:"go_import,omitempty"`
+	// Language coordinates (keyed by language name: "go", "python", "java", "typescript")
+	Languages map[string]config.LanguageCoords `yaml:"languages,omitempty" json:"languages,omitempty"`
 
 	// Validation results (re-validated in canonical CI)
 	Validation *ValidationResults `yaml:"validation,omitempty" json:"validation,omitempty"`
@@ -89,8 +91,7 @@ func NewReleaseRecord(m *ReleaseManifest) *ReleaseRecord {
 		Tag:            m.Tag,
 		CanonicalRepo:  m.CanonicalRepo,
 		CanonicalPath:  m.CanonicalPath,
-		GoModule:       m.GoModule,
-		GoImport:       m.GoImport,
+		Languages:      m.Languages,
 		Validation:     m.Validation,
 		CatalogUpdated: false,
 		PreparedAt:     m.PreparedAt,
@@ -184,9 +185,15 @@ func FormatRecordReport(r *ReleaseRecord) string {
 	if r.CanonicalCommit != "" {
 		lines = append(lines, fmt.Sprintf("  commit:    %s", r.CanonicalCommit))
 	}
-	if r.GoModule != "" {
-		lines = append(lines, fmt.Sprintf("Go module:   %s", r.GoModule))
-		lines = append(lines, fmt.Sprintf("Go import:   %s", r.GoImport))
+	// Language coordinates — iterate plugins in display order
+	for _, p := range language.All() {
+		coords, ok := r.Languages[p.Name()]
+		if !ok {
+			continue
+		}
+		for _, rl := range p.ReportLines(coords) {
+			lines = append(lines, fmt.Sprintf("%-13s%s", rl.Label+":", rl.Value))
+		}
 	}
 	if r.Validation != nil {
 		lines = append(lines, "Validation:")

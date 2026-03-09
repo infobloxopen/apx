@@ -8,6 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/infobloxopen/apx/internal/config"
+	"github.com/infobloxopen/apx/internal/language"
 )
 
 // ReleaseManifest is the single machine-readable artifact that travels from
@@ -40,14 +41,8 @@ type ReleaseManifest struct {
 	CanonicalRepo string `yaml:"canonical_repo" json:"canonical_repo"`
 	CanonicalPath string `yaml:"canonical_path" json:"canonical_path"`
 
-	// Language coordinates
-	GoModule       string `yaml:"go_module,omitempty" json:"go_module,omitempty"`
-	GoImport       string `yaml:"go_import,omitempty" json:"go_import,omitempty"`
-	PythonDistName string `yaml:"python_dist_name,omitempty" json:"python_dist_name,omitempty"`
-	PythonImport   string `yaml:"python_import,omitempty" json:"python_import,omitempty"`
-	MavenCoords    string `yaml:"maven_coords,omitempty" json:"maven_coords,omitempty"`
-	JavaPackage    string `yaml:"java_package,omitempty" json:"java_package,omitempty"`
-	NpmPackage     string `yaml:"npm_package,omitempty" json:"npm_package,omitempty"`
+	// Language coordinates (keyed by language name: "go", "python", "java", "typescript")
+	Languages map[string]config.LanguageCoords `yaml:"languages,omitempty" json:"languages,omitempty"`
 
 	// Tag
 	Tag string `yaml:"tag" json:"tag"`
@@ -122,25 +117,7 @@ func NewManifest(
 		CanonicalRepo:    canonicalRepo,
 		CanonicalPath:    api.ID,
 		Tag:              config.DeriveTag(api.ID, version),
-	}
-
-	if goCoords, ok := langs["go"]; ok {
-		m.GoModule = goCoords.Module
-		m.GoImport = goCoords.Import
-	}
-
-	if pyCoords, ok := langs["python"]; ok {
-		m.PythonDistName = pyCoords.Module
-		m.PythonImport = pyCoords.Import
-	}
-
-	if javaCoords, ok := langs["java"]; ok {
-		m.MavenCoords = javaCoords.Module
-		m.JavaPackage = javaCoords.Import
-	}
-
-	if tsCoords, ok := langs["typescript"]; ok {
-		m.NpmPackage = tsCoords.Module
+		Languages:        langs,
 	}
 
 	return m
@@ -226,20 +203,15 @@ func FormatManifestReport(m *ReleaseManifest) string {
 		lines = append(lines, fmt.Sprintf("Commit:      %s", m.SourceCommit))
 	}
 	lines = append(lines, fmt.Sprintf("Canonical:   %s/%s", m.CanonicalRepo, m.CanonicalPath))
-	if m.GoModule != "" {
-		lines = append(lines, fmt.Sprintf("Go module:   %s", m.GoModule))
-		lines = append(lines, fmt.Sprintf("Go import:   %s", m.GoImport))
-	}
-	if m.PythonDistName != "" {
-		lines = append(lines, fmt.Sprintf("Py dist:     %s", m.PythonDistName))
-		lines = append(lines, fmt.Sprintf("Py import:   %s", m.PythonImport))
-	}
-	if m.MavenCoords != "" {
-		lines = append(lines, fmt.Sprintf("Maven:       %s", m.MavenCoords))
-		lines = append(lines, fmt.Sprintf("Java pkg:    %s", m.JavaPackage))
-	}
-	if m.NpmPackage != "" {
-		lines = append(lines, fmt.Sprintf("npm:         %s", m.NpmPackage))
+	// Language coordinates — iterate plugins in display order
+	for _, p := range language.All() {
+		coords, ok := m.Languages[p.Name()]
+		if !ok {
+			continue
+		}
+		for _, rl := range p.ReportLines(coords) {
+			lines = append(lines, fmt.Sprintf("%-13s%s", rl.Label+":", rl.Value))
+		}
 	}
 	if m.PRURL != "" {
 		lines = append(lines, fmt.Sprintf("PR URL:      %s", m.PRURL))

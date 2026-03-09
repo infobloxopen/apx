@@ -315,68 +315,16 @@ func DeriveTag(apiID, version string) string {
 	return apiID + "/" + v
 }
 
-// DeriveLanguageCoords fills complete language coordinates from an API identity
-// and source repository. If importRoot is non-empty, it is used as the Go
-// module prefix instead of sourceRepo.
-func DeriveLanguageCoords(sourceRepo string, api *APIIdentity) (map[string]LanguageCoords, error) {
-	return DeriveLanguageCoordsWithRoot(sourceRepo, "", "", api)
-}
-
-// DeriveLanguageCoordsWithRoot derives language coordinates for all supported
-// languages. Parameters:
-//   - sourceRepo: Git hosting path (e.g. "github.com/acme/apis")
-//   - importRoot: optional Go-specific import root override
-//   - org: organization name for Python package naming; if empty, Python coords are omitted
-func DeriveLanguageCoordsWithRoot(sourceRepo, importRoot, org string, api *APIIdentity) (map[string]LanguageCoords, error) {
-	goRoot := EffectiveGoRoot(sourceRepo, importRoot)
-	goMod, err := DeriveGoModule(goRoot, api)
-	if err != nil {
-		return nil, fmt.Errorf("deriving Go module: %w", err)
-	}
-	goImport, err := DeriveGoImport(goRoot, api)
-	if err != nil {
-		return nil, fmt.Errorf("deriving Go import: %w", err)
-	}
-
-	coords := map[string]LanguageCoords{
-		"go": {
-			Module: goMod,
-			Import: goImport,
-		},
-	}
-
-	if org != "" {
-		coords["python"] = LanguageCoords{
-			Module: DerivePythonDistName(org, api),
-			Import: DerivePythonImport(org, api),
-		}
-		coords["java"] = LanguageCoords{
-			Module: DeriveMavenCoords(org, api),
-			Import: DeriveJavaPackage(org, api),
-		}
-		coords["typescript"] = LanguageCoords{
-			Module: DeriveNpmPackage(org, api),
-			Import: DeriveTsImport(org, api),
-		}
-	}
-
-	return coords, nil
-}
-
 // BuildIdentityBlock creates a full identity section from an API ID string
 // and source repository. This is the primary entry point for populating
 // identity fields from minimal inputs.
-func BuildIdentityBlock(apiID, sourceRepo, lifecycle, currentVersion string) (*APIIdentity, *SourceIdentity, *ReleaseInfo, map[string]LanguageCoords, error) {
-	return BuildIdentityBlockWithRoot(apiID, sourceRepo, "", "", lifecycle, currentVersion)
-}
-
-// BuildIdentityBlockWithRoot is like BuildIdentityBlock but accepts an
-// optional importRoot (Go import root override) and org (organization name
-// for Python package naming).
-func BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, org, lifecycle, currentVersion string) (*APIIdentity, *SourceIdentity, *ReleaseInfo, map[string]LanguageCoords, error) {
+//
+// Language coordinates are NOT derived here — use language.DeriveAllCoords
+// separately to get per-language coordinates.
+func BuildIdentityBlock(apiID, sourceRepo, lifecycle, currentVersion string) (*APIIdentity, *SourceIdentity, *ReleaseInfo, error) {
 	api, err := ParseAPIID(apiID)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 	if lifecycle != "" {
 		api.Lifecycle = lifecycle
@@ -392,58 +340,7 @@ func BuildIdentityBlockWithRoot(apiID, sourceRepo, importRoot, org, lifecycle, c
 		release = &ReleaseInfo{Current: currentVersion}
 	}
 
-	langs, err := DeriveLanguageCoordsWithRoot(sourceRepo, importRoot, org, api)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	return api, source, release, langs, nil
-}
-
-// FormatIdentityReport produces a human-readable multi-line report
-// of an API's canonical identity information.
-func FormatIdentityReport(api *APIIdentity, source *SourceIdentity, release *ReleaseInfo, langs map[string]LanguageCoords) string {
-	var sb strings.Builder
-
-	sb.WriteString(fmt.Sprintf("API:        %s\n", api.ID))
-	sb.WriteString(fmt.Sprintf("Format:     %s\n", api.Format))
-	sb.WriteString(fmt.Sprintf("Domain:     %s\n", api.Domain))
-	sb.WriteString(fmt.Sprintf("Name:       %s\n", api.Name))
-	sb.WriteString(fmt.Sprintf("Line:       %s\n", api.Line))
-
-	if api.Lifecycle != "" {
-		sb.WriteString(fmt.Sprintf("Lifecycle:  %s\n", api.Lifecycle))
-	}
-
-	if source != nil {
-		sb.WriteString(fmt.Sprintf("Source:     %s/%s\n", source.Repo, source.Path))
-	}
-
-	if release != nil && release.Current != "" {
-		sb.WriteString(fmt.Sprintf("Release:    %s\n", release.Current))
-		sb.WriteString(fmt.Sprintf("Tag:        %s\n", DeriveTag(api.ID, release.Current)))
-	}
-
-	if goCoords, ok := langs["go"]; ok {
-		sb.WriteString(fmt.Sprintf("Go module:  %s\n", goCoords.Module))
-		sb.WriteString(fmt.Sprintf("Go import:  %s\n", goCoords.Import))
-	}
-
-	if pyCoords, ok := langs["python"]; ok {
-		sb.WriteString(fmt.Sprintf("Py dist:    %s\n", pyCoords.Module))
-		sb.WriteString(fmt.Sprintf("Py import:  %s\n", pyCoords.Import))
-	}
-
-	if javaCoords, ok := langs["java"]; ok {
-		sb.WriteString(fmt.Sprintf("Maven:      %s\n", javaCoords.Module))
-		sb.WriteString(fmt.Sprintf("Java pkg:   %s\n", javaCoords.Import))
-	}
-
-	if tsCoords, ok := langs["typescript"]; ok {
-		sb.WriteString(fmt.Sprintf("npm:        %s\n", tsCoords.Module))
-	}
-
-	return sb.String()
+	return api, source, release, nil
 }
 
 // ValidateLifecycle checks if a lifecycle string is valid.
