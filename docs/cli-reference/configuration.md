@@ -49,6 +49,9 @@ version: 1
 | `repo` | string | yes |  |  | Canonical API repository name |
 | `import_root` | string | no |  |  | Custom public Go import prefix (e.g. `go.acme.dev/apis`). Overrides `source.repo` for Go module/import paths. |
 | `catalog_url` | string | no |  |  | Remote catalog URL for dependency discovery. Used by `apx search`, `apx show`, `apx add`, `apx update`, and `apx upgrade` when `--catalog` is not specified. |
+| `catalog_registries` | list | no |  |  | OCI catalog registries for API discovery. Each entry maps to ghcr.io/<org>/<repo>-catalog:latest. |
+| `catalog_registries[].org` | string | yes |  |  | GitHub organization |
+| `catalog_registries[].repo` | string | yes |  |  | Canonical API repository name |
 | `module_roots` | list | no | `[proto]` |  | Directories containing schema modules |
 | `language_targets` | map | no |  |  | Code generation targets keyed by language |
 | `language_targets.<key>` | struct |  |  |  | Code generation target for a language |
@@ -165,6 +168,33 @@ catalog_url: https://raw.githubusercontent.com/acme/apis/main/catalog/catalog.ya
 - Teams on a fork pointing at the upstream catalog
 
 See [Dependency Discovery](../dependencies/discovery.md) for full examples.
+
+### `catalog_registries`
+
+Lists OCI-based catalog registries for API discovery. Each entry identifies a GHCR-hosted catalog container derived from a canonical repository. APX pulls catalog data from these containers, caches it locally, and aggregates results from multiple registries.
+
+```yaml
+catalog_registries:
+  - org: acme
+    repo: apis            # → ghcr.io/acme/apis-catalog:latest
+  - org: acme
+    repo: shared-schemas  # → ghcr.io/acme/shared-schemas-catalog:latest
+  - org: partner-co
+    repo: public-apis     # cross-org discovery
+```
+
+**Resolution order** for catalog commands:
+
+1. `--catalog` flag (if provided)
+2. `catalog_registries` from `apx.yaml` (this field)
+3. Auto-discover from `org` (query GHCR for `*-catalog` packages)
+4. `catalog_url` from `apx.yaml`
+5. Local `catalog/catalog.yaml`
+
+**Use cases:**
+- Aggregate API catalogs from multiple canonical repos in a single `apx search`
+- Cross-org discovery when depending on partner APIs
+- Offline resilience via local cache with automatic refresh
 
 ### `module_roots`
 

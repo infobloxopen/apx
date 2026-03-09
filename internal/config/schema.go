@@ -182,6 +182,20 @@ func buildV1Schema() SchemaVersion {
 			Type:        TypeString,
 			Description: "Remote catalog URL for dependency discovery. Used by apx search and apx show when --catalog is not specified.",
 		},
+		"catalog_registries": {
+			Name:        "catalog_registries",
+			Type:        TypeList,
+			Description: "OCI catalog registries for API discovery. Each entry maps to ghcr.io/<org>/<repo>-catalog:latest.",
+			ItemDef: &FieldDef{
+				Name:        "catalog_registry",
+				Type:        TypeStruct,
+				Description: "A GHCR-hosted catalog registry reference",
+				Children: map[string]FieldDef{
+					"org":  {Name: "org", Type: TypeString, Required: true, Description: "GitHub organization"},
+					"repo": {Name: "repo", Type: TypeString, Required: true, Description: "Canonical API repository name"},
+				},
+			},
+		},
 		"module_roots": {
 			Name:        "module_roots",
 			Type:        TypeList,

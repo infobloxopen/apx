@@ -43,14 +43,11 @@ Use --dry-run to preview what would be updated without modifying apx.lock.`,
 func updateAction(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	catalogPath, _ := cmd.Flags().GetString("catalog")
-	if catalogPath == "" {
-		catalogPath = resolveCatalogPath(cmd)
-	}
 	jsonOut, _ := cmd.Root().PersistentFlags().GetBool("json")
 
 	// Load the catalog
-	gen := catalog.NewGenerator(catalogPath)
-	cat, err := gen.Load()
+	src := resolveCatalogSource(cmd, catalogPath)
+	cat, err := src.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load catalog: %w (run apx catalog generate first)", err)
 	}

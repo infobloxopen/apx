@@ -3,7 +3,6 @@ package commands
 import (
 	"strings"
 
-	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/spf13/cobra"
@@ -45,11 +44,8 @@ func addAction(cmd *cobra.Command, args []string) error {
 	// Look up the catalog to see if this is an external API
 	var provenance *config.ExternalProvenance
 	catalogPath, _ := cmd.Flags().GetString("catalog")
-	if catalogPath == "" {
-		catalogPath = resolveCatalogPath(cmd)
-	}
-	gen := catalog.NewGenerator(catalogPath)
-	cat, err := gen.Load()
+	src := resolveCatalogSource(cmd, catalogPath)
+	cat, err := src.Load()
 	if err == nil {
 		for _, m := range cat.Modules {
 			if m.ID == modulePath && m.Origin != "" {

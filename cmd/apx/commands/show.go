@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/language"
 	"github.com/infobloxopen/apx/internal/ui"
@@ -98,10 +97,8 @@ func showAction(cmd *cobra.Command, args []string) error {
 	importRoot := resolveImportRoot(cmd)
 	org := resolveOrg(cmd)
 
-	// Resolve catalog path
-	if catalogPath == "" {
-		catalogPath = resolveCatalogPath(cmd)
-	}
+	// Resolve catalog source
+	src := resolveCatalogSource(cmd, catalogPath)
 
 	// Build identity from API ID
 	api, err := config.ParseAPIID(apiID)
@@ -136,8 +133,7 @@ func showAction(cmd *cobra.Command, args []string) error {
 
 	// Try to enrich from catalog
 	catalogFound := false
-	gen := catalog.NewGenerator(catalogPath)
-	cat, err := gen.Load()
+	cat, err := src.Load()
 	if err == nil && len(cat.Modules) > 0 {
 		for _, m := range cat.Modules {
 			if m.ID == apiID {

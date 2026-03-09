@@ -70,6 +70,11 @@ jobs:
       - name: Update catalog
         run: apx catalog generate
 
+      - name: Publish catalog to GHCR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: apx catalog publish
+
       - name: Commit catalog changes
         run: |
           git config user.name "apx-publisher[bot]"

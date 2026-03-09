@@ -98,10 +98,9 @@ func inspectIdentityAction(cmd *cobra.Command, args []string) error {
 	}
 
 	// Check catalog for enrichment (external provenance, lifecycle, versions, owners)
-	catalogPath := resolveCatalogPath(cmd)
+	catSrc := resolveCatalogSource(cmd, "")
 	var extModule *catalog.Module
-	gen := catalog.NewGenerator(catalogPath)
-	cat, catErr := gen.Load()
+	cat, catErr := catSrc.Load()
 	if catErr == nil {
 		for i, m := range cat.Modules {
 			if m.ID == apiID {

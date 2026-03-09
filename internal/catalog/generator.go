@@ -2,8 +2,6 @@ package catalog
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -58,6 +56,10 @@ type Catalog struct {
 // Generator handles catalog generation
 type Generator struct {
 	catalogPath string
+
+	// Source, if non-nil, is used by Load() instead of catalogPath.
+	// This allows callers to wire in registry, cached, or aggregate sources.
+	Source CatalogSource
 }
 
 // NewGenerator creates a new catalog generator
@@ -70,66 +72,21 @@ func NewGenerator(catalogPath string) *Generator {
 	}
 }
 
-// Load loads the existing catalog from a local file or remote URL.
-// If catalogPath starts with http:// or https://, the catalog is fetched
-// over HTTP. Otherwise it is read from the local filesystem.
+// Load loads the existing catalog. If Source is set, it delegates to that.
+// Otherwise it uses SourceFor(catalogPath) which routes to LocalSource or
+// HTTPSource based on the path prefix.
 func (g *Generator) Load() (*Catalog, error) {
-	if isRemoteURL(g.catalogPath) {
-		return g.loadRemote()
+	if g.Source != nil {
+		return g.Source.Load()
 	}
-	return g.loadLocal()
+	return SourceFor(g.catalogPath).Load()
 }
 
-// isRemoteURL returns true if path looks like an HTTP(S) URL.
-func isRemoteURL(path string) bool {
-	return strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://")
-}
-
-// loadLocal reads the catalog from the local filesystem.
-func (g *Generator) loadLocal() (*Catalog, error) {
-	data, err := os.ReadFile(g.catalogPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Return empty catalog
-			return &Catalog{
-				Version: 1,
-				Modules: []Module{},
-			}, nil
-		}
-		return nil, fmt.Errorf("failed to read catalog: %w", err)
-	}
-
-	var catalog Catalog
-	if err := yaml.Unmarshal(data, &catalog); err != nil {
-		return nil, fmt.Errorf("failed to parse catalog: %w", err)
-	}
-
-	return &catalog, nil
-}
-
-// loadRemote fetches the catalog from an HTTP(S) URL.
-func (g *Generator) loadRemote() (*Catalog, error) {
-	resp, err := http.Get(g.catalogPath) //nolint:gosec // user-provided URL is intentional
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch remote catalog: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("remote catalog returned HTTP %d", resp.StatusCode)
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read remote catalog body: %w", err)
-	}
-
-	var catalog Catalog
-	if err := yaml.Unmarshal(data, &catalog); err != nil {
-		return nil, fmt.Errorf("failed to parse remote catalog: %w", err)
-	}
-
-	return &catalog, nil
+// LoadFrom loads the catalog from an explicit CatalogSource, ignoring
+// the generator's catalogPath. Useful when the caller has already
+// resolved which source to use (e.g. registry, cache, aggregate).
+func (g *Generator) LoadFrom(src CatalogSource) (*Catalog, error) {
+	return src.Load()
 }
 
 // Save saves the catalog to disk

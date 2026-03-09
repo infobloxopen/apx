@@ -11,22 +11,23 @@ import (
 
 // Config represents the APX configuration
 type Config struct {
-	Version         int                       `yaml:"version"`
-	Org             string                    `yaml:"org"`
-	Repo            string                    `yaml:"repo"`
-	ImportRoot      string                    `yaml:"import_root,omitempty"` // optional public import root (e.g. go.acme.dev/apis)
-	CatalogURL      string                    `yaml:"catalog_url,omitempty"` // remote catalog URL for discovery
-	ModuleRoots     []string                  `yaml:"module_roots"`
-	LanguageTargets map[string]LanguageTarget `yaml:"language_targets"`
-	Policy          Policy                    `yaml:"policy"`
-	Release         ReleaseConfig             `yaml:"release"`
-	Tools           Tools                     `yaml:"tools"`
-	Execution       Execution                 `yaml:"execution"`
-	API             *APIIdentity              `yaml:"api,omitempty"`
-	Source          *SourceIdentity           `yaml:"source,omitempty"`
-	Releases        *ReleaseInfo              `yaml:"releases,omitempty"`
-	Languages       map[string]LanguageCoords `yaml:"languages,omitempty"`
-	ExternalAPIs    []ExternalRegistration    `yaml:"external_apis,omitempty"`
+	Version           int                       `yaml:"version"`
+	Org               string                    `yaml:"org"`
+	Repo              string                    `yaml:"repo"`
+	ImportRoot        string                    `yaml:"import_root,omitempty"`        // optional public import root (e.g. go.acme.dev/apis)
+	CatalogURL        string                    `yaml:"catalog_url,omitempty"`        // remote catalog URL for discovery
+	CatalogRegistries []CatalogRegistry         `yaml:"catalog_registries,omitempty"` // OCI catalog registries for discovery
+	ModuleRoots       []string                  `yaml:"module_roots"`
+	LanguageTargets   map[string]LanguageTarget `yaml:"language_targets"`
+	Policy            Policy                    `yaml:"policy"`
+	Release           ReleaseConfig             `yaml:"release"`
+	Tools             Tools                     `yaml:"tools"`
+	Execution         Execution                 `yaml:"execution"`
+	API               *APIIdentity              `yaml:"api,omitempty"`
+	Source            *SourceIdentity           `yaml:"source,omitempty"`
+	Releases          *ReleaseInfo              `yaml:"releases,omitempty"`
+	Languages         map[string]LanguageCoords `yaml:"languages,omitempty"`
+	ExternalAPIs      []ExternalRegistration    `yaml:"external_apis,omitempty"`
 }
 
 // APIIdentity describes the canonical identity of an API.
@@ -111,6 +112,13 @@ type Tools struct {
 type Execution struct {
 	Mode           string `yaml:"mode"`
 	ContainerImage string `yaml:"container_image"`
+}
+
+// CatalogRegistry identifies a GHCR-hosted catalog to query for API discovery.
+// The catalog image is derived as ghcr.io/<org>/<repo>-catalog:latest.
+type CatalogRegistry struct {
+	Org  string `yaml:"org" json:"org"`   // GitHub org (e.g. "acme")
+	Repo string `yaml:"repo" json:"repo"` // canonical repo name (e.g. "apis")
 }
 
 // LockFile represents the apx.lock file structure for dependency pinning

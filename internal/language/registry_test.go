@@ -108,9 +108,9 @@ func TestRealPluginsRegistered(t *testing.T) {
 	all := All()
 	require.Len(t, all, 6)
 	assert.Equal(t, "go", all[0].Name())         // Tier 1
-	assert.Equal(t, "cpp", all[1].Name())         // Tier 2, alpha
-	assert.Equal(t, "java", all[2].Name())        // Tier 2, alpha
-	assert.Equal(t, "python", all[3].Name())      // Tier 2, alpha
-	assert.Equal(t, "rust", all[4].Name())        // Tier 2, alpha
-	assert.Equal(t, "typescript", all[5].Name())  // Tier 2, alpha
+	assert.Equal(t, "cpp", all[1].Name())        // Tier 2, alpha
+	assert.Equal(t, "java", all[2].Name())       // Tier 2, alpha
+	assert.Equal(t, "python", all[3].Name())     // Tier 2, alpha
+	assert.Equal(t, "rust", all[4].Name())       // Tier 2, alpha
+	assert.Equal(t, "typescript", all[5].Name()) // Tier 2, alpha
 }

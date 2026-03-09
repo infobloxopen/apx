@@ -56,12 +56,11 @@ func searchAction(cmd *cobra.Command, args []string) error {
 	tag, _ := cmd.Flags().GetString("tag")
 	catalogPath, _ := cmd.Flags().GetString("catalog")
 
-	// Resolve catalog path: explicit flag > catalog_url from config > local default
-	if catalogPath == "" {
-		catalogPath = resolveCatalogPath(cmd)
-	}
+	// Resolve catalog source: explicit flag > registry sources > local default
+	src := resolveCatalogSource(cmd, catalogPath)
+	gen := catalog.NewGenerator("") // only used for search API compat
+	gen.Source = src
 
-	gen := catalog.NewGenerator(catalogPath)
 	modules, err := catalog.SearchModulesOpts(gen, catalog.SearchOptions{
 		Query:     query,
 		Format:    format,
@@ -137,14 +136,23 @@ func searchAction(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// resolveCatalogPath returns the best catalog path by checking:
-// 1. catalog_url from apx.yaml config
-// 2. local default catalog/catalog.yaml
-func resolveCatalogPath(cmd *cobra.Command) string {
-	configPath, _ := cmd.Root().PersistentFlags().GetString("config")
-	cfg, err := config.Load(configPath)
-	if err == nil && cfg.CatalogURL != "" {
-		return cfg.CatalogURL
+// resolveCatalogSource returns the best CatalogSource by checking:
+//  1. Explicit --catalog flag (path or URL) → SourceFor
+//  2. catalog_registries / org / catalog_url from apx.yaml → ResolveSource
+//  3. Local catalog/catalog.yaml fallback
+func resolveCatalogSource(cmd *cobra.Command, catalogFlag string) catalog.CatalogSource {
+	// 1. Explicit flag always wins
+	if catalogFlag != "" {
+		return catalog.SourceFor(catalogFlag)
 	}
-	return "catalog/catalog.yaml"
+
+	// 2. Try config-based resolution (registries, auto-discover, catalog_url)
+	configPath, _ := cmd.Root().PersistentFlags().GetString("config")
+	cfg, err := config.LoadRaw(configPath)
+	if err == nil {
+		return catalog.ResolveSource(cfg)
+	}
+
+	// 3. Fallback to local file
+	return &catalog.LocalSource{Path: "catalog/catalog.yaml"}
 }

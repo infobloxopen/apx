@@ -49,9 +49,6 @@ func upgradeAction(cmd *cobra.Command, args []string) error {
 	targetLine, _ := cmd.Flags().GetString("to")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	catalogPath, _ := cmd.Flags().GetString("catalog")
-	if catalogPath == "" {
-		catalogPath = resolveCatalogPath(cmd)
-	}
 	jsonOut, _ := cmd.Root().PersistentFlags().GetBool("json")
 
 	// Verify the current dependency exists
@@ -97,8 +94,8 @@ func upgradeAction(cmd *cobra.Command, args []string) error {
 	targetModulePath := strings.Join(targetParts, "/")
 
 	// Look up the target in the catalog
-	gen := catalog.NewGenerator(catalogPath)
-	cat, err := gen.Load()
+	src := resolveCatalogSource(cmd, catalogPath)
+	cat, err := src.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load catalog: %w (run apx catalog generate first)", err)
 	}
