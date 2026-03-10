@@ -1,6 +1,9 @@
 package templates
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // GenerateCanonicalCI generates .github/workflows/ci.yml for canonical repos.
 // This runs lint and breaking-change checks on every PR.
@@ -37,6 +40,8 @@ jobs:
 // canonical repos. On push to main it validates, generates catalog data,
 // builds a Docker image with OCI labels, pushes to GHCR, and attests the build.
 func GenerateCanonicalOnMerge(org string) string {
+	// OCI image references must be lowercase; GitHub orgs may have mixed case.
+	imageOrg := strings.ToLower(org)
 	return fmt.Sprintf(`name: APX On Merge
 
 on:
@@ -53,7 +58,7 @@ jobs:
   catalog:
     runs-on: ubuntu-latest
     env:
-      IMAGE: ghcr.io/%[1]s/${{ github.event.repository.name }}-catalog
+      IMAGE: ghcr.io/%s/${{ github.event.repository.name }}-catalog
     steps:
       - name: Generate App Token
         id: app-token
@@ -117,7 +122,7 @@ jobs:
           subject-name: ${{ env.IMAGE }}
           sbom-path: sbom.spdx.json
           push-to-registry: true
-`, org)
+`, imageOrg)
 }
 
 // GenerateAppRelease generates .github/workflows/apx-release.yml for app

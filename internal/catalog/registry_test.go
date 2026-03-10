@@ -194,6 +194,11 @@ func TestRegistrySource_Name_Custom(t *testing.T) {
 	assert.Equal(t, "registry.example.com/acme/apis-catalog:v2", src.Name())
 }
 
+func TestRegistrySource_Name_MixedCase(t *testing.T) {
+	src := &RegistrySource{Org: "Infoblox-CTO", Repo: "APIs"}
+	assert.Equal(t, "ghcr.io/infoblox-cto/apis-catalog:latest", src.Name())
+}
+
 // ---------------------------------------------------------------------------
 // tar.gz round-trip
 // ---------------------------------------------------------------------------

@@ -75,7 +75,13 @@ func (r *RegistrySource) Load() (*Catalog, error) {
 
 // Name returns a human-readable identifier.
 func (r *RegistrySource) Name() string {
-	return fmt.Sprintf("%s/%s/%s%s:%s", r.host(), r.Org, r.Repo, CatalogImageSuffix, r.tag())
+	// OCI image references must be lowercase.
+	return fmt.Sprintf("%s/%s/%s%s:%s",
+		r.host(),
+		strings.ToLower(r.Org),
+		strings.ToLower(r.Repo),
+		CatalogImageSuffix,
+		r.tag())
 }
 
 // ---------------------------------------------------------------------------
@@ -118,7 +124,11 @@ func (r *RegistrySource) tag() string {
 }
 
 func (r *RegistrySource) imageRef() string {
-	return fmt.Sprintf("%s/%s%s", r.Org, r.Repo, CatalogImageSuffix)
+	// OCI image references must be lowercase.
+	return fmt.Sprintf("%s/%s%s",
+		strings.ToLower(r.Org),
+		strings.ToLower(r.Repo),
+		CatalogImageSuffix)
 }
 
 func (r *RegistrySource) httpClient() *http.Client {
