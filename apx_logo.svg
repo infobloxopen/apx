@@ -1,42 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="APX logo - Braces in Crate">
-  <!--
-    APX "Braces in Crate" logo (simple, editable SVG).
-    Colors: adjust the --ink variables in the <style> block.
-    This is an original vector approximation of the first concept.
-  -->
-  <style>
-    :root{
-      --ink:#1f242b;      /* main dark */
-      --ink2:#252b33;     /* top */
-      --ink3:#171b21;     /* shadow */
-      --paper:#ffffff;    /* background */
-    }
-    .ink{fill:var(--ink);}
-    .ink2{fill:var(--ink2);}
-    .ink3{fill:var(--ink3);}
-    .paper{fill:var(--paper);}
-    .word{fill:var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; font-weight: 800; letter-spacing: 2px;}
-    .sub{fill:#6b7280; font-family: Inter, ui-sans-serif, system-ui; font-weight: 500;}
-  </style>
+<svg width="1200" height="900" viewBox="0 0 1200 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="APX logo">
 
-  <rect width="1200" height="900" class="paper"/>
+  <rect width="1200" height="900" fill="#ffffff"/>
 
-  <!-- ICON -->
+  <!-- Icon -->
   <g transform="translate(250 110)">
-    <!-- Top lid (parallelogram) -->
-    <polygon class="ink2"
+    <!-- Top lid -->
+    <polygon fill="#252b33"
       points="350,40 520,125 350,210 180,125"/>
     <!-- Left face -->
-    <polygon class="ink"
+    <polygon fill="#1f242b"
       points="180,125 350,210 350,395 180,310"/>
     <!-- Right face -->
-    <polygon class="ink3"
+    <polygon fill="#171b21"
       points="520,125 350,210 350,395 520,310"/>
 
-    <!-- Front opening / inset panel -->
-    <!-- A shield-like pentagon that hints an 'A' silhouette -->
-    <path class="paper" d="
+    <!-- Front opening -->
+    <path fill="#ffffff" d="
       M350 225
       L470 285
       L440 360
@@ -44,9 +24,8 @@
       L230 285
       Z"/>
 
-    <!-- Inner braces -->
     <!-- Left brace -->
-    <path class="ink" d="
+    <path fill="#1f242b" d="
       M323 275
       q-22 0-22 22
       v18
@@ -66,8 +45,8 @@
       h7
       v-18
       Z"/>
-    <!-- Right brace (mirrored) -->
-    <path class="ink" d="
+    <!-- Right brace -->
+    <path fill="#1f242b" d="
       M377 275
       h12
       v18
@@ -89,13 +68,11 @@
       q0-22-22-22
       Z"/>
 
-    <!-- Small top cutout notch for visual depth -->
+    <!-- Depth highlight -->
     <path fill="rgba(255,255,255,0.08)" d="M350 58 L482 125 L350 192 L218 125 Z"/>
   </g>
 
-  <!-- WORDMARK -->
-  <text x="600" y="710" text-anchor="middle" font-size="150" class="word">APX</text>
+  <!-- Wordmark -->
+  <text x="600" y="710" text-anchor="middle" font-size="150" fill="#1f242b" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial" font-weight="800" letter-spacing="2px">APX</text>
 
-  <!-- Optional caption (remove if undesired) -->
-  <!-- <text x="600" y="790" text-anchor="middle" font-size="36" class="sub">Braces in Crate</text> -->
 </svg>
