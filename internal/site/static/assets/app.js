@@ -6,6 +6,7 @@
 
   let catalog = null;
   let allAPIs = [];
+  let directoryTree = null; // trie built from API IDs for directory navigation
   let treeState = {};       // nodeId -> { expanded: bool }
   let selectedNodeId = null;
   let searchIndex = [];     // flat list of { nodeId, searchText, apiId }
@@ -32,6 +33,7 @@
       $("#generated-at").textContent = "Generated " + d.toLocaleDateString();
     }
 
+    directoryTree = buildDirectoryTree();
     buildSearchIndex();
     bindEvents();
     updateStats();
@@ -44,6 +46,232 @@
 
   function setSidebarVisible(visible) {
     $(".app-layout").classList.toggle("sidebar-hidden", !visible);
+  }
+
+  // ===== Directory Tree =====
+
+  function buildDirectoryTree() {
+    var root = { name: "", path: "", children: {}, apis: [], apiCount: 0 };
+    for (var i = 0; i < allAPIs.length; i++) {
+      var api = allAPIs[i];
+      var segments = api.id.split("/");
+      var node = root;
+      for (var j = 0; j < segments.length; j++) {
+        var seg = segments[j];
+        if (!node.children[seg]) {
+          var childPath = node.path ? node.path + "/" + seg : seg;
+          node.children[seg] = { name: seg, path: childPath, children: {}, apis: [], apiCount: 0 };
+        }
+        node = node.children[seg];
+      }
+      node.apis.push(api);
+    }
+    // Compute apiCount bottom-up
+    function countAPIs(n) {
+      var total = n.apis.length;
+      var keys = Object.keys(n.children);
+      for (var k = 0; k < keys.length; k++) {
+        total += countAPIs(n.children[keys[k]]);
+      }
+      n.apiCount = total;
+      return total;
+    }
+    countAPIs(root);
+    return root;
+  }
+
+  function lookupDirectoryNode(path) {
+    if (!path) return directoryTree;
+    var segments = path.split("/");
+    var node = directoryTree;
+    for (var i = 0; i < segments.length; i++) {
+      if (!node.children[segments[i]]) return null;
+      node = node.children[segments[i]];
+    }
+    return node;
+  }
+
+  // ===== Directory Rendering =====
+
+  function renderDirectoryView(path) {
+    currentApiId = null;
+    $("#content").classList.add("hidden");
+    $("#search-results").classList.add("hidden");
+    setSidebarVisible(false);
+
+    var dirEl = $("#directory");
+    dirEl.classList.remove("hidden");
+
+    var node = lookupDirectoryNode(path);
+    if (!node) {
+      dirEl.innerHTML = '<div class="loading">Directory not found</div>';
+      return;
+    }
+
+    var html = "";
+
+    // Welcome header at root only
+    if (!path) {
+      html += '<div class="directory-header">';
+      html += '<h2>API Catalog</h2>';
+      html += '<p class="welcome-tagline">Browse, search, and explore your organization\'s API surface.</p>';
+      html += '</div>';
+    }
+
+    // Build and render items
+    var items = buildDirectoryItems(node);
+
+    if (items.length === 0) {
+      html += '<div class="search-no-results">No APIs in this directory</div>';
+    } else {
+      html += '<div class="directory-grid">';
+      for (var i = 0; i < items.length; i++) {
+        html += renderDirectoryCard(items[i]);
+      }
+      html += '</div>';
+    }
+
+    dirEl.innerHTML = html;
+    $("#content-pane").scrollTop = 0;
+
+    // Bind card click handlers
+    var cards = dirEl.querySelectorAll(".directory-card");
+    for (var j = 0; j < cards.length; j++) {
+      cards[j].addEventListener("click", function (e) {
+        e.preventDefault();
+        var hash = this.dataset.hash;
+        if (hash !== undefined) {
+          window.location.hash = hash;
+        }
+      });
+    }
+  }
+
+  function buildDirectoryItems(node) {
+    var items = [];
+    var childKeys = Object.keys(node.children).sort();
+
+    for (var i = 0; i < childKeys.length; i++) {
+      var child = node.children[childKeys[i]];
+      var childChildKeys = Object.keys(child.children);
+
+      if (child.apis.length === 1 && childChildKeys.length === 0) {
+        // Leaf with single API — show as API card
+        items.push({ type: "api", api: child.apis[0], hash: child.apis[0].id });
+      } else if (child.apiCount === 1 && child.apis.length === 0) {
+        // Single-API subtree — collapse and show API card directly
+        var api = findSingleAPI(child);
+        if (api) {
+          items.push({ type: "api", api: api, hash: api.id });
+        }
+      } else {
+        // Folder
+        items.push({
+          type: "folder",
+          name: child.name,
+          path: child.path,
+          hash: child.path,
+          apiCount: child.apiCount,
+          formats: collectFormats(child),
+        });
+      }
+    }
+
+    // APIs terminating exactly at this node
+    for (var j = 0; j < node.apis.length; j++) {
+      items.push({ type: "api", api: node.apis[j], hash: node.apis[j].id });
+    }
+
+    return items;
+  }
+
+  function findSingleAPI(node) {
+    if (node.apis.length === 1) return node.apis[0];
+    var keys = Object.keys(node.children);
+    for (var i = 0; i < keys.length; i++) {
+      var found = findSingleAPI(node.children[keys[i]]);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function collectFormats(node) {
+    var formats = {};
+    for (var i = 0; i < node.apis.length; i++) {
+      if (node.apis[i].format) formats[node.apis[i].format] = true;
+    }
+    var keys = Object.keys(node.children);
+    for (var j = 0; j < keys.length; j++) {
+      var sub = collectFormats(node.children[keys[j]]);
+      for (var k = 0; k < sub.length; k++) {
+        formats[sub[k]] = true;
+      }
+    }
+    return Object.keys(formats);
+  }
+
+  function renderBreadcrumb(path) {
+    if (!path) return '<span class="breadcrumb-current">Catalog</span>';
+    var html = '<a href="#">Catalog</a>';
+    var segments = path.split("/");
+    for (var i = 0; i < segments.length; i++) {
+      html += '<span class="breadcrumb-sep">&#x2215;</span>';
+      if (i === segments.length - 1) {
+        html += '<span class="breadcrumb-current">' + esc(segments[i]) + '</span>';
+      } else {
+        var partial = segments.slice(0, i + 1).join("/");
+        html += '<a href="#' + esc(partial) + '">' + esc(segments[i]) + '</a>';
+      }
+    }
+    return html;
+  }
+
+  function updateBreadcrumb(path) {
+    $("#breadcrumb-bar").innerHTML = renderBreadcrumb(path);
+  }
+
+  function renderDirectoryCard(item) {
+    if (item.type === "folder") {
+      return renderFolderCard(item);
+    }
+    return renderAPIDirectoryCard(item);
+  }
+
+  function renderFolderCard(item) {
+    var html = '<a class="directory-card directory-card-folder" data-hash="' + esc(item.hash) + '">';
+    html += '<div class="directory-card-icon">&#128193;</div>';
+    html += '<div class="directory-card-body">';
+    html += '<div class="directory-card-name">' + esc(item.name) + '</div>';
+    html += '<div class="directory-card-meta">';
+    html += '<span>' + item.apiCount + ' API' + (item.apiCount !== 1 ? 's' : '') + '</span>';
+    for (var i = 0; i < item.formats.length && i < 3; i++) {
+      html += ' <span class="badge badge-format ' + esc(item.formats[i]) + '">' + esc(item.formats[i]) + '</span>';
+    }
+    html += '</div>';
+    html += '</div>';
+    html += '</a>';
+    return html;
+  }
+
+  function renderAPIDirectoryCard(item) {
+    var api = item.api;
+    var html = '<a class="directory-card directory-card-api" data-hash="' + esc(item.hash) + '">';
+    html += '<div class="directory-card-icon directory-card-icon-api">';
+    html += '<span class="tree-icon tree-icon-' + esc(api.format) + '">' + formatAbbrev(api.format) + '</span>';
+    html += '</div>';
+    html += '<div class="directory-card-body">';
+    html += '<div class="directory-card-name">' + esc(api.name || api.id) + '</div>';
+    html += '<div class="directory-card-meta">';
+    if (api.format) html += '<span class="badge badge-format ' + esc(api.format) + '">' + esc(api.format) + '</span>';
+    if (api.lifecycle) html += '<span class="badge badge-lifecycle ' + esc(api.lifecycle) + '">' + esc(api.lifecycle) + '</span>';
+    if (api.line) html += '<span class="directory-card-line">' + esc(api.line) + '</span>';
+    html += '</div>';
+    if (api.description) {
+      html += '<div class="directory-card-description">' + esc(api.description) + '</div>';
+    }
+    html += '</div>';
+    html += '</a>';
+    return html;
   }
 
   // ===== Event Binding =====
@@ -115,8 +343,9 @@
 
   function renderSearchResults(query) {
     // Hide other content pane views
-    $("#welcome").classList.add("hidden");
+    $("#directory").classList.add("hidden");
     $("#content").classList.add("hidden");
+    updateBreadcrumb("");
 
     var resultsEl = $("#search-results");
     resultsEl.classList.remove("hidden");
@@ -606,47 +835,61 @@
     hideSearchResults();
 
     if (!parsed.apiId) {
-      // Show welcome (unless search is active)
+      // Empty hash — show root directory (unless search is active)
       selectedNodeId = null;
       currentApiId = null;
       $("#content").classList.add("hidden");
       if (!getSearchQuery()) {
-        $("#welcome").classList.remove("hidden");
-        setSidebarVisible(false);
+        updateBreadcrumb("");
+        renderDirectoryView("");
       }
       clearTreeSelection();
       return;
     }
 
-    $("#welcome").classList.add("hidden");
-    $("#content").classList.remove("hidden");
-
+    // Check if hash matches a known API
     const api = allAPIs.find(function (a) { return a.id === parsed.apiId; });
-    if (!api) {
-      $("#content").innerHTML = '<div class="loading">API not found: ' + esc(parsed.apiId) + '</div>';
-      setSidebarVisible(false);
+    if (api) {
+      // API detail page
+      $("#directory").classList.add("hidden");
+      $("#content").classList.remove("hidden");
+      updateBreadcrumb(api.id);
+
+      if (currentApiId !== parsed.apiId) {
+        currentApiId = parsed.apiId;
+        renderAPIPage(api);
+        renderAPITree(api);
+        setSidebarVisible(true);
+      }
+
+      if (parsed.typeName) {
+        selectedNodeId = "type:" + parsed.apiId + ":" + parsed.typeName;
+        scrollToAnchor(parsed.typeName);
+      } else {
+        selectedNodeId = "api:" + parsed.apiId;
+        $("#content-pane").scrollTop = 0;
+      }
+
+      highlightTreeNode(selectedNodeId);
+      expandToNode(selectedNodeId);
       return;
     }
 
-    // Only re-render if switching to a different API
-    if (currentApiId !== parsed.apiId) {
-      currentApiId = parsed.apiId;
-      renderAPIPage(api);
-      renderAPITree(api);
-      setSidebarVisible(true);
+    // Check if hash matches a directory prefix
+    var dirNode = lookupDirectoryNode(parsed.apiId);
+    if (dirNode && dirNode.apiCount > 0) {
+      currentApiId = null;
+      updateBreadcrumb(parsed.apiId);
+      renderDirectoryView(parsed.apiId);
+      return;
     }
 
-    // Scroll to type anchor or top
-    if (parsed.typeName) {
-      selectedNodeId = "type:" + parsed.apiId + ":" + parsed.typeName;
-      scrollToAnchor(parsed.typeName);
-    } else {
-      selectedNodeId = "api:" + parsed.apiId;
-      $("#content-pane").scrollTop = 0;
-    }
-
-    highlightTreeNode(selectedNodeId);
-    expandToNode(selectedNodeId);
+    // Not found
+    $("#directory").classList.add("hidden");
+    $("#content").classList.remove("hidden");
+    $("#content").innerHTML = '<div class="loading">Not found: ' + esc(parsed.apiId) + '</div>';
+    updateBreadcrumb("");
+    setSidebarVisible(false);
   }
 
   function clearTreeSelection() {

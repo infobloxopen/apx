@@ -19,6 +19,8 @@
     </div>
   </header>
 
+  <nav class="breadcrumb-bar" id="breadcrumb-bar"></nav>
+
   <div class="app-layout">
     <aside class="sidebar" id="sidebar">
       <nav class="sidebar-tree" id="sidebar-tree" role="tree" aria-label="API navigation"></nav>
@@ -28,25 +30,7 @@
 
     <section class="content-pane" id="content-pane">
       <div id="loading" class="loading">Loading catalog...</div>
-      <div id="welcome" class="welcome hidden">
-        <h2>API Catalog</h2>
-        <p class="welcome-tagline">Browse, search, and explore your organization's API surface.</p>
-        <div class="welcome-links">
-          <a href="https://github.com/infobloxopen/apx" target="_blank" rel="noopener">
-            <span class="welcome-link-icon">&#9733;</span>
-            GitHub
-          </a>
-          <a href="https://infobloxopen.github.io/apx/" target="_blank" rel="noopener">
-            <span class="welcome-link-icon">&#128214;</span>
-            Documentation
-          </a>
-          <a href="https://infobloxopen.github.io/apx/canonical-repo/catalog-site/" target="_blank" rel="noopener">
-            <span class="welcome-link-icon">&#128736;</span>
-            Catalog Site Guide
-          </a>
-        </div>
-        <p class="welcome-hint">Use the search bar above or browse the tree on the left to get started.</p>
-      </div>
+      <div id="directory" class="directory-view hidden"></div>
       <div id="search-results" class="search-results hidden"></div>
       <div id="content" class="content-body hidden"></div>
     </section>

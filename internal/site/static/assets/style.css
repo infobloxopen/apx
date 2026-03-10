@@ -462,23 +462,135 @@ mark {
   color: var(--text-secondary);
 }
 
-/* ===== Breadcrumb ===== */
-.breadcrumb {
+/* ===== Directory Browser ===== */
+.directory-view {
+  max-width: 900px;
+}
+
+.directory-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.directory-header h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.directory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.75rem;
+}
+
+.directory-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.directory-card:hover {
+  box-shadow: var(--shadow-hover);
+  border-color: var(--primary-light);
+}
+
+.directory-card-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 2rem;
+  text-align: center;
+}
+
+.directory-card-icon-api {
+  font-size: 1rem;
+}
+
+.directory-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.directory-card-name {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.directory-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.2rem;
+}
+
+.directory-card-line {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.directory-card-description {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.directory-card-folder .directory-card-name {
+  color: var(--text);
+}
+
+@media (max-width: 768px) {
+  .directory-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Breadcrumb Bar ===== */
+.breadcrumb-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1rem;
+  min-height: 32px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  margin-bottom: 1.25rem;
   font-size: 0.85rem;
   color: var(--text-secondary);
   flex-wrap: wrap;
 }
 
-.breadcrumb a {
+.breadcrumb-bar:empty {
+  display: none;
+}
+
+.breadcrumb-bar a {
   color: var(--primary);
   text-decoration: none;
 }
 
-.breadcrumb a:hover {
+.breadcrumb-bar a:hover {
   text-decoration: underline;
 }
 
