@@ -14,14 +14,16 @@ type CanonicalScaffolder struct {
 	org        string
 	repo       string
 	importRoot string
+	siteURL    string
 }
 
 // NewCanonicalScaffolder creates a new canonical scaffolder
-func NewCanonicalScaffolder(org, repo, importRoot string) *CanonicalScaffolder {
+func NewCanonicalScaffolder(org, repo, importRoot, siteURL string) *CanonicalScaffolder {
 	return &CanonicalScaffolder{
 		org:        org,
 		repo:       repo,
 		importRoot: importRoot,
+		siteURL:    siteURL,
 	}
 }
 
@@ -108,6 +110,7 @@ func (s *CanonicalScaffolder) Generate(targetDir string) error {
 		cfg.Org = s.org
 		cfg.Repo = s.repo
 		cfg.ImportRoot = s.importRoot
+		cfg.SiteURL = s.siteURL
 		content, err := config.MarshalConfigString(cfg)
 		if err != nil {
 			return fmt.Errorf("failed to generate apx.yaml: %w", err)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/detector"
@@ -50,6 +51,7 @@ func newInitCanonicalCmd() *cobra.Command {
 	cmd.Flags().String("org", "", "Organization name")
 	cmd.Flags().String("repo", "", "Repository name")
 	cmd.Flags().String("import-root", "", "Custom public Go import prefix (e.g. go.acme.dev/apis)")
+	cmd.Flags().String("site-url", "", "Custom domain for the catalog site (e.g. apis.internal.infoblox.dev)")
 	cmd.Flags().Bool("skip-git", false, "Skip git initialization")
 	cmd.Flags().Bool("non-interactive", false, "Disable interactive prompts and require all flags")
 	cmd.Flags().Bool("setup-github", false, "Configure GitHub repo settings (branch/tag protection, org secrets) via gh CLI")
@@ -134,6 +136,7 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 	org, _ := cmd.Flags().GetString("org")
 	repo, _ := cmd.Flags().GetString("repo")
 	importRoot, _ := cmd.Flags().GetString("import-root")
+	siteURL, _ := cmd.Flags().GetString("site-url")
 	skipGit, _ := cmd.Flags().GetBool("skip-git")
 	nonInteractive, _ := cmd.Flags().GetBool("non-interactive")
 
@@ -207,6 +210,20 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("failed to get import root: %w", err)
 			}
 		}
+
+		// Prompt for site_url if not provided via flag
+		if siteURL == "" {
+			defaultSiteURL := strings.ToLower(org) + ".github.io/" + repo
+			ui.Info("")
+			ui.Info("Catalog site URL (optional):")
+			ui.Info("  Where the API catalog explorer will be hosted via GitHub Pages.")
+			ui.Info("  Default: %s", defaultSiteURL)
+			ui.Info("  Set a custom domain to use your own URL (e.g. apis.internal.%s.dev)", strings.ToLower(org))
+			ui.Info("")
+			if err := interactive.PromptForString("Site URL (blank for default):", "", &siteURL); err != nil {
+				return fmt.Errorf("failed to get site URL: %w", err)
+			}
+		}
 	}
 
 	ui.Info("Initializing canonical API repository...")
@@ -215,9 +232,12 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 	if importRoot != "" {
 		ui.Info("Import root: %s", importRoot)
 	}
+	if siteURL != "" {
+		ui.Info("Site URL: %s", siteURL)
+	}
 	ui.Info("")
 
-	scaffolder := schema.NewCanonicalScaffolder(org, repo, importRoot)
+	scaffolder := schema.NewCanonicalScaffolder(org, repo, importRoot, siteURL)
 	if err := scaffolder.Generate("."); err != nil {
 		return fmt.Errorf("failed to generate canonical structure: %w", err)
 	}
@@ -295,8 +315,15 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 			}
 		}
 
+		// Resolve siteURL from config if not provided via flag.
+		if siteURL == "" {
+			if cfg, cfgErr := config.LoadRaw("apx.yaml"); cfgErr == nil && cfg.SiteURL != "" {
+				siteURL = cfg.SiteURL
+			}
+		}
+
 		ui.Info("\nConfiguring GitHub repository...")
-		res, err := gh.SetupCanonicalRepo(org, repo, appID, pemFile)
+		res, err := gh.SetupCanonicalRepo(org, repo, appID, pemFile, siteURL)
 		if err != nil {
 			return fmt.Errorf("GitHub setup failed: %w", err)
 		}

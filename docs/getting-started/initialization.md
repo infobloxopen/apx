@@ -199,6 +199,7 @@ Override detected defaults and skip prompts with flags:
 
 - `--org VALUE`: Organization name for canonical repo
 - `--repo VALUE`: Repository name
+- `--site-url VALUE`: Custom domain for the catalog site (e.g. `apis.internal.infoblox.dev`). Defaults to `{org}.github.io/{repo}`.
 - `--skip-git`: Skip git initialization
 - `--non-interactive`: Use all defaults without prompts
 

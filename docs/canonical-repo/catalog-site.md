@@ -88,6 +88,39 @@ When `--dir` is not set (the default), schema extraction is skipped entirely and
 !!! note "Pure-Go parsers"
     Schema extraction uses built-in parsers with no external dependencies. It does not invoke `buf`, `protoc`, `spectral`, or any other tool. The parsers extract structural information from the raw source files.
 
+## Custom Domain
+
+By default the catalog site is available at `{org}.github.io/{repo}`. To host it on a custom domain, set `site_url` in `apx.yaml`:
+
+```yaml
+version: 1
+org: Infoblox-CTO
+repo: apis
+site_url: apis.internal.infoblox.dev
+```
+
+When `site_url` is set and `--setup-github` is used during `apx init canonical`, APX will:
+
+1. **Enable GitHub Pages** with Actions-based deployment
+2. **Set visibility** to private if the repository is private
+3. **Configure the custom domain** on GitHub Pages
+4. **Probe DNS** to verify a CNAME record points to `{org}.github.io`
+
+If the CNAME is missing or incorrect, APX prints a warning but continues — you can configure DNS later.
+
+### DNS Setup
+
+Create a CNAME record pointing your custom domain to GitHub Pages:
+
+| Type | Name | Value |
+|------|------|-------|
+| CNAME | `apis.internal.infoblox.dev` | `infoblox-cto.github.io` |
+
+!!! note "No apex domains"
+    GitHub Pages custom domains require a CNAME record. Apex domains (e.g. `infoblox.dev`) cannot use CNAME records — use a subdomain instead.
+
+When `site_url` is empty or omitted, APX defaults to `{org}.github.io/{repo}` and skips custom domain configuration.
+
 ## GitHub Pages Deployment
 
 Add a workflow to your canonical repository:

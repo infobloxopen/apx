@@ -264,7 +264,7 @@ func EnsureTagProtection(owner, repo string, res *SetupResult) error {
 
 // SetupCanonicalRepo runs the full idempotent setup sequence for a
 // canonical API repository.
-func SetupCanonicalRepo(org, repo, appID, pemPath string) (*SetupResult, error) {
+func SetupCanonicalRepo(org, repo, appID, pemPath, siteURL string) (*SetupResult, error) {
 	res := &SetupResult{}
 
 	if err := CheckGHAuth(); err != nil {
@@ -298,7 +298,127 @@ func SetupCanonicalRepo(org, repo, appID, pemPath string) (*SetupResult, error) 
 		return nil, err
 	}
 
+	// 5. GitHub Pages
+	if err := EnsureGitHubPages(org, repo, res); err != nil {
+		return nil, err
+	}
+	if err := ConfigurePagesVisibility(org, repo, res); err != nil {
+		return nil, err
+	}
+
+	// 6. Custom domain (when configured)
+	if siteURL != "" {
+		if dnsErr := CheckDNSForPages(org, siteURL); dnsErr != nil {
+			ui.Warning("DNS: %v", dnsErr)
+		}
+		if err := ConfigurePagesDomain(org, repo, siteURL, res); err != nil {
+			return nil, err
+		}
+	}
+
 	return res, nil
+}
+
+// ---------------------------------------------------------------------------
+// GitHub Pages
+// ---------------------------------------------------------------------------
+
+// dnsLookupCNAME is the function used for DNS CNAME lookups. Package-level
+// variable so tests can replace it with a stub.
+var dnsLookupCNAME = net.LookupCNAME
+
+// EnsureGitHubPages enables GitHub Pages with Actions-based deployment.
+// If Pages is already enabled (409 response), it is treated as success.
+func EnsureGitHubPages(org, repo string, res *SetupResult) error {
+	endpoint := fmt.Sprintf("repos/%s/%s/pages", org, repo)
+
+	// Check if Pages is already enabled.
+	_, err := GHRun("api", endpoint, "--silent")
+	if err == nil {
+		res.Add("skipped", "GitHub Pages")
+		return nil
+	}
+
+	// Enable Pages with Actions workflow deployment.
+	_, err = GHRun("api", endpoint, "-X", "POST",
+		"-f", "build_type=workflow")
+	if err != nil {
+		// 409 means already enabled — treat as success.
+		if strings.Contains(err.Error(), "409") {
+			res.Add("skipped", "GitHub Pages")
+			return nil
+		}
+		res.Add("warning", fmt.Sprintf("GitHub Pages: %v", err))
+		return nil
+	}
+
+	res.Add("created", "GitHub Pages (Actions deployment)")
+	return nil
+}
+
+// ConfigurePagesVisibility sets GitHub Pages visibility to private if the
+// repository is private, ensuring internal sites aren't publicly accessible.
+func ConfigurePagesVisibility(org, repo string, res *SetupResult) error {
+	endpoint := fmt.Sprintf("repos/%s/%s", org, repo)
+
+	out, err := GHRun("api", endpoint, "--jq", ".private")
+	if err != nil {
+		res.Add("warning", fmt.Sprintf("could not check repo visibility: %v", err))
+		return nil
+	}
+
+	if strings.TrimSpace(out) != "true" {
+		// Public repo — Pages visibility doesn't need to be restricted.
+		return nil
+	}
+
+	// Private repo — set Pages to private.
+	pagesEndpoint := fmt.Sprintf("repos/%s/%s/pages", org, repo)
+	_, err = GHRun("api", pagesEndpoint, "-X", "PUT",
+		"-F", "public=false")
+	if err != nil {
+		res.Add("warning", fmt.Sprintf("GitHub Pages visibility: %v", err))
+		return nil
+	}
+
+	res.Add("created", "GitHub Pages visibility: private")
+	return nil
+}
+
+// ConfigurePagesDomain sets a custom domain (CNAME) for GitHub Pages.
+func ConfigurePagesDomain(org, repo, domain string, res *SetupResult) error {
+	endpoint := fmt.Sprintf("repos/%s/%s/pages", org, repo)
+
+	_, err := GHRun("api", endpoint, "-X", "PUT",
+		"-f", fmt.Sprintf("cname=%s", domain))
+	if err != nil {
+		res.Add("warning", fmt.Sprintf("GitHub Pages custom domain: %v", err))
+		return nil
+	}
+
+	res.Add("created", fmt.Sprintf("GitHub Pages custom domain: %s", domain))
+	return nil
+}
+
+// CheckDNSForPages performs a CNAME lookup on the custom domain and checks
+// that it points to the expected GitHub Pages host ({org}.github.io).
+// Returns an error describing the mismatch; callers should treat this as a
+// warning, not a fatal error, since DNS may be configured after setup.
+func CheckDNSForPages(org, domain string) error {
+	expected := strings.ToLower(org) + ".github.io."
+
+	cname, err := dnsLookupCNAME(domain)
+	if err != nil {
+		return fmt.Errorf("%s: DNS lookup failed — ensure a CNAME record points to %s",
+			domain, strings.TrimSuffix(expected, "."))
+	}
+
+	if !strings.EqualFold(cname, expected) {
+		return fmt.Errorf("%s: CNAME points to %s, expected %s",
+			domain, strings.TrimSuffix(cname, "."), strings.TrimSuffix(expected, "."))
+	}
+
+	return nil
 }
 
 // SetupAppRepo runs the idempotent setup for an app repository.

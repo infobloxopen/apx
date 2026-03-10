@@ -48,6 +48,7 @@ version: 1
 | `org` | string | yes |  |  | GitHub organization name |
 | `repo` | string | yes |  |  | Canonical API repository name |
 | `import_root` | string | no |  |  | Custom public Go import prefix (e.g. `go.acme.dev/apis`). Overrides `source.repo` for Go module/import paths. |
+| `site_url` | string | no |  |  | Custom domain for the catalog site (e.g. `apis.internal.infoblox.dev`). Defaults to `{org}.github.io/{repo}`. |
 | `catalog_url` | string | no |  |  | Remote catalog URL for dependency discovery. Used by `apx search`, `apx show`, `apx add`, `apx update`, and `apx upgrade` when `--catalog` is not specified. |
 | `catalog_registries` | list | no |  |  | OCI catalog registries for API discovery. Each entry maps to ghcr.io/<org>/<repo>-catalog:latest. |
 | `catalog_registries[].org` | string | yes |  |  | GitHub organization |
@@ -413,6 +414,7 @@ version: 1
 org: your-org-name
 repo: apis
 # import_root: go.your-org-name.dev/apis   # optional: custom Go import prefix
+# site_url: apis.internal.your-org-name.dev  # optional: custom domain for catalog site
 
 module_roots:
   - proto

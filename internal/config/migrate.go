@@ -148,6 +148,7 @@ func MarshalConfigString(cfg *Config) (string, error) {
 	lines := strings.Split(string(data), "\n")
 	var result []string
 	topLevelKeys := map[string]bool{
+		"site_url:":         true,
 		"module_roots:":     true,
 		"language_targets:": true,
 		"policy:":           true,

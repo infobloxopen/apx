@@ -177,6 +177,11 @@ func buildV1Schema() SchemaVersion {
 			Type:        TypeString,
 			Description: "Custom public Go import prefix (e.g. go.acme.dev/apis). Overrides source.repo for Go module/import paths.",
 		},
+		"site_url": {
+			Name:        "site_url",
+			Type:        TypeString,
+			Description: "Custom domain for the catalog site (e.g. apis.internal.infoblox.dev). Defaults to {org}.github.io/{repo}.",
+		},
 		"catalog_url": {
 			Name:        "catalog_url",
 			Type:        TypeString,

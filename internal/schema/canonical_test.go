@@ -38,7 +38,7 @@ func TestCanonicalScaffold(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 
-			scaffolder := NewCanonicalScaffolder(tt.org, tt.repo, "")
+			scaffolder := NewCanonicalScaffolder(tt.org, tt.repo, "", "")
 			err := scaffolder.Generate(tmpDir)
 
 			if (err != nil) != tt.wantErr {
@@ -97,7 +97,7 @@ func TestCanonicalScaffold(t *testing.T) {
 func TestBufYamlGeneration(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	scaffolder := NewCanonicalScaffolder("myorg", "apis", "")
+	scaffolder := NewCanonicalScaffolder("myorg", "apis", "", "")
 	err := scaffolder.Generate(tmpDir)
 	if err != nil {
 		t.Fatalf("Generate() failed: %v", err)
@@ -127,7 +127,7 @@ func TestBufYamlGeneration(t *testing.T) {
 func TestCodeownersGeneration(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	scaffolder := NewCanonicalScaffolder("myorg", "apis", "")
+	scaffolder := NewCanonicalScaffolder("myorg", "apis", "", "")
 	err := scaffolder.Generate(tmpDir)
 	if err != nil {
 		t.Fatalf("Generate() failed: %v", err)
@@ -156,7 +156,7 @@ func TestCodeownersGeneration(t *testing.T) {
 func TestCanonicalScaffoldWithImportRoot(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	scaffolder := NewCanonicalScaffolder("myorg", "apis", "go.myorg.dev/apis")
+	scaffolder := NewCanonicalScaffolder("myorg", "apis", "go.myorg.dev/apis", "")
 	err := scaffolder.Generate(tmpDir)
 	if err != nil {
 		t.Fatalf("Generate() failed: %v", err)
@@ -177,7 +177,7 @@ func TestCanonicalScaffoldWithImportRoot(t *testing.T) {
 func TestCatalogDockerfileGeneration(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	scaffolder := NewCanonicalScaffolder("myorg", "apis", "")
+	scaffolder := NewCanonicalScaffolder("myorg", "apis", "", "")
 	err := scaffolder.Generate(tmpDir)
 	if err != nil {
 		t.Fatalf("Generate() failed: %v", err)
