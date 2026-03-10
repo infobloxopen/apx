@@ -103,7 +103,8 @@ nav:
     - getting-started/index.md
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
-    - Interactive Init: getting-started/interactive-init.md
+    - Tutorial: getting-started/tutorial.md
+    - Initialization Guide: getting-started/initialization.md
   - Concepts:
     - Multi-Language Strategy: concepts/multi-language-strategy.md
   - Canonical Repo:

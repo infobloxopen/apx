@@ -1,13 +1,13 @@
 # Getting Started
 
-
-Welcome to APX! This section will help you get up and running quickly with the API Publishing eXperience CLI.
+Welcome to APX! This section will help you get up and running with the API Publishing eXperience CLI.
 
 ## What You'll Learn
 
 - [**Installation**](installation.md): How to install APX on your system
-- [**Quick Start**](quickstart.md): Your first APX project in 5 minutes
-- [**Interactive Initialization**](interactive-init.md): Using APX's guided setup
+- [**Quick Start**](quickstart.md): Set up your repos in 5 minutes
+- [**Tutorial**](tutorial.md): Complete walkthrough — authoring, local dev, releasing, and consuming APIs
+- [**Initialization Guide**](initialization.md): Smart defaults, prompts, flags, and team onboarding for `apx init`
 
 ## Prerequisites
 
@@ -33,13 +33,21 @@ Before you begin, make sure you have:
 
     [:octicons-arrow-right-24: Install APX](installation.md)
 
--   :material-lightning-bolt: **Ready to Go?**
+-   :material-lightning-bolt: **5-Minute Setup**
 
     ---
 
-    Jump straight into creating your first schema.
+    Create your canonical and app repos, validate the setup.
 
-    [:octicons-arrow-right-24: Quick start](quickstart.md)
+    [:octicons-arrow-right-24: Quick Start](quickstart.md)
+
+-   :material-book-open-variant: **Full Walkthrough**
+
+    ---
+
+    Author schemas, develop locally, release, and consume APIs end to end.
+
+    [:octicons-arrow-right-24: Tutorial](tutorial.md)
 
 </div>
 

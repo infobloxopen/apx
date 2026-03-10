@@ -1,6 +1,6 @@
-# Interactive Initialization
+# Initialization Guide
 
-APX provides intelligent interactive initialization for both **canonical repositories** (organization-wide API source of truth) and **app repositories** (where teams author schemas). The system guides you through setup with smart defaults and context-aware prompts.
+APX provides intelligent initialization for both **canonical repositories** (organization-wide API source of truth) and **app repositories** (where teams author schemas). The system detects your context, suggests smart defaults, and guides you through setup with context-aware prompts.
 
 ## Overview
 
@@ -228,84 +228,10 @@ apx init app --non-interactive \
 
 ## Generated Structures
 
-APX creates different structures based on repository type:
+`apx init` creates different directory structures based on repository type. For the full breakdown of each:
 
-### Canonical Repository Structure
-
-```
-apis/                           # github.com/org/apis
-├── buf.yaml                    # org-wide lint/breaking policy
-├── buf.work.yaml               # workspace config
-├── CODEOWNERS                  # per-path ownership
-├── .github/
-│  └── workflows/
-│     ├── validate.yml          # PR validation
-│     └── release.yml           # tag creation & releasing
-├── catalog/
-│  └── catalog.yaml            # generated API index
-├── proto/                     # Protocol Buffers
-│  └── domain/
-│     └── service/
-│        ├── go.mod           # v1 module (no /v1 suffix)
-│        ├── v1/
-│        │  └── service.proto
-│        └── v2/              # future major versions
-├── openapi/                   # REST API specs
-├── avro/                      # Event schemas  
-├── jsonschema/                # Validation schemas
-└── parquet/                   # Analytics schemas
-```
-
-### App Repository Structure
-
-```
-<app-repo>/                    # team's service repository
-├── internal/
-│  └── apis/
-│     └── proto/              # or openapi/, avro/, etc.
-│        └── payments/
-│           └── ledger/
-│              ├── v1/
-│              │  └── ledger.proto
-│              └── v2/        # future versions
-├── buf.work.yaml             # Buf workspace
-├── apx.yaml                 # APX configuration
-├── apx.lock                  # pinned toolchain
-├── .gitignore                # excludes internal/gen/
-└── .github/
-   └── workflows/
-      └── apx-release.yml      # tag-based releasing
-```
-
-### Key Configuration Files
-
-**Canonical apx.yaml**:
-```yaml
-# Minimal - mainly for CI tooling
-project:
-  type: canonical
-  org: mycompany
-
-validation:
-  policy:
-    banned_annotations: ["gorm.*", "database.*"]
-```
-
-**App apx.yaml**:
-```yaml
-apis:
-  - kind: proto
-    path: internal/apis/proto/payments/ledger/v1
-    canonical: proto/payments/ledger/v1
-
-codegen:
-  out: internal/gen
-  languages: [go, python]
-
-release:
-  canonical_repo: github.com/mycompany/apis
-  strategy: pr
-```
+- **Canonical repos**: See [Canonical Repo Setup](../canonical-repo/setup.md) for the complete generated structure, CI workflows, and GitHub protection configuration
+- **App repos**: See [App Repo Layout](../app-repos/layout.md) for the complete file-by-file reference
 
 ## Best Practices
 
@@ -410,54 +336,11 @@ apx lint && apx gen go
 
 ### CI/CD Integration
 
-#### App Repository CI (Releasing)
-```yaml
-# .github/workflows/apx-release.yml
-name: Release API
-on:
-  push:
-    tags: ['proto/*/*/v*/v*']
+For complete CI/CD workflow examples, see:
 
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - run: apx fetch
-      - run: apx lint && apx breaking --against=origin/main
-      - run: |
-          apx release prepare --module-path=internal/apis/${GITHUB_REF_NAME%/v*} \
-               --canonical-repo=github.com/mycompany/apis
-          apx release submit
-```
-
-#### Canonical Repository CI (Validation & Release)
-```yaml
-# .github/workflows/validate-release.yml  
-name: Validate + Release
-on:
-  pull_request:
-    paths: ['proto/**', 'openapi/**']
-  push:
-    branches: [main]
-
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: apx fetch && apx lint && apx breaking --against=origin/main
-
-  release:
-    if: github.ref == 'refs/heads/main'
-    needs: [validate]
-    runs-on: ubuntu-latest
-    permissions: { contents: write }
-    steps:
-      - uses: actions/checkout@v4
-      - run: apx lint && apx breaking --against=origin/main
-```
+- [Tutorial: CI/CD Patterns](tutorial.md#cicd-patterns) — app repo and canonical repo workflow YAML
+- [App Repos: CI Integration](../app-repos/ci-integration.md) — detailed app repo CI configuration
+- [Canonical Repo: CI Templates](../canonical-repo/ci-templates.md) — canonical repo CI templates
 
 ### Team Onboarding Script
 
@@ -487,4 +370,4 @@ echo "4. Tag releases with 'proto/domain/api/v1/v1.0.0'"
 
 ---
 
-The interactive initialization system supports both newcomers and experienced teams, adapting to your organization's canonical repo pattern while maintaining familiar development workflows.
+The initialization system supports both newcomers and experienced teams, adapting to your organization's canonical repo pattern while maintaining familiar development workflows.

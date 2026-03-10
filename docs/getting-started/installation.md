@@ -118,7 +118,8 @@ apx completion powershell >> $PROFILE
 Now that APX is installed, you can:
 
 - Try the [Quick Start Guide](quickstart.md)
-- Explore [Interactive Initialization](interactive-init.md)
+- Walk through the full [Tutorial](tutorial.md)
+- Explore the [Initialization Guide](initialization.md) for smart defaults and flags
 - Check out the [CLI Reference](../cli-reference/index.md)
 
 ## Troubleshooting

@@ -490,10 +490,11 @@ jobs:
 
 ### Quick Links
 
-- [Quick Start Guide](https://infobloxopen.github.io/apx/getting-started/quickstart/) - Complete walkthrough
+- [Quick Start Guide](https://infobloxopen.github.io/apx/getting-started/quickstart/)
+- [Tutorial](https://infobloxopen.github.io/apx/getting-started/tutorial/) - Complete walkthrough
 - [Canonical Repository Structure](https://infobloxopen.github.io/apx/canonical-repo/structure/)
 - [Dependency Management](https://infobloxopen.github.io/apx/dependencies/)
-- [Interactive Init Guide](https://infobloxopen.github.io/apx/getting-started/interactive-init/)
+- [Initialization Guide](https://infobloxopen.github.io/apx/getting-started/initialization/)
 - [Release Guide](https://infobloxopen.github.io/apx/releasing/)
 - [CLI Reference](https://infobloxopen.github.io/apx/cli-reference/)
 - [FAQ & Troubleshooting](https://infobloxopen.github.io/apx/troubleshooting/faq/)

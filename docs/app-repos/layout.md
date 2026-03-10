@@ -330,7 +330,7 @@ apx fetch
 apx gen go && apx sync
 ```
 
-See [Quickstart](../getting-started/quickstart.md) for a complete walkthrough.
+See the [Tutorial](../getting-started/tutorial.md) for a complete walkthrough.
 
 ## Next Steps
 
