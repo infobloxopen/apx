@@ -21,3 +21,9 @@
   background-color: var(--md-default-fg-color--lightest);
   font-weight: 600;
 }
+
+/* Homepage hero logo — round the corners in dark mode so the white
+   background blends cleanly. */
+[data-md-color-scheme="slate"] .md-typeset img[alt="APX Logo"] {
+  border-radius: 12px;
+}

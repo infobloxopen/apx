@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="155 25 390 390" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="APX icon">
+  <!-- APX icon: isometric crate with braces. Extracted from the full logo. -->
+
+  <!-- Top lid (parallelogram) -->
+  <polygon fill="#252b33"
+    points="350,40 520,125 350,210 180,125"/>
+  <!-- Left face -->
+  <polygon fill="#1f242b"
+    points="180,125 350,210 350,395 180,310"/>
+  <!-- Right face -->
+  <polygon fill="#171b21"
+    points="520,125 350,210 350,395 520,310"/>
+
+  <!-- Front opening / inset panel -->
+  <path fill="#ffffff" d="
+    M350 225
+    L470 285
+    L440 360
+    Q350 410 260 360
+    L230 285
+    Z"/>
+
+  <!-- Left brace -->
+  <path fill="#1f242b" d="
+    M323 275
+    q-22 0-22 22
+    v18
+    q0 10-10 14
+    q10 4 10 14
+    v18
+    q0 22 22 22
+    h12
+    v-18
+    h-7
+    q-7 0-7-7
+    v-17
+    q0-13-11-20
+    q11-7 11-20
+    v-17
+    q0-7 7-7
+    h7
+    v-18
+    Z"/>
+  <!-- Right brace (mirrored) -->
+  <path fill="#1f242b" d="
+    M377 275
+    h12
+    v18
+    h7
+    q7 0 7 7
+    v17
+    q0 13 11 20
+    q-11 7-11 20
+    v17
+    q0 7-7 7
+    h-7
+    v18
+    h-12
+    q22 0 22-22
+    v-18
+    q0-10 10-14
+    q-10-4-10-14
+    v-18
+    q0-22-22-22
+    Z"/>
+
+  <!-- Subtle depth highlight -->
+  <path fill="rgba(255,255,255,0.08)" d="M350 58 L482 125 L350 192 L218 125 Z"/>
+</svg>

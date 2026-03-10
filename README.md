@@ -1,10 +1,15 @@
-# apx – API Release eXperience CLI
+<div align="center">
+  <img src="apx_logo.svg" alt="APX Logo" width="400">
+  <br><br>
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/infobloxopen/apx)](https://golang.org/)
-[![Release](https://img.shields.io/github/release/infobloxopen/apx.svg)](https://github.com/infobloxopen/apx/releases/latest)
-[![License](https://img.shields.io/github/license/infobloxopen/apx)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/infobloxopen/apx)](https://goreportcard.com/report/github.com/infobloxopen/apx)
-[![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://infobloxopen.github.io/apx/)
+  [![Go Version](https://img.shields.io/github/go-mod/go-version/infobloxopen/apx)](https://golang.org/)
+  [![Release](https://img.shields.io/github/release/infobloxopen/apx.svg)](https://github.com/infobloxopen/apx/releases/latest)
+  [![License](https://img.shields.io/github/license/infobloxopen/apx)](LICENSE)
+  [![Go Report Card](https://goreportcard.com/badge/github.com/infobloxopen/apx)](https://goreportcard.com/report/github.com/infobloxopen/apx)
+  [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://infobloxopen.github.io/apx/)
+</div>
+
+# apx – API Release eXperience CLI
 
 **apx** is a CLI tool that implements the **canonical repository pattern** for API schema management. It enables organizations to centralize API schemas in a single source of truth while allowing teams to author schemas in their application repositories with canonical import paths.
 

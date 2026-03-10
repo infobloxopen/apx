@@ -1,5 +1,8 @@
-# APX — API Schema Management
+<div align="center" markdown>
+  <img src="assets/logo.svg" alt="APX Logo" width="360">
+</div>
 
+# APX — API Schema Management
 
 <div class="grid cards" markdown>
 
