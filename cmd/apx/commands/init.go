@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/detector"
 	gh "github.com/infobloxopen/apx/internal/github"
 	"github.com/infobloxopen/apx/internal/interactive"
@@ -369,6 +370,10 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 		if repo == "" {
 			return fmt.Errorf("--repo is required in non-interactive mode")
 		}
+		// Auto-inherit import_root from canonical repo when not explicitly set
+		if importRoot == "" {
+			importRoot = config.FetchRemoteImportRoot(org, repo)
+		}
 	} else if org == "" || repo == "" {
 		ui.Info("\U0001f680 Initializing application repository with schema module!")
 		ui.Info("")
@@ -393,9 +398,16 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 			ui.Info("Custom import root (optional):")
 			ui.Info("  Decouples public Go import paths from your Git hosting URL.")
 			ui.Info("  Example: go.%s.dev/apis → consumers import go.%s.dev/apis/proto/...", org, org)
-			ui.Info("  Leave blank to use github.com/%s/%s as the import root.", org, repo)
+
+			// Try to detect import_root from canonical repo or cached catalog
+			defaultRoot := config.FetchRemoteImportRoot(org, repo)
+			if defaultRoot != "" {
+				ui.Success("  Detected from canonical repo: %s", defaultRoot)
+			} else {
+				ui.Info("  Leave blank to use github.com/%s/%s as the import root.", org, repo)
+			}
 			ui.Info("")
-			if err := interactive.PromptForString("Import root (blank to skip):", "", &importRoot); err != nil {
+			if err := interactive.PromptForString("Import root (blank to skip):", defaultRoot, &importRoot); err != nil {
 				return fmt.Errorf("failed to get import root: %w", err)
 			}
 		}

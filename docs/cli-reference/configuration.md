@@ -148,6 +148,9 @@ The `source.repo` field still reflects the actual Git repository. Only the publi
 
 **Affected commands:** `inspect identity`, `inspect release`, `explain go-path`, `show`, `release prepare`, `release promote`.
 
+!!! tip "Auto-detection"
+    When running `apx init app`, APX automatically detects `import_root` from the canonical repo's `apx.yaml` (or from the cached catalog) and pre-fills it as the default. You can accept or override the detected value.
+
 ### `catalog_url`
 
 Points `apx search`, `apx show`, `apx add`, `apx update`, and `apx upgrade` at your organization's canonical catalog without passing `--catalog` on every command. Accepts a local file path or an `https://` URL.

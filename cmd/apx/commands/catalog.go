@@ -48,18 +48,18 @@ func catalogGenerateAction(cmd *cobra.Command, args []string) error {
 	orgFlag, _ := cmd.Flags().GetString("org")
 	repoFlag, _ := cmd.Flags().GetString("repo")
 
+	// Load config once — used for org/repo, import_root, and external APIs.
+	cfg, cfgErr := loadConfig(cmd)
+
 	// Resolve org and repo: flags override config
 	org := orgFlag
 	repo := repoFlag
-	if org == "" || repo == "" {
-		cfg, err := loadConfig(cmd)
-		if err == nil {
-			if org == "" {
-				org = cfg.Org
-			}
-			if repo == "" {
-				repo = cfg.Repo
-			}
+	if (org == "" || repo == "") && cfgErr == nil {
+		if org == "" {
+			org = cfg.Org
+		}
+		if repo == "" {
+			repo = cfg.Repo
 		}
 	}
 	if org == "" {
@@ -93,8 +93,12 @@ func catalogGenerateAction(cmd *cobra.Command, args []string) error {
 	cat := catalog.GenerateFromTags(tags, org, repo)
 	cat.GeneratedBy = cmd.Root().Version
 
+	// Propagate import_root from apx.yaml into catalog
+	if cfgErr == nil && cfg.ImportRoot != "" {
+		cat.ImportRoot = cfg.ImportRoot
+	}
+
 	// Merge external API registrations from apx.yaml
-	cfg, cfgErr := loadConfig(cmd)
 	if cfgErr == nil && len(cfg.ExternalAPIs) > 0 {
 		if err := catalog.MergeExternalAPIs(cat, cfg.ExternalAPIs); err != nil {
 			return fmt.Errorf("failed to merge external APIs: %w", err)

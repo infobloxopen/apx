@@ -103,6 +103,16 @@ APX intelligently detects your context and suggests appropriate configurations:
 - **Git remotes**: Parses `origin` remote URLs for organization info
 - **CODEOWNERS**: Reads existing ownership patterns for suggestions
 
+### Import Root Detection
+
+When running `apx init app`, APX resolves `import_root` automatically:
+
+1. Fetches the canonical repo's `apx.yaml` via GitHub (public or private)
+2. Falls back to the locally cached catalog (`~/.cache/apx/catalogs/{org}/{repo}/`)
+3. Pre-fills the interactive prompt with the detected value
+
+This means you only need to set `import_root` once in the canonical repo — all `apx init app` runs inherit it.
+
 ### Schema Format Detection
 
 - **Proto focus**: Defaults to Protocol Buffers for new projects

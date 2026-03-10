@@ -50,6 +50,7 @@ type Catalog struct {
 	Version     int      `yaml:"version"`
 	Org         string   `yaml:"org"`
 	Repo        string   `yaml:"repo"`
+	ImportRoot  string   `yaml:"import_root,omitempty"`
 	GeneratedBy string   `yaml:"generated_by,omitempty"`
 	Modules     []Module `yaml:"modules"`
 }

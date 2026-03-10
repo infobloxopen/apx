@@ -258,3 +258,47 @@ func TestGenerateCatalogSaveAndLoad(t *testing.T) {
 	assert.Equal(t, "v2.0.0-beta.1", loaded.Modules[0].Version)
 	assert.Equal(t, "beta", loaded.Modules[0].Lifecycle)
 }
+
+func TestCatalogImportRoot_RoundTrip(t *testing.T) {
+	tmpDir := t.TempDir()
+	output := filepath.Join(tmpDir, "catalog.yaml")
+
+	gen := NewGenerator(output)
+
+	cat := &Catalog{
+		Version:    1,
+		Org:        "acme",
+		Repo:       "apis",
+		ImportRoot: "go.acme.dev/apis",
+		Modules:    []Module{},
+	}
+
+	err := gen.Save(cat)
+	require.NoError(t, err)
+
+	loaded, err := gen.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "go.acme.dev/apis", loaded.ImportRoot)
+}
+
+func TestCatalogImportRoot_OmittedWhenEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	output := filepath.Join(tmpDir, "catalog.yaml")
+
+	gen := NewGenerator(output)
+
+	cat := &Catalog{
+		Version: 1,
+		Org:     "acme",
+		Repo:    "apis",
+		Modules: []Module{},
+	}
+
+	err := gen.Save(cat)
+	require.NoError(t, err)
+
+	// Read raw YAML and verify import_root is not present
+	data, err := os.ReadFile(output)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "import_root")
+}

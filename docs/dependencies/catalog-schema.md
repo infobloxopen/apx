@@ -8,6 +8,7 @@ The `catalog/catalog.yaml` file is the organization-wide index of released API s
 version: 1
 org: acme
 repo: apis
+import_root: go.acme.dev/apis    # optional: custom Go import prefix
 modules:
   - id: proto/payments/ledger/v1
     format: proto
@@ -30,6 +31,7 @@ modules:
 | `version` | integer | Catalog schema version (always `1`) |
 | `org` | string | GitHub organization name |
 | `repo` | string | Canonical API repository name |
+| `import_root` | string | Custom public Go import prefix (e.g. `go.acme.dev/apis`). Inherited from `apx.yaml`. |
 | `modules` | list | List of API module entries |
 
 ## Module Entry Fields
@@ -89,7 +91,8 @@ These fields are populated only for external and forked APIs (registered via `ex
 `apx catalog generate` (or `apx catalog generate --from-tags`) scans the canonical repository and builds `catalog.yaml` from:
 
 1. **Git tags** — tags matching `<format>/<domain>/<name>/<line>/v<semver>` are parsed to populate `version`, `latest_stable`, and `latest_prerelease`
-2. **External API registrations** — `external_apis` entries in `apx.yaml` are merged in to add provenance fields
+2. **Organization config** — `import_root` from `apx.yaml` is propagated into the catalog for downstream discovery
+3. **External API registrations** — `external_apis` entries in `apx.yaml` are merged in to add provenance fields
 
 The canonical CI workflow runs `apx catalog generate` on every merge to keep the catalog current.
 
