@@ -6,6 +6,9 @@
 
   let catalog = null;
   let allAPIs = [];
+  let treeState = {};       // nodeId -> { expanded: bool }
+  let selectedNodeId = null;
+  let searchIndex = [];     // flat list of { nodeId, searchText, apiId }
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
@@ -29,50 +32,44 @@
       $("#generated-at").textContent = "Generated " + d.toLocaleDateString();
     }
 
-    populateFilters();
+    buildSearchIndex();
     bindEvents();
+    updateStats();
     applyFromHash();
   }
 
-  // ===== Filters =====
-
-  function populateFilters() {
-    const formats = new Set();
-    const lifecycles = new Set();
-    const domains = new Set();
-
-    for (const api of allAPIs) {
-      if (api.format) formats.add(api.format);
-      if (api.lifecycle) lifecycles.add(api.lifecycle);
-      if (api.domain) domains.add(api.domain);
-    }
-
-    appendOptions($("#filter-format"), sorted(formats));
-    appendOptions($("#filter-lifecycle"), sorted(lifecycles));
-    appendOptions($("#filter-domain"), sorted(domains));
+  function getSearchQuery() {
+    return ($("#search").value || "").toLowerCase().trim();
   }
 
-  function appendOptions(select, values) {
-    for (const v of values) {
-      const opt = document.createElement("option");
-      opt.value = v;
-      opt.textContent = v;
-      select.appendChild(opt);
-    }
-  }
-
-  function sorted(set) {
-    return Array.from(set).sort();
+  function setSidebarVisible(visible) {
+    $(".app-layout").classList.toggle("sidebar-hidden", !visible);
   }
 
   // ===== Event Binding =====
 
   function bindEvents() {
-    $("#search").addEventListener("input", debounce(render, 150));
-    for (const sel of $$("#filter-format, #filter-lifecycle, #filter-domain, #filter-origin")) {
-      sel.addEventListener("change", render);
-    }
+    $("#search").addEventListener("input", debounce(onSearchInput, 150));
     window.addEventListener("hashchange", applyFromHash);
+
+    // Mobile sidebar toggle
+    const toggle = $("#sidebar-toggle");
+    const backdrop = $("#sidebar-backdrop");
+    if (toggle) {
+      toggle.addEventListener("click", () => {
+        $("#sidebar").classList.toggle("open");
+        backdrop.classList.toggle("visible");
+      });
+    }
+    if (backdrop) {
+      backdrop.addEventListener("click", () => {
+        $("#sidebar").classList.remove("open");
+        backdrop.classList.remove("visible");
+      });
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener("keydown", onKeyDown);
   }
 
   function debounce(fn, ms) {
@@ -83,154 +80,655 @@
     };
   }
 
-  // ===== Search & Filter =====
+  function onSearchInput() {
+    var query = getSearchQuery();
+    updateStats();
 
-  function getFilters() {
-    return {
-      query: ($("#search").value || "").toLowerCase().trim(),
-      format: $("#filter-format").value,
-      lifecycle: $("#filter-lifecycle").value,
-      domain: $("#filter-domain").value,
-      origin: $("#filter-origin").value,
-    };
-  }
-
-  function matchesFilters(api, filters) {
-    // Exact-match filters
-    if (filters.format && (api.format || "").toLowerCase() !== filters.format.toLowerCase()) return false;
-    if (filters.lifecycle && (api.lifecycle || "").toLowerCase() !== filters.lifecycle.toLowerCase()) return false;
-    if (filters.domain && (api.domain || "").toLowerCase() !== filters.domain.toLowerCase()) return false;
-
-    if (filters.origin) {
-      if (filters.origin === "first-party" && api.origin) return false;
-      if (filters.origin === "external" && api.origin !== "external") return false;
-      if (filters.origin === "forked" && api.origin !== "forked") return false;
-    }
-
-    // Free-text search on ID, description, domain, tags
-    if (filters.query) {
-      const q = filters.query;
-      const haystack = [
-        api.id || "",
-        api.description || "",
-        api.domain || "",
-        (api.tags || []).join(" "),
-      ]
-        .join(" ")
-        .toLowerCase();
-      if (!haystack.includes(q)) return false;
-    }
-
-    return true;
-  }
-
-  // ===== Rendering =====
-
-  function render() {
-    const filters = getFilters();
-    const matched = allAPIs.filter((api) => matchesFilters(api, filters));
-
-    const grid = $("#api-list");
-    const empty = $("#empty");
-
-    if (matched.length === 0) {
-      grid.innerHTML = "";
-      empty.classList.remove("hidden");
+    if (query) {
+      // No sidebar during search — results only in content pane
+      setSidebarVisible(false);
+      renderSearchResults(query);
     } else {
-      empty.classList.add("hidden");
-      grid.innerHTML = matched.map(renderCard).join("");
+      // Clear search results, restore previous view
+      hideSearchResults();
+      applyFromHash();
+    }
+  }
 
-      // Bind click handlers
-      for (const card of grid.querySelectorAll(".api-card")) {
-        card.addEventListener("click", () => {
-          const id = card.dataset.id;
-          window.location.hash = id;
-        });
+  function onKeyDown(e) {
+    // "/" to focus search
+    if (e.key === "/" && document.activeElement !== $("#search")) {
+      e.preventDefault();
+      $("#search").focus();
+    }
+    // Escape to clear search and blur
+    if (e.key === "Escape" && document.activeElement === $("#search")) {
+      if ($("#search").value) {
+        $("#search").value = "";
+        onSearchInput();
+      }
+      $("#search").blur();
+    }
+  }
+
+  // ===== Search Results =====
+
+  function renderSearchResults(query) {
+    // Hide other content pane views
+    $("#welcome").classList.add("hidden");
+    $("#content").classList.add("hidden");
+
+    var resultsEl = $("#search-results");
+    resultsEl.classList.remove("hidden");
+
+    // Match search index entries
+    var matches = [];
+    for (var i = 0; i < searchIndex.length; i++) {
+      if (searchIndex[i].searchText.includes(query)) {
+        matches.push(searchIndex[i]);
       }
     }
 
-    const total = allAPIs.length;
-    const showing = matched.length;
-    $("#stats").textContent =
-      showing === total
-        ? total + " APIs"
-        : showing + " of " + total + " APIs";
+    if (matches.length === 0) {
+      resultsEl.innerHTML = '<div class="search-no-results">No results for &ldquo;' + esc(query) + '&rdquo;</div>';
+      return;
+    }
+
+    // Deduplicate: show APIs first, then types. Limit to 50 results.
+    var apiMatches = [];
+    var typeMatches = [];
+    for (var j = 0; j < matches.length; j++) {
+      if (matches[j].nodeId.startsWith("api:")) {
+        apiMatches.push(matches[j]);
+      } else {
+        typeMatches.push(matches[j]);
+      }
+    }
+
+    var all = apiMatches.concat(typeMatches);
+    if (all.length > 50) all = all.slice(0, 50);
+
+    var html = '<div class="search-results-header">' + matches.length + ' result' + (matches.length === 1 ? '' : 's') + ' for &ldquo;' + esc(query) + '&rdquo;</div>';
+
+    for (var k = 0; k < all.length; k++) {
+      var entry = all[k];
+      html += renderSearchResultCard(entry, query);
+    }
+
+    resultsEl.innerHTML = html;
+
+    // Bind click handlers
+    var cards = resultsEl.querySelectorAll(".search-result-card");
+    for (var m = 0; m < cards.length; m++) {
+      cards[m].addEventListener("click", onSearchResultClick);
+    }
   }
 
-  function renderCard(api) {
-    const badges = [];
-    if (api.format) {
-      badges.push('<span class="badge badge-format ' + esc(api.format) + '">' + esc(api.format) + "</span>");
-    }
-    if (api.lifecycle) {
-      badges.push(
-        '<span class="badge badge-lifecycle ' + esc(api.lifecycle) + '">' + esc(api.lifecycle) + "</span>"
-      );
-    }
-    if (api.origin) {
-      badges.push('<span class="badge badge-origin">' + esc(api.origin) + "</span>");
+  function renderSearchResultCard(entry, query) {
+    var nodeId = entry.nodeId;
+    var apiId = entry.apiId;
+    var api = allAPIs.find(function (a) { return a.id === apiId; });
+    if (!api) return '';
+
+    var isType = nodeId.startsWith("type:");
+    var hash, name, description, context;
+
+    if (isType) {
+      // type:apiId:typeName
+      var typeName = nodeId.substring(5 + apiId.length + 1);
+      hash = apiId + ":" + typeName;
+      name = typeName;
+      description = '';
+      context = 'in ' + apiId;
+    } else {
+      hash = apiId;
+      name = apiId;
+      description = api.description || '';
+      context = '';
     }
 
-    const version = api.latest_stable || api.version || "";
-    const versionHTML = version ? '<span class="api-version">' + esc(version) + "</span>" : "";
-
-    const desc = api.description
-      ? '<div class="api-description">' + esc(api.description) + "</div>"
-      : "";
-
-    return (
-      '<div class="api-card" data-id="' + esc(api.id) + '">' +
-      '  <div class="api-card-header">' +
-      '    <span class="api-id">' + esc(api.id) + "</span>" +
-      "  </div>" +
-      desc +
-      '  <div class="api-meta">' +
-      badges.join("") +
-      versionHTML +
-      "  </div>" +
-      "</div>"
-    );
+    var html = '<a class="search-result-card" data-hash="' + esc(hash) + '">';
+    html += '<div class="search-result-name">' + highlightMatch(name, query) + '</div>';
+    html += '<div class="search-result-meta">';
+    if (api.format) html += '<span class="badge badge-format ' + esc(api.format) + '">' + esc(api.format) + '</span>';
+    if (api.lifecycle) html += '<span class="badge badge-lifecycle ' + esc(api.lifecycle) + '">' + esc(api.lifecycle) + '</span>';
+    if (context) html += '<span class="search-result-context">' + esc(context) + '</span>';
+    html += '</div>';
+    if (description) {
+      html += '<div class="search-result-description">' + esc(description) + '</div>';
+    }
+    html += '</a>';
+    return html;
   }
 
-  // ===== Detail Panel =====
+  function onSearchResultClick(e) {
+    e.preventDefault();
+    var card = e.currentTarget;
+    var hash = card.dataset.hash;
+    if (!hash) return;
 
-  function showDetail(apiID) {
-    const api = allAPIs.find((a) => a.id === apiID);
-    if (!api) return;
+    // Clear search and navigate
+    $("#search").value = "";
+    hideSearchResults();
+    window.location.hash = hash;
+  }
 
-    const detail = $("#api-detail");
-    detail.classList.remove("hidden");
-    detail.innerHTML = renderDetail(api);
+  function hideSearchResults() {
+    $("#search-results").classList.add("hidden");
+    $("#search-results").innerHTML = "";
+  }
 
-    // Bind close button
-    detail.querySelector(".detail-close").addEventListener("click", () => {
-      window.location.hash = "";
-    });
+  // ===== Search Index =====
 
-    // Bind language tabs
-    for (const tab of detail.querySelectorAll(".lang-tab")) {
-      tab.addEventListener("click", () => {
-        for (const t of detail.querySelectorAll(".lang-tab")) t.classList.remove("active");
-        for (const c of detail.querySelectorAll(".lang-content")) c.classList.remove("active");
-        tab.classList.add("active");
-        const target = detail.querySelector('.lang-content[data-lang="' + tab.dataset.lang + '"]');
-        if (target) target.classList.add("active");
+  function buildSearchIndex() {
+    searchIndex = [];
+    for (const api of allAPIs) {
+      // API-level entry
+      const apiText = [
+        api.id, api.name, api.description, api.domain,
+        (api.tags || []).join(" "),
+      ].join(" ").toLowerCase();
+      searchIndex.push({ nodeId: "api:" + api.id, searchText: apiText, apiId: api.id });
+
+      // Type-level entries
+      if (!api.schema || !api.schema.files) continue;
+      for (const file of api.schema.files) {
+        const types = extractTypeNames(file, api.format);
+        for (const t of types) {
+          const typeText = [api.id, t.name, t.comment || ""].join(" ").toLowerCase();
+          searchIndex.push({ nodeId: "type:" + api.id + ":" + t.name, searchText: typeText, apiId: api.id });
+        }
+      }
+    }
+  }
+
+  function extractTypeNames(file, format) {
+    const types = [];
+    if (format === "proto" && file.proto) {
+      for (const s of (file.proto.services || [])) {
+        types.push({ name: s.name, comment: s.comment || "" });
+      }
+      collectProtoMessages(file.proto.messages || [], types, "");
+      for (const e of (file.proto.enums || [])) {
+        types.push({ name: e.name, comment: e.comment || "" });
+      }
+    } else if (format === "openapi" && file.openapi) {
+      for (const p of (file.openapi.paths || [])) {
+        for (const op of p.operations) {
+          types.push({ name: op.method + ":" + p.path, comment: op.summary || "" });
+        }
+      }
+      for (const s of (file.openapi.schemas || [])) {
+        types.push({ name: s.name, comment: "" });
+      }
+    } else if (format === "avro" && file.avro) {
+      types.push({ name: file.avro.name, comment: file.avro.doc || "" });
+    } else if (format === "jsonschema" && file.jsonschema) {
+      types.push({ name: file.jsonschema.title || file.filename, comment: file.jsonschema.description || "" });
+    } else if (format === "parquet" && file.parquet) {
+      types.push({ name: file.parquet.message_name || file.filename, comment: "" });
+    }
+    return types;
+  }
+
+  function collectProtoMessages(msgs, types, prefix) {
+    for (const m of msgs) {
+      const fullName = prefix ? prefix + "." + m.name : m.name;
+      types.push({ name: fullName, comment: m.comment || "" });
+      collectProtoMessages(m.nested || [], types, fullName);
+      for (const e of (m.enums || [])) {
+        types.push({ name: fullName + "." + e.name, comment: e.comment || "" });
+      }
+    }
+  }
+
+  // ===== Tree Building =====
+
+  function buildTypeChildren(api) {
+    if (!api.schema || !api.schema.files) return [];
+    const format = api.format;
+    const children = [];
+
+    for (const file of api.schema.files) {
+      if (format === "proto" && file.proto) {
+        addProtoChildren(children, file.proto, api.id);
+      } else if (format === "openapi" && file.openapi) {
+        addOpenAPIChildren(children, file.openapi, api.id);
+      } else if (format === "avro" && file.avro) {
+        addAvroChildren(children, file.avro, api.id);
+      } else if (format === "jsonschema" && file.jsonschema) {
+        addJSONSchemaChildren(children, file.jsonschema, api.id, file.filename);
+      } else if (format === "parquet" && file.parquet) {
+        addParquetChildren(children, file.parquet, api.id, file.filename);
+      }
+    }
+
+    return children;
+  }
+
+  function addProtoChildren(children, proto, apiId) {
+    // Services
+    for (const svc of (proto.services || [])) {
+      children.push({
+        kind: "type", icon: "S", label: svc.name,
+        nodeId: "type:" + apiId + ":" + svc.name,
+        typeKind: "service",
       });
     }
-
-    // Scroll to detail
-    detail.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Messages (including nested, flattened with dot notation)
+    collectProtoMessageNodes(proto.messages || [], children, apiId, "");
+    // Enums
+    for (const en of (proto.enums || [])) {
+      children.push({
+        kind: "type", icon: "E", label: en.name,
+        nodeId: "type:" + apiId + ":" + en.name,
+        typeKind: "enum",
+      });
+    }
   }
 
-  function hideDetail() {
-    const detail = $("#api-detail");
-    detail.classList.add("hidden");
-    detail.innerHTML = "";
+  function collectProtoMessageNodes(msgs, children, apiId, prefix) {
+    for (const m of msgs) {
+      const fullName = prefix ? prefix + "." + m.name : m.name;
+      children.push({
+        kind: "type", icon: "M", label: fullName,
+        nodeId: "type:" + apiId + ":" + fullName,
+        typeKind: "message",
+      });
+      collectProtoMessageNodes(m.nested || [], children, apiId, fullName);
+      for (const e of (m.enums || [])) {
+        children.push({
+          kind: "type", icon: "E", label: fullName + "." + e.name,
+          nodeId: "type:" + apiId + ":" + fullName + "." + e.name,
+          typeKind: "enum",
+        });
+      }
+    }
   }
 
-  function renderDetail(api) {
-    let html = '<button class="detail-close" title="Close">&times;</button>';
-    html += '<div class="detail-title">' + esc(api.id) + "</div>";
+  function addOpenAPIChildren(children, spec, apiId) {
+    for (const p of (spec.paths || [])) {
+      for (const op of p.operations) {
+        const label = op.method + " " + p.path;
+        const typeName = op.method + ":" + p.path;
+        children.push({
+          kind: "type", icon: "EP", label: label,
+          nodeId: "type:" + apiId + ":" + typeName,
+          typeKind: "endpoint",
+        });
+      }
+    }
+    for (const s of (spec.schemas || [])) {
+      children.push({
+        kind: "type", icon: "SC", label: s.name,
+        nodeId: "type:" + apiId + ":" + s.name,
+        typeKind: "schema",
+      });
+    }
+  }
+
+  function addAvroChildren(children, avro, apiId) {
+    children.push({
+      kind: "type", icon: avro.type === "enum" ? "E" : "R", label: avro.name,
+      nodeId: "type:" + apiId + ":" + avro.name,
+      typeKind: avro.type === "enum" ? "enum" : "record",
+    });
+  }
+
+  function addJSONSchemaChildren(children, jsd, apiId, filename) {
+    const name = jsd.title || filename;
+    children.push({
+      kind: "type", icon: "P", label: name,
+      nodeId: "type:" + apiId + ":" + name,
+      typeKind: "jsonschema",
+    });
+  }
+
+  function addParquetChildren(children, pqs, apiId, filename) {
+    const name = pqs.message_name || filename;
+    children.push({
+      kind: "type", icon: "C", label: name,
+      nodeId: "type:" + apiId + ":" + name,
+      typeKind: "parquet",
+    });
+  }
+
+  // ===== Tree Rendering (per-API) =====
+
+  function renderAPITree(api) {
+    const treeEl = $("#sidebar-tree");
+    const children = buildTypeChildren(api);
+
+    if (children.length === 0) {
+      treeEl.innerHTML = '';
+      return;
+    }
+
+    // API header at top of sidebar
+    let html = '<div class="tree-api-header">';
+    html += '<span class="tree-icon tree-icon-' + esc(api.format) + '">' + formatAbbrev(api.format) + '</span>';
+    html += '<span class="tree-api-title">' + esc(api.id) + '</span>';
+    html += '</div>';
+
+    // Group children by kind
+    const grouped = groupTypeChildren(children);
+    html += '<ul class="tree-list">';
+    for (const group of grouped) {
+      if (grouped.length > 1 && group.children.length > 0) {
+        const kindNodeId = "kind:" + api.id + ":" + group.label;
+        const kindExpanded = getExpanded(kindNodeId, true);
+        html += '<li>';
+        html += '<div class="tree-node-row" data-id="' + esc(kindNodeId) + '">';
+        html += '<span class="tree-toggle ' + (kindExpanded ? 'expanded' : '') + '">&#9654;</span>';
+        html += '<span class="tree-kind-label">' + esc(group.label) + '</span>';
+        html += '<span class="tree-count">' + group.children.length + '</span>';
+        html += '</div>';
+        html += '<ul class="tree-children' + (kindExpanded ? '' : ' collapsed') + '">';
+        for (const child of group.children) {
+          html += renderTypeLeaf(child);
+        }
+        html += '</ul></li>';
+      } else {
+        for (const child of group.children) {
+          html += renderTypeLeaf(child);
+        }
+      }
+    }
+    html += '</ul>';
+
+    treeEl.innerHTML = html;
+    bindTreeEvents(treeEl);
+
+    // Restore selection
+    if (selectedNodeId) {
+      const selEl = treeEl.querySelector('[data-id="' + CSS.escape(selectedNodeId) + '"]');
+      if (selEl) selEl.classList.add("selected");
+    }
+  }
+
+  function renderTypeLeaf(child) {
+    let html = '<li>';
+    html += '<div class="tree-node-row' + (selectedNodeId === child.nodeId ? ' selected' : '') + '" ';
+    html += 'data-id="' + esc(child.nodeId) + '">';
+    html += '<span class="tree-toggle leaf">&#9654;</span>';
+    html += '<span class="tree-icon tree-icon-' + child.icon + '">' + child.icon + '</span>';
+    html += '<span class="tree-text">' + esc(child.label) + '</span>';
+    html += '</div>';
+    html += '</li>';
+    return html;
+  }
+
+  function groupTypeChildren(children) {
+    const groups = {};
+    const order = [];
+    for (const c of children) {
+      const label = kindGroupLabel(c.typeKind);
+      if (!groups[label]) {
+        groups[label] = [];
+        order.push(label);
+      }
+      groups[label].push(c);
+    }
+    return order.map(function (label) { return { label: label, children: groups[label] }; });
+  }
+
+  function kindGroupLabel(typeKind) {
+    switch (typeKind) {
+      case "service": return "Services";
+      case "message": return "Messages";
+      case "enum": return "Enums";
+      case "endpoint": return "Endpoints";
+      case "schema": return "Schemas";
+      case "record": return "Records";
+      case "jsonschema": return "Schemas";
+      case "parquet": return "Columns";
+      default: return "Types";
+    }
+  }
+
+  function formatAbbrev(format) {
+    switch (format) {
+      case "proto": return "P";
+      case "openapi": return "OA";
+      case "avro": return "AV";
+      case "jsonschema": return "JS";
+      case "parquet": return "PQ";
+      default: return "?";
+    }
+  }
+
+  function getExpanded(nodeId, defaultVal) {
+    if (treeState[nodeId] !== undefined) return treeState[nodeId];
+    return defaultVal || false;
+  }
+
+  function setExpanded(nodeId, val) {
+    treeState[nodeId] = val;
+  }
+
+  function bindTreeEvents(treeEl) {
+    // Use event delegation
+    treeEl.addEventListener("click", function (e) {
+      const row = e.target.closest(".tree-node-row");
+      if (!row) return;
+
+      const nodeId = row.dataset.id;
+      if (!nodeId) return;
+
+      // Toggle?
+      const toggle = e.target.closest(".tree-toggle");
+      const childrenUl = row.nextElementSibling;
+      const isToggleable = childrenUl && childrenUl.tagName === "UL";
+
+      if (toggle && !toggle.classList.contains("leaf") && isToggleable) {
+        // Toggle expand/collapse
+        const expanding = childrenUl.classList.contains("collapsed");
+        childrenUl.classList.toggle("collapsed");
+        toggle.classList.toggle("expanded");
+        setExpanded(nodeId, expanding);
+        return;
+      }
+
+      // Select this node
+      if (nodeId.startsWith("kind:")) {
+        // Kind groups toggle instead of select
+        if (isToggleable) {
+          const expanding = childrenUl.classList.contains("collapsed");
+          childrenUl.classList.toggle("collapsed");
+          const toggleEl = row.querySelector(".tree-toggle");
+          if (toggleEl) toggleEl.classList.toggle("expanded");
+          setExpanded(nodeId, expanding);
+        }
+        return;
+      }
+
+      // Type node — navigate
+      if (nodeId.startsWith("type:")) {
+        // type:apiId:typeName — convert to hash format apiId:typeName
+        const rest = nodeId.substring(5); // apiId:typeName
+        window.location.hash = rest;
+      }
+
+      // Close mobile sidebar
+      $("#sidebar").classList.remove("open");
+      $("#sidebar-backdrop").classList.remove("visible");
+    });
+  }
+
+  function updateStats() {
+    $("#stats").textContent = allAPIs.length + " APIs";
+  }
+
+  function highlightMatch(text, query) {
+    if (!query) return esc(text);
+    const lower = text.toLowerCase();
+    const idx = lower.indexOf(query);
+    if (idx === -1) return esc(text);
+    const before = text.substring(0, idx);
+    const match = text.substring(idx, idx + query.length);
+    const after = text.substring(idx + query.length);
+    return esc(before) + '<mark>' + esc(match) + '</mark>' + esc(after);
+  }
+
+  // ===== Hash Routing =====
+
+  function parseHash(hash) {
+    const raw = decodeURIComponent(hash.slice(1));
+    if (!raw) return { apiId: null, typeName: null };
+
+    // Find the first colon that separates apiId from typeName.
+    // API IDs use "/" as separator (format/domain/name/line) and never contain ":".
+    // We need to handle the case where typeName itself may contain ":" (e.g., OpenAPI "GET:/path").
+    // Strategy: try progressively shorter prefixes as apiId until one matches a known API.
+    const colonIdx = raw.indexOf(":");
+    if (colonIdx === -1) {
+      return { apiId: raw, typeName: null };
+    }
+
+    const candidateApiId = raw.substring(0, colonIdx);
+    const candidateType = raw.substring(colonIdx + 1);
+
+    // Check if candidateApiId matches a known API
+    if (allAPIs.some(function (a) { return a.id === candidateApiId; })) {
+      return { apiId: candidateApiId, typeName: candidateType || null };
+    }
+
+    // Fallback: treat the whole thing as an API ID
+    return { apiId: raw, typeName: null };
+  }
+
+  let currentApiId = null; // track which API page is rendered
+
+  function applyFromHash() {
+    const parsed = parseHash(window.location.hash);
+
+    // Hide search results when navigating
+    hideSearchResults();
+
+    if (!parsed.apiId) {
+      // Show welcome (unless search is active)
+      selectedNodeId = null;
+      currentApiId = null;
+      $("#content").classList.add("hidden");
+      if (!getSearchQuery()) {
+        $("#welcome").classList.remove("hidden");
+        setSidebarVisible(false);
+      }
+      clearTreeSelection();
+      return;
+    }
+
+    $("#welcome").classList.add("hidden");
+    $("#content").classList.remove("hidden");
+
+    const api = allAPIs.find(function (a) { return a.id === parsed.apiId; });
+    if (!api) {
+      $("#content").innerHTML = '<div class="loading">API not found: ' + esc(parsed.apiId) + '</div>';
+      setSidebarVisible(false);
+      return;
+    }
+
+    // Only re-render if switching to a different API
+    if (currentApiId !== parsed.apiId) {
+      currentApiId = parsed.apiId;
+      renderAPIPage(api);
+      renderAPITree(api);
+      setSidebarVisible(true);
+    }
+
+    // Scroll to type anchor or top
+    if (parsed.typeName) {
+      selectedNodeId = "type:" + parsed.apiId + ":" + parsed.typeName;
+      scrollToAnchor(parsed.typeName);
+    } else {
+      selectedNodeId = "api:" + parsed.apiId;
+      $("#content-pane").scrollTop = 0;
+    }
+
+    highlightTreeNode(selectedNodeId);
+    expandToNode(selectedNodeId);
+  }
+
+  function clearTreeSelection() {
+    const prev = $(".tree-node-row.selected");
+    if (prev) prev.classList.remove("selected");
+  }
+
+  function highlightTreeNode(nodeId) {
+    clearTreeSelection();
+    const el = $('[data-id="' + CSS.escape(nodeId) + '"]');
+    if (el) {
+      el.classList.add("selected");
+      // Scroll into view if needed
+      el.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function expandToNode(nodeId) {
+    // Expand all collapsed ancestor ULs
+    const el = $('[data-id="' + CSS.escape(nodeId) + '"]');
+    if (!el) return;
+
+    let parent = el.parentElement;
+    while (parent && !parent.classList.contains("sidebar-tree")) {
+      if (parent.tagName === "UL" && parent.classList.contains("collapsed")) {
+        parent.classList.remove("collapsed");
+        // Update the toggle arrow of the preceding row
+        const prevRow = parent.previousElementSibling;
+        if (prevRow && prevRow.classList.contains("tree-node-row")) {
+          const toggle = prevRow.querySelector(".tree-toggle");
+          if (toggle) toggle.classList.add("expanded");
+          const rowNodeId = prevRow.dataset.id;
+          if (rowNodeId) setExpanded(rowNodeId, true);
+        }
+      }
+      parent = parent.parentElement;
+    }
+  }
+
+  // ===== Content Rendering =====
+
+  function scrollToAnchor(typeName) {
+    const anchor = document.getElementById("type-" + typeName);
+    if (!anchor) return;
+    // Use scrollTo on the pane directly — scrollIntoView can be cancelled
+    // by the sidebar's own scrollIntoView call in highlightTreeNode.
+    const pane = $("#content-pane");
+    const paneRect = pane.getBoundingClientRect();
+    const anchorRect = anchor.getBoundingClientRect();
+    pane.scrollTo({ top: anchorRect.top - paneRect.top + pane.scrollTop, behavior: "smooth" });
+  }
+
+  function anchorId(typeName) {
+    return "type-" + typeName;
+  }
+
+  function typeAnchorHeader(kind, name, apiId) {
+    const hash = apiId + ":" + name;
+    let html = '<div class="type-anchor" id="' + esc(anchorId(name)) + '">';
+    html += '<span class="type-anchor-kind">' + esc(kind) + '</span> ';
+    html += '<span class="type-anchor-name">' + esc(name) + '</span>';
+    html += '<a href="#' + esc(hash) + '" class="type-anchor-link" title="Copy link">#</a>';
+    html += '</div>';
+    return html;
+  }
+
+  // Renders the entire API page: metadata at top, then all types inline with anchors
+  function renderAPIPage(api) {
+    const typeIndex = buildTypeIndex(api);
+    let html = '';
+
+    // Title + badges
+    html += '<h1 class="content-title">' + esc(api.id) + '</h1>';
+    html += '<div class="badge-row">';
+    if (api.format) html += '<span class="badge badge-format ' + esc(api.format) + '">' + esc(api.format) + '</span>';
+    if (api.lifecycle) html += '<span class="badge badge-lifecycle ' + esc(api.lifecycle) + '">' + esc(api.lifecycle) + '</span>';
+    if (api.origin) html += '<span class="badge badge-origin">' + esc(api.origin) + '</span>';
+    html += '</div>';
+
+    if (api.description) {
+      html += '<p class="content-subtitle">' + esc(api.description) + '</p>';
+    }
 
     // Identity section
     html += '<div class="detail-section"><h3>Identity</h3><div class="detail-grid">';
@@ -239,7 +737,7 @@
     if (api.name) html += row("Name", api.name);
     if (api.line) html += row("Line", api.line);
     if (api.origin) html += row("Origin", api.origin);
-    html += "</div></div>";
+    html += '</div></div>';
 
     // Version section
     html += '<div class="detail-section"><h3>Versions</h3><div class="detail-grid">';
@@ -249,15 +747,15 @@
     if (!api.latest_stable && !api.latest_prerelease && !api.version) {
       html += row("Status", "No releases yet");
     }
-    html += "</div></div>";
+    html += '</div></div>';
 
     // Lifecycle section
     if (api.lifecycle || api.compatibility) {
       html += '<div class="detail-section"><h3>Lifecycle</h3><div class="detail-grid">';
       if (api.lifecycle) {
         html += '<div class="detail-label">State</div><div>';
-        html += '<span class="badge badge-lifecycle ' + esc(api.lifecycle) + '">' + esc(api.lifecycle) + "</span>";
-        html += "</div>";
+        html += '<span class="badge badge-lifecycle ' + esc(api.lifecycle) + '">' + esc(api.lifecycle) + '</span>';
+        html += '</div>';
       }
       if (api.compatibility) {
         html += row("Compatibility", api.compatibility.level);
@@ -265,46 +763,378 @@
         html += row("Breaking Policy", api.compatibility.breaking_policy);
         html += row("Production Use", api.compatibility.production_use);
       }
-      html += "</div></div>";
+      html += '</div></div>';
     }
 
     // Language coordinates section
     if (api.languages && Object.keys(api.languages).length > 0) {
       html += '<div class="detail-section"><h3>Language Coordinates</h3>';
       html += renderLanguageTabs(api.languages);
-      html += "</div>";
+      html += '</div>';
     }
 
-    // Schema section
-    html += renderSchema(api);
-
-    // Tags section
+    // Tags
     if (api.tags && api.tags.length > 0) {
       html += '<div class="detail-section"><h3>Tags</h3><div class="tag-list">';
       for (const tag of api.tags) {
-        html += '<span class="tag">' + esc(tag) + "</span>";
+        html += '<span class="tag">' + esc(tag) + '</span>';
       }
-      html += "</div></div>";
+      html += '</div></div>';
     }
 
-    // Owners section
+    // Owners
     if (api.owners && api.owners.length > 0) {
       html += '<div class="detail-section"><h3>Owners</h3><div class="tag-list">';
       for (const owner of api.owners) {
-        html += '<span class="tag">' + esc(owner) + "</span>";
+        html += '<span class="tag">' + esc(owner) + '</span>';
       }
-      html += "</div></div>";
+      html += '</div></div>';
+    }
+
+    // === All types rendered inline with anchors ===
+    if (api.schema && api.schema.files) {
+      html += renderAllTypesInline(api, typeIndex);
+    }
+
+    const contentEl = $("#content");
+    contentEl.innerHTML = html;
+    bindLanguageTabs(contentEl);
+
+    // Bind copy-link buttons
+    for (const link of contentEl.querySelectorAll(".type-anchor-link")) {
+      link.addEventListener("click", function (e) {
+        e.preventDefault();
+        var href = link.getAttribute("href");
+        var url = window.location.origin + window.location.pathname + href;
+        navigator.clipboard.writeText(url);
+        window.location.hash = href.substring(1);
+      });
+    }
+  }
+
+  function renderAllTypesInline(api, typeIndex) {
+    let html = '';
+
+    for (const file of api.schema.files) {
+      if (api.format === "proto" && file.proto) {
+        html += renderProtoFileInline(file.proto, api, typeIndex);
+      } else if (api.format === "openapi" && file.openapi) {
+        html += renderOpenAPIFileInline(file.openapi, api, typeIndex);
+      } else if (api.format === "avro" && file.avro) {
+        html += renderAvroFileInline(file.avro, api);
+      } else if (api.format === "jsonschema" && file.jsonschema) {
+        html += renderJSONSchemaFileInline(file.jsonschema, api, file.filename);
+      } else if (api.format === "parquet" && file.parquet) {
+        html += renderParquetFileInline(file.parquet, api, file.filename);
+      }
     }
 
     return html;
   }
 
+  // ── Proto inline ──
+
+  function renderProtoFileInline(proto, api, typeIndex) {
+    let html = '';
+
+    // Services
+    for (const svc of (proto.services || [])) {
+      html += typeAnchorHeader("service", svc.name, api.id);
+      if (svc.comment) html += '<div class="type-comment">' + esc(svc.comment) + '</div>';
+      html += renderServiceBlock(svc, typeIndex, api.id);
+    }
+
+    // Messages (including nested, flattened)
+    html += renderProtoMessagesInline(proto.messages || [], api, typeIndex, "");
+
+    // Top-level enums
+    for (const en of (proto.enums || [])) {
+      html += typeAnchorHeader("enum", en.name, api.id);
+      if (en.comment) html += '<div class="type-comment">' + esc(en.comment) + '</div>';
+      html += renderEnumBlock(en);
+    }
+
+    return html;
+  }
+
+  function renderProtoMessagesInline(msgs, api, typeIndex, prefix) {
+    let html = '';
+    for (const m of msgs) {
+      const fullName = prefix ? prefix + "." + m.name : m.name;
+      html += typeAnchorHeader("message", fullName, api.id);
+      if (m.comment) html += '<div class="type-comment">' + esc(m.comment) + '</div>';
+      html += renderMessageBlock(m, fullName, typeIndex, api.id);
+
+      // Nested enums
+      for (const en of (m.enums || [])) {
+        const enumName = fullName + "." + en.name;
+        html += typeAnchorHeader("enum", enumName, api.id);
+        if (en.comment) html += '<div class="type-comment">' + esc(en.comment) + '</div>';
+        html += renderEnumBlock(en);
+      }
+
+      // Recurse nested messages
+      html += renderProtoMessagesInline(m.nested || [], api, typeIndex, fullName);
+    }
+    return html;
+  }
+
+  function renderServiceBlock(svc, typeIndex, apiId) {
+    let html = '<div class="struct-block">';
+    html += '<div class="struct-keyword">service <span class="struct-name">' + esc(svc.name) + '</span> {</div>';
+    for (const m of (svc.methods || [])) {
+      html += '<div class="struct-field">';
+      html += '<span class="struct-rpc">rpc</span> ';
+      html += '<span class="struct-field-name">' + esc(m.name) + '</span>';
+      html += '(' + (m.client_streaming ? 'stream ' : '') + linkifyType(m.input_type, typeIndex, apiId) + ')';
+      html += ' returns ';
+      html += '(' + (m.server_streaming ? 'stream ' : '') + linkifyType(m.output_type, typeIndex, apiId) + ')';
+      if (m.comment) html += ' <span class="struct-comment">// ' + esc(m.comment) + '</span>';
+      html += '</div>';
+    }
+    html += '<div class="struct-close">}</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function renderMessageBlock(msg, fullName, typeIndex, apiId) {
+    let html = '<div class="struct-block">';
+    html += '<div class="struct-keyword">message <span class="struct-name">' + esc(msg.name) + '</span> {</div>';
+    for (const f of (msg.fields || [])) {
+      html += '<div class="struct-field">';
+      html += linkifyType(f.type, typeIndex, apiId);
+      html += ' <span class="struct-field-name">' + esc(f.name) + '</span>';
+      html += ' <span class="struct-field-number">= ' + f.number + ';</span>';
+      if (f.comment) html += ' <span class="struct-comment">// ' + esc(f.comment) + '</span>';
+      html += '</div>';
+    }
+    html += '<div class="struct-close">}</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function renderEnumBlock(en) {
+    let html = '<div class="struct-block">';
+    html += '<div class="struct-keyword">enum <span class="struct-name">' + esc(en.name) + '</span> {</div>';
+    for (const v of (en.values || [])) {
+      html += '<div class="struct-field">';
+      html += '<span class="struct-field-name">' + esc(v.name) + '</span>';
+      html += ' <span class="struct-field-number">= ' + v.number + ';</span>';
+      html += '</div>';
+    }
+    html += '<div class="struct-close">}</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // ── OpenAPI inline ──
+
+  function renderOpenAPIFileInline(spec, api, typeIndex) {
+    let html = '';
+
+    for (const p of (spec.paths || [])) {
+      for (const op of p.operations) {
+        const typeName = op.method + ":" + p.path;
+        html += typeAnchorHeader(op.method, p.path, api.id);
+        if (op.summary || op.description) {
+          html += '<div class="type-comment">' + esc(op.summary || op.description) + '</div>';
+        }
+        html += '<div class="struct-block">';
+        if (op.operation_id) {
+          html += '<div class="struct-field"><span class="struct-comment">operationId: ' + esc(op.operation_id) + '</span></div>';
+        }
+        if (op.parameters && op.parameters.length > 0) {
+          html += '<div class="struct-field"><span class="struct-comment">parameters:</span></div>';
+          for (const param of op.parameters) {
+            html += '<div class="struct-field">  ' + esc(param) + '</div>';
+          }
+        }
+        if (op.responses && op.responses.length > 0) {
+          html += '<div class="struct-field"><span class="struct-comment">responses:</span></div>';
+          for (const r of op.responses) {
+            html += '<div class="struct-field">  ' + esc(r) + '</div>';
+          }
+        }
+        html += '</div>';
+      }
+    }
+
+    for (const s of (spec.schemas || [])) {
+      html += typeAnchorHeader("schema", s.name, api.id);
+      html += '<div class="struct-block">';
+      html += '<div class="struct-keyword">schema <span class="struct-name">' + esc(s.name) + '</span>' + (s.type ? ' : ' + esc(s.type) : '') + ' {</div>';
+      for (const prop of (s.properties || [])) {
+        html += '<div class="struct-field">';
+        html += linkifyType(prop.type, typeIndex, api.id);
+        html += ' <span class="struct-field-name">' + esc(prop.name) + '</span>';
+        if (prop.required) html += ' <span class="required-marker">*</span>';
+        if (prop.description) html += ' <span class="struct-comment">// ' + esc(prop.description) + '</span>';
+        html += '</div>';
+      }
+      html += '<div class="struct-close">}</div>';
+      html += '</div>';
+    }
+
+    return html;
+  }
+
+  // ── Avro inline ──
+
+  function renderAvroFileInline(avro, api) {
+    let html = '';
+    html += typeAnchorHeader(avro.type === "enum" ? "enum" : "record", avro.name, api.id);
+    if (avro.doc) html += '<div class="type-comment">' + esc(avro.doc) + '</div>';
+
+    html += '<div class="struct-block">';
+    const keyword = avro.type === "enum" ? "enum" : "record";
+    html += '<div class="struct-keyword">' + keyword + ' <span class="struct-name">' + esc(avro.name) + '</span>';
+    if (avro.namespace) html += ' <span class="struct-comment">// ' + esc(avro.namespace) + '</span>';
+    html += ' {</div>';
+
+    if (avro.symbols && avro.symbols.length > 0) {
+      for (const s of avro.symbols) {
+        html += '<div class="struct-field"><span class="struct-field-name">' + esc(s) + '</span></div>';
+      }
+    }
+    if (avro.fields && avro.fields.length > 0) {
+      for (const f of avro.fields) {
+        html += '<div class="struct-field">';
+        html += esc(f.type) + ' <span class="struct-field-name">' + esc(f.name) + '</span>';
+        if (f.default) html += ' = ' + esc(f.default);
+        if (f.doc) html += ' <span class="struct-comment">// ' + esc(f.doc) + '</span>';
+        html += '</div>';
+      }
+    }
+
+    html += '<div class="struct-close">}</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // ── JSON Schema inline ──
+
+  function renderJSONSchemaFileInline(jsd, api, filename) {
+    let html = '';
+    const name = jsd.title || filename;
+    html += typeAnchorHeader("schema", name, api.id);
+    if (jsd.description) html += '<div class="type-comment">' + esc(jsd.description) + '</div>';
+
+    html += '<div class="struct-block">';
+    html += '<div class="struct-keyword">schema <span class="struct-name">' + esc(name) + '</span>' + (jsd.type ? ' : ' + esc(jsd.type) : '') + ' {</div>';
+    for (const p of (jsd.properties || [])) {
+      html += '<div class="struct-field">';
+      html += esc(p.type || 'any') + ' <span class="struct-field-name">' + esc(p.name) + '</span>';
+      if (p.required) html += ' <span class="required-marker">*</span>';
+      if (p.description) html += ' <span class="struct-comment">// ' + esc(p.description) + '</span>';
+      html += '</div>';
+    }
+    html += '<div class="struct-close">}</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // ── Parquet inline ──
+
+  function renderParquetFileInline(pqs, api, filename) {
+    let html = '';
+    const name = pqs.message_name || filename;
+    html += typeAnchorHeader("message", name, api.id);
+
+    html += '<div class="struct-block">';
+    html += '<div class="struct-keyword">message <span class="struct-name">' + esc(name) + '</span> {</div>';
+    for (const c of (pqs.columns || [])) {
+      html += '<div class="struct-field">';
+      html += esc(c.phys_type);
+      if (c.annotation) html += ' (' + esc(c.annotation) + ')';
+      html += ' <span class="struct-field-name">' + esc(c.name) + '</span>';
+      if (c.repetition && c.repetition !== "REQUIRED") html += ' <span class="struct-comment">// ' + esc(c.repetition) + '</span>';
+      html += '</div>';
+    }
+    html += '<div class="struct-close">}</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // ===== Type Cross-References =====
+
+  function buildTypeIndex(api) {
+    const index = {};
+    if (!api.schema || !api.schema.files) return index;
+
+    for (const file of api.schema.files) {
+      if (api.format === "proto" && file.proto) {
+        for (const svc of (file.proto.services || [])) {
+          index[svc.name] = api.id + ":" + svc.name;
+        }
+        indexProtoMessages(file.proto.messages || [], index, api.id, "", file.proto.package);
+        for (const en of (file.proto.enums || [])) {
+          index[en.name] = api.id + ":" + en.name;
+        }
+      } else if (api.format === "openapi" && file.openapi) {
+        for (const s of (file.openapi.schemas || [])) {
+          index[s.name] = api.id + ":" + s.name;
+        }
+      }
+    }
+    return index;
+  }
+
+  function indexProtoMessages(msgs, index, apiId, prefix, pkg) {
+    for (const m of msgs) {
+      const fullName = prefix ? prefix + "." + m.name : m.name;
+      index[m.name] = apiId + ":" + fullName;
+      index[fullName] = apiId + ":" + fullName;
+      // Also index with package prefix for fully-qualified references
+      if (pkg) {
+        index[pkg + "." + fullName] = apiId + ":" + fullName;
+      }
+      indexProtoMessages(m.nested || [], index, apiId, fullName, pkg);
+      for (const e of (m.enums || [])) {
+        const enumFullName = fullName + "." + e.name;
+        index[e.name] = apiId + ":" + enumFullName;
+        index[enumFullName] = apiId + ":" + enumFullName;
+        if (pkg) {
+          index[pkg + "." + enumFullName] = apiId + ":" + enumFullName;
+        }
+      }
+    }
+  }
+
+  function linkifyType(typeStr, typeIndex, apiId) {
+    if (!typeStr) return esc(typeStr || "");
+
+    // Handle map types: map<KeyType, ValueType>
+    const mapMatch = typeStr.match(/^map<\s*(\S+)\s*,\s*(\S+)\s*>$/);
+    if (mapMatch) {
+      return 'map&lt;' + linkifyType(mapMatch[1], typeIndex, apiId) + ', ' + linkifyType(mapMatch[2], typeIndex, apiId) + '&gt;';
+    }
+
+    // Handle repeated
+    if (typeStr.startsWith("repeated ")) {
+      return 'repeated ' + linkifyType(typeStr.substring(9), typeIndex, apiId);
+    }
+
+    // Handle optional
+    if (typeStr.startsWith("optional ")) {
+      return 'optional ' + linkifyType(typeStr.substring(9), typeIndex, apiId);
+    }
+
+    // Look up in type index
+    const hash = typeIndex[typeStr];
+    if (hash) {
+      return '<a href="#' + esc(hash) + '" class="type-link">' + esc(typeStr) + '</a>';
+    }
+
+    return esc(typeStr);
+  }
+
+  // ===== Language Tabs =====
+
   function renderLanguageTabs(languages) {
     const langs = Object.keys(languages);
     if (langs.length === 0) return "";
 
-    // Language display order: go first, then alphabetical
-    langs.sort((a, b) => {
+    langs.sort(function (a, b) {
       if (a === "go") return -1;
       if (b === "go") return 1;
       return a.localeCompare(b);
@@ -318,314 +1148,52 @@
       const active = i === 0 ? " active" : "";
       const displayName = langDisplayName(lang);
 
-      tabs += '<button class="lang-tab' + active + '" data-lang="' + esc(lang) + '">' + esc(displayName) + "</button>";
+      tabs += '<button class="lang-tab' + active + '" data-lang="' + esc(lang) + '">' + esc(displayName) + '</button>';
 
       contents += '<div class="lang-content' + active + '" data-lang="' + esc(lang) + '">';
       contents += '<div class="detail-grid">';
       for (const coord of languages[lang]) {
         contents += row(coord.label, coord.value);
       }
-      contents += "</div></div>";
+      contents += '</div></div>';
     }
 
-    tabs += "</div>";
+    tabs += '</div>';
     return tabs + contents;
   }
 
+  function bindLanguageTabs(container) {
+    for (const tab of container.querySelectorAll(".lang-tab")) {
+      tab.addEventListener("click", function () {
+        for (const t of container.querySelectorAll(".lang-tab")) t.classList.remove("active");
+        for (const c of container.querySelectorAll(".lang-content")) c.classList.remove("active");
+        tab.classList.add("active");
+        const target = container.querySelector('.lang-content[data-lang="' + tab.dataset.lang + '"]');
+        if (target) target.classList.add("active");
+      });
+    }
+  }
+
   function langDisplayName(lang) {
-    const names = {
-      go: "Go",
-      python: "Python",
-      java: "Java",
-      typescript: "TypeScript",
-      rust: "Rust",
-      cpp: "C++",
+    var names = {
+      go: "Go", python: "Python", java: "Java",
+      typescript: "TypeScript", rust: "Rust", cpp: "C++",
     };
     return names[lang] || lang;
   }
 
+  // ===== Utilities =====
+
   function row(label, value) {
     return (
-      '<div class="detail-label">' + esc(label) + "</div>" +
-      '<div class="detail-value">' + esc(value || "—") + "</div>"
+      '<div class="detail-label">' + esc(label) + '</div>' +
+      '<div class="detail-value">' + esc(value || "\u2014") + '</div>'
     );
   }
 
-  // ===== Schema Rendering =====
-
-  function renderSchema(api) {
-    if (!api.schema || !api.schema.files || api.schema.files.length === 0) return "";
-
-    let html = '<div class="detail-section"><h3>Schema</h3>';
-    for (const file of api.schema.files) {
-      html += '<div class="schema-file">';
-      html += '<div class="schema-filename">' + esc(file.filename) + '</div>';
-      if (file.proto) html += renderProtoSchema(file.proto);
-      if (file.openapi) html += renderOpenAPISchema(file.openapi);
-      if (file.avro) html += renderAvroSchema(file.avro);
-      if (file.jsonschema) html += renderJSONSchema(file.jsonschema);
-      if (file.parquet) html += renderParquetSchema(file.parquet);
-      html += '</div>';
-    }
-    html += '</div>';
-    return html;
-  }
-
-  // ── Proto ────────────────────────────────────────────────────────
-
-  function renderProtoSchema(proto) {
-    let html = '';
-    if (proto.package) {
-      html += '<div class="schema-meta">package <strong>' + esc(proto.package) + '</strong></div>';
-    }
-
-    // Services
-    for (const svc of (proto.services || [])) {
-      html += '<details class="schema-section" open>';
-      html += '<summary>service ' + esc(svc.name) + '</summary>';
-      if (svc.comment) html += '<div class="schema-comment">' + esc(svc.comment) + '</div>';
-      if (svc.methods && svc.methods.length > 0) {
-        html += '<table class="schema-table"><thead><tr><th>RPC</th><th>Request</th><th>Response</th><th></th></tr></thead><tbody>';
-        for (const m of svc.methods) {
-          const stream = [];
-          if (m.client_streaming) stream.push('client-stream');
-          if (m.server_streaming) stream.push('server-stream');
-          html += '<tr>';
-          html += '<td>' + esc(m.name) + '</td>';
-          html += '<td>' + (m.client_streaming ? 'stream ' : '') + esc(m.input_type) + '</td>';
-          html += '<td>' + (m.server_streaming ? 'stream ' : '') + esc(m.output_type) + '</td>';
-          html += '<td class="schema-comment">' + esc(m.comment || '') + '</td>';
-          html += '</tr>';
-        }
-        html += '</tbody></table>';
-      }
-      html += '</details>';
-    }
-
-    // Messages
-    for (const msg of (proto.messages || [])) {
-      html += renderProtoMessage(msg, 0);
-    }
-
-    // Enums
-    for (const en of (proto.enums || [])) {
-      html += renderProtoEnum(en);
-    }
-
-    return html;
-  }
-
-  function renderProtoMessage(msg, depth) {
-    const tag = depth > 0 ? ' (nested)' : '';
-    let html = '<details class="schema-section"' + (depth === 0 ? ' open' : '') + '>';
-    html += '<summary>message ' + esc(msg.name) + tag + '</summary>';
-    if (msg.comment) html += '<div class="schema-comment">' + esc(msg.comment) + '</div>';
-
-    if (msg.fields && msg.fields.length > 0) {
-      html += '<table class="schema-table"><thead><tr><th>#</th><th>Field</th><th>Type</th><th>Label</th><th></th></tr></thead><tbody>';
-      for (const f of msg.fields) {
-        html += '<tr>';
-        html += '<td>' + f.number + '</td>';
-        html += '<td>' + esc(f.name) + '</td>';
-        html += '<td>' + esc(f.type) + '</td>';
-        html += '<td>' + esc(f.label || '') + '</td>';
-        html += '<td class="schema-comment">' + esc(f.comment || '') + '</td>';
-        html += '</tr>';
-      }
-      html += '</tbody></table>';
-    }
-
-    // Nested messages
-    for (const nested of (msg.nested || [])) {
-      html += renderProtoMessage(nested, depth + 1);
-    }
-    // Nested enums
-    for (const en of (msg.enums || [])) {
-      html += renderProtoEnum(en);
-    }
-
-    html += '</details>';
-    return html;
-  }
-
-  function renderProtoEnum(en) {
-    let html = '<details class="schema-section">';
-    html += '<summary>enum ' + esc(en.name) + '</summary>';
-    if (en.comment) html += '<div class="schema-comment">' + esc(en.comment) + '</div>';
-    if (en.values && en.values.length > 0) {
-      html += '<table class="schema-table"><thead><tr><th>Value</th><th>Number</th></tr></thead><tbody>';
-      for (const v of en.values) {
-        html += '<tr><td>' + esc(v.name) + '</td><td>' + v.number + '</td></tr>';
-      }
-      html += '</tbody></table>';
-    }
-    html += '</details>';
-    return html;
-  }
-
-  // ── OpenAPI ──────────────────────────────────────────────────────
-
-  function renderOpenAPISchema(spec) {
-    let html = '';
-    if (spec.title || spec.version) {
-      html += '<div class="schema-meta">';
-      if (spec.title) html += '<strong>' + esc(spec.title) + '</strong>';
-      if (spec.version) html += ' v' + esc(spec.version);
-      html += '</div>';
-      if (spec.description) html += '<div class="schema-comment">' + esc(spec.description) + '</div>';
-    }
-
-    // Endpoints
-    if (spec.paths && spec.paths.length > 0) {
-      html += '<details class="schema-section" open><summary>Endpoints (' + spec.paths.reduce(function(a, p) { return a + p.operations.length; }, 0) + ')</summary>';
-      for (const p of spec.paths) {
-        for (const op of p.operations) {
-          html += '<div class="openapi-endpoint">';
-          html += '<span class="method-badge method-' + esc(op.method.toLowerCase()) + '">' + esc(op.method) + '</span> ';
-          html += '<span class="openapi-path">' + esc(p.path) + '</span>';
-          if (op.summary) html += ' <span class="schema-comment">' + esc(op.summary) + '</span>';
-          html += '</div>';
-        }
-      }
-      html += '</details>';
-    }
-
-    // Schemas
-    if (spec.schemas && spec.schemas.length > 0) {
-      html += '<details class="schema-section" open><summary>Schemas (' + spec.schemas.length + ')</summary>';
-      for (const s of spec.schemas) {
-        html += '<div class="openapi-schema-name">' + esc(s.name);
-        if (s.type) html += ' <span class="schema-type-badge">' + esc(s.type) + '</span>';
-        html += '</div>';
-        if (s.properties && s.properties.length > 0) {
-          html += '<table class="schema-table"><thead><tr><th>Property</th><th>Type</th><th></th><th></th></tr></thead><tbody>';
-          for (const prop of s.properties) {
-            html += '<tr>';
-            html += '<td>' + esc(prop.name) + (prop.required ? ' <span class="required-marker">*</span>' : '') + '</td>';
-            html += '<td>' + esc(prop.type) + '</td>';
-            html += '<td class="schema-comment">' + esc(prop.description || '') + '</td>';
-            html += '</tr>';
-          }
-          html += '</tbody></table>';
-        }
-      }
-      html += '</details>';
-    }
-
-    return html;
-  }
-
-  // ── Avro ─────────────────────────────────────────────────────────
-
-  function renderAvroSchema(schema) {
-    let html = '';
-    const label = schema.type === 'enum' ? 'enum' : 'record';
-    html += '<div class="schema-meta">' + label + ' <strong>' + esc(schema.name) + '</strong>';
-    if (schema.namespace) html += ' <span class="schema-comment">(' + esc(schema.namespace) + ')</span>';
-    html += '</div>';
-    if (schema.doc) html += '<div class="schema-comment">' + esc(schema.doc) + '</div>';
-
-    // Enum symbols
-    if (schema.symbols && schema.symbols.length > 0) {
-      html += '<div class="schema-symbols">';
-      for (const s of schema.symbols) {
-        html += '<span class="tag">' + esc(s) + '</span>';
-      }
-      html += '</div>';
-    }
-
-    // Record fields
-    if (schema.fields && schema.fields.length > 0) {
-      html += '<table class="schema-table"><thead><tr><th>Field</th><th>Type</th><th>Default</th><th></th></tr></thead><tbody>';
-      for (const f of schema.fields) {
-        html += '<tr>';
-        html += '<td>' + esc(f.name) + '</td>';
-        html += '<td>' + esc(f.type) + '</td>';
-        html += '<td>' + esc(f.default || '') + '</td>';
-        html += '<td class="schema-comment">' + esc(f.doc || '') + '</td>';
-        html += '</tr>';
-      }
-      html += '</tbody></table>';
-    }
-
-    return html;
-  }
-
-  // ── JSON Schema ──────────────────────────────────────────────────
-
-  function renderJSONSchema(schema) {
-    let html = '';
-    if (schema.title) html += '<div class="schema-meta"><strong>' + esc(schema.title) + '</strong></div>';
-    if (schema.description) html += '<div class="schema-comment">' + esc(schema.description) + '</div>';
-    if (schema.type) html += '<div class="schema-meta">type: <span class="schema-type-badge">' + esc(schema.type) + '</span></div>';
-
-    if (schema.properties && schema.properties.length > 0) {
-      html += renderJSONSchemaProps(schema.properties, 0);
-    }
-    return html;
-  }
-
-  function renderJSONSchemaProps(props, depth) {
-    let html = '<table class="schema-table"><thead><tr><th>Property</th><th>Type</th><th></th></tr></thead><tbody>';
-    for (const p of props) {
-      const indent = depth > 0 ? '&nbsp;'.repeat(depth * 4) : '';
-      html += '<tr>';
-      html += '<td>' + indent + esc(p.name) + (p.required ? ' <span class="required-marker">*</span>' : '') + '</td>';
-      html += '<td>' + esc(p.type || '') + '</td>';
-      html += '<td class="schema-comment">' + esc(p.description || '') + '</td>';
-      html += '</tr>';
-      if (p.properties && p.properties.length > 0) {
-        // Render nested properties inline (strip table wrapper).
-        const nested = renderJSONSchemaProps(p.properties, depth + 1);
-        // Extract just the tbody rows.
-        const match = nested.match(/<tbody>([\s\S]*?)<\/tbody>/);
-        if (match) html += match[1];
-      }
-    }
-    html += '</tbody></table>';
-    return html;
-  }
-
-  // ── Parquet ──────────────────────────────────────────────────────
-
-  function renderParquetSchema(schema) {
-    let html = '';
-    html += '<div class="schema-meta">message <strong>' + esc(schema.message_name) + '</strong></div>';
-
-    if (schema.columns && schema.columns.length > 0) {
-      html += '<table class="schema-table"><thead><tr><th>Column</th><th>Physical Type</th><th>Annotation</th><th>Repetition</th></tr></thead><tbody>';
-      for (const c of schema.columns) {
-        html += '<tr>';
-        html += '<td>' + esc(c.name) + '</td>';
-        html += '<td>' + esc(c.phys_type) + '</td>';
-        html += '<td>' + esc(c.annotation || '') + '</td>';
-        html += '<td>' + esc(c.repetition) + '</td>';
-        html += '</tr>';
-      }
-      html += '</tbody></table>';
-    }
-
-    return html;
-  }
-
-  // ===== Hash Routing =====
-
-  function applyFromHash() {
-    const hash = decodeURIComponent(window.location.hash.slice(1));
-    if (hash) {
-      render();
-      showDetail(hash);
-    } else {
-      hideDetail();
-      render();
-    }
-  }
-
-  // ===== Utilities =====
-
   function esc(str) {
     if (!str) return "";
-    const div = document.createElement("div");
+    var div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
   }
