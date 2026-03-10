@@ -30,6 +30,37 @@ Given `org=acme` and API path `proto/payments/ledger/v1`:
 ```{include} ../_generated/identity-derivation-table.md
 ```
 
+## Organization Name Normalization
+
+The `org` value from `apx.yaml` flows into every derived coordinate. Because each language ecosystem has its own identifier rules, APX normalizes the org name per-language:
+
+| Context | Rule | `Acme-Corp` becomes |
+|---------|------|---------------------|
+| **Package manager names** (PyPI dist, Cargo crate, Conan ref, npm scope) | Lowercase only — hyphens are valid | `acme-corp` |
+| **OCI / Docker image refs** | Must be fully lowercase | `acme-corp` |
+| **Go module paths** | Case-insensitive (Git hosting) | `acme-corp` |
+| **Python imports** | Hyphens → underscores (Python identifiers) | `acme_corp_apis` |
+| **Rust module paths** | Hyphens → underscores (Rust identifiers) | `acme_corp_` |
+| **C++ namespaces** | Hyphens → underscores (C++ identifiers) | `acme_corp::` |
+| **Java packages** | Hyphens → dots (reverse-domain convention) | `com.acme.corp.apis` |
+
+Given `org=Acme-Corp` and API path `proto/payments/ledger/v1`:
+
+| Coordinate | Derived Value |
+|------------|---------------|
+| Go module | `github.com/Acme-Corp/apis/proto/payments/ledger` |
+| Py dist | `acme-corp-payments-ledger-v1` |
+| Py import | `acme_corp_apis.payments.ledger.v1` |
+| Crate | `acme-corp-payments-ledger-v1-proto` |
+| Rust mod | `acme_corp_payments::ledger::v1` |
+| Conan | `acme-corp-payments-ledger-v1-proto` |
+| C++ ns | `acme_corp::payments::ledger::v1` |
+| Maven | `com.acme.corp.apis:payments-ledger-v1-proto` |
+| Java pkg | `com.acme.corp.apis.payments.ledger.v1` |
+| npm | `@acme-corp/payments-ledger-v1-proto` |
+
+**Key takeaway:** Hyphens in org names are fine. APX handles the per-ecosystem translation automatically. You never need to pre-normalize your org name.
+
 ## Go Workflow
 
 Go is the Tier 1 language with the most mature overlay system:

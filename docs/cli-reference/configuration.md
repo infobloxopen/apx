@@ -35,7 +35,7 @@ version: 1
 | Field     | Type   | Description                    |
 |-----------|--------|--------------------------------|
 | `version` | integer | Schema version number         |
-| `org`     | string  | GitHub organization name      |
+| `org`     | string  | GitHub organization name (hyphens and mixed case are normalized per-language; see [Org Name Normalization](../concepts/multi-language-strategy.md#organization-name-normalization)) |
 | `repo`    | string  | Canonical API repository name |
 
 ## Complete Field Reference

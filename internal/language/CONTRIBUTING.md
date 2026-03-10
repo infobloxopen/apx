@@ -11,6 +11,17 @@ the release manifest.
 - Understand the APX API identity model (format/domain/name/line)
 - Know how the target language's package ecosystem works (naming, imports, registries)
 
+## Org Name Normalization
+
+The `org` value may contain hyphens (`acme-corp`) or mixed case (`Acme-Corp`).
+Your derivation functions **must** handle this correctly:
+
+- **Package manager names** (crate, dist, npm scope) — lowercase only; hyphens are usually valid
+- **Language identifiers** (imports, modules, namespaces) — hyphens are typically invalid; replace with underscores or dots per the target language's rules
+
+See existing plugins for patterns: Python (`_apis` namespace), Rust (`_` join),
+C++ (`_` replace), Java (hyphens → dots). Tests must include a `"hyphenated org"` case.
+
 ## Step-by-Step Checklist
 
 ### 1. Plugin Implementation (with Derivation)
