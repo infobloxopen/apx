@@ -299,6 +299,26 @@ apx sync           # update go.work
 go test ./...      # canonical imports resolve via overlay
 ```
 
+## Language-Specific Generation Reference
+
+--8<-- "_generated/code-gen-go.md"
+
+
+--8<-- "_generated/code-gen-python.md"
+
+
+--8<-- "_generated/code-gen-java.md"
+
+
+--8<-- "_generated/code-gen-cpp.md"
+
+
+--8<-- "_generated/code-gen-rust.md"
+
+
+--8<-- "_generated/code-gen-typescript.md"
+
+
 ## See Also
 
 - [Local Development](../app-repos/local-development.md) — full development workflow

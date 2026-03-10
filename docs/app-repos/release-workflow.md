@@ -1,4 +1,4 @@
-# Release Workflow
+# App Repo Release Workflow
 
 This page covers how to release schemas from an app repository to the canonical repository. APX provides a multi-step release pipeline and supports both manual and CI-triggered workflows.
 
@@ -253,7 +253,7 @@ apx release prepare proto/payments/ledger/v1 --version v1.0.0 --lifecycle stable
 apx release prepare proto/payments/ledger/v1 --version v1.0.0-beta.1 --lifecycle stable
 ```
 
-See [Release Overview](../publishing/overview.md) for the full lifecycle model.
+See [Release Overview](../releasing/overview.md) for the full lifecycle model.
 
 ---
 

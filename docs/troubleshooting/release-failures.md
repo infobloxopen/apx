@@ -176,6 +176,6 @@ apx release submit --dry-run
 ## See Also
 
 - [Common Errors](common-errors.md) — general APX error reference
-- [Release Guardrails](../publishing/release-guardrails.md) — lifecycle and version enforcement
+- [Release Guardrails](../releasing/release-guardrails.md) — lifecycle and version enforcement
 - [Release Commands](../cli-reference/release-commands.md) — full command reference
 - [CI Integration](../app-repos/ci-integration.md) — CI workflow setup

@@ -102,6 +102,8 @@ nav:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
     - Interactive Init: getting-started/interactive-init.md
+  - Concepts:
+    - Multi-Language Strategy: concepts/multi-language-strategy.md
   - Canonical Repo:
     - canonical-repo/index.md
     - Setup: canonical-repo/setup.md
@@ -113,7 +115,7 @@ nav:
     - Layout: app-repos/layout.md
     - Local Development: app-repos/local-development.md
     - Working with Forks: app-repos/working-with-forks.md
-    - Release Workflow: app-repos/publishing-workflow.md
+    - Release Workflow: app-repos/release-workflow.md
     - CI Integration: app-repos/ci-integration.md
   - Dependencies:
     - dependencies/index.md
@@ -124,15 +126,14 @@ nav:
     - Updates & Upgrades: dependencies/updates-and-upgrades.md
     - External APIs: dependencies/external-apis.md
     - Catalog Schema: dependencies/catalog-schema.md
-    - Multi-Language Strategy: concepts/multi-language-strategy.md
   - Releasing:
-    - publishing/index.md
-    - Overview: publishing/overview.md
-    - Lifecycle: publishing/lifecycle.md
-    - Canonical PR: publishing/canonical-pr.md
-    - Tagging Strategy: publishing/tagging-strategy.md
-    - Release Guardrails: publishing/release-guardrails.md
-    - Validation: publishing/validation.md
+    - releasing/index.md
+    - Overview: releasing/overview.md
+    - Lifecycle: releasing/lifecycle.md
+    - Canonical PR: releasing/canonical-pr.md
+    - Tagging Strategy: releasing/tagging-strategy.md
+    - Release Guardrails: releasing/release-guardrails.md
+    - Validation: releasing/validation.md
   - CLI Reference:
     - cli-reference/index.md
     - Core Commands: cli-reference/core-commands.md
@@ -148,10 +149,11 @@ nav:
     - Common Errors: troubleshooting/common-errors.md
     - Buf Issues: troubleshooting/buf-issues.md
     - Versioning Problems: troubleshooting/versioning-problems.md
-    - Publishing Failures: troubleshooting/publishing-failures.md
+    - Release Failures: troubleshooting/release-failures.md
     - Code Generation: troubleshooting/code-generation.md
     - E2E Tests: troubleshooting/e2e-tests.md
     - FAQ: troubleshooting/faq.md
   - Testing:
+    - testing/index.md
     - E2E Tests: testing/e2e-tests.md
     - Format Maturity: testing/format-maturity.md

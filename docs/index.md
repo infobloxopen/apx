@@ -41,7 +41,7 @@
 
     Tag-based release workflow from app repos to canonical repo.
 
-    [:octicons-arrow-right-24: Learn more](publishing/index.md)
+    [:octicons-arrow-right-24: Learn more](releasing/index.md)
 
 -   :material-github: **GitHub**
 
@@ -99,7 +99,7 @@ brew install --cask <org>/tap/apx
 apx --version
 
 # Bootstrap canonical repo
-apx init canonical github.com/<org>/apis
+apx init canonical --org=<org> --repo=apis
 
 # Bootstrap app repo for authoring
 apx init app internal/apis/proto/payments/ledger

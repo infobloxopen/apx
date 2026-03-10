@@ -12,6 +12,54 @@ apx init canonical             # Initialize canonical API repository
 apx init app <modulePath>      # Initialize application repository
 ```
 
+### Common Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--non-interactive` | bool | false | Disable interactive prompts and use defaults |
+| `--org` | string | auto-detected | Organization name |
+| `--repo` | string | auto-detected | Repository name |
+| `--languages` | []string | `[go]` | Target languages (auto-detected from project files) |
+
+### `apx init canonical` Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--org` | string | | Organization name |
+| `--repo` | string | | Repository name |
+| `--import-root` | string | | Custom public Go import prefix (e.g. `go.acme.dev/apis`) |
+| `--skip-git` | bool | false | Skip git initialization |
+| `--setup-github` | bool | false | Configure GitHub repo settings (branch/tag protection, org secrets) via `gh` CLI |
+| `--app-id` | string | | GitHub App ID for org secrets (used with `--setup-github`) |
+| `--app-pem-file` | string | | Path to GitHub App private key PEM file (used with `--setup-github`) |
+
+### `apx init app` Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--org` | string | | Organization name |
+| `--repo` | string | | Repository name |
+| `--import-root` | string | | Custom public Go import prefix (e.g. `go.acme.dev/apis`) |
+| `--setup-github` | bool | false | Configure GitHub repo settings (branch protection) via `gh` CLI |
+
+## `apx gen`
+
+Generate code for the specified language.
+
+```bash
+apx gen <lang> [path]
+```
+
+Supported languages are listed dynamically; run `apx gen --help` to see them.
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--out` | string | | Output directory |
+| `--clean` | bool | false | Clean output directory before generation |
+| `--manifest` | bool | false | Emit generation manifest |
+
 ## `apx lint`
 
 Run linting checks on schema files.
@@ -60,89 +108,13 @@ Owners:     @platform/payments
 Tags:       public, core
 ```
 
+## `apx search`, `apx show`
+
+See [Dependency Commands](dependency-commands.md) for full flag tables and examples.
+
 ## `apx explain`
 
-Explain how APX derives language-specific paths.
-
-```bash
-apx explain go-path <api-id>    # Explain Go module/import path derivation
-```
-
-## `apx search`
-
-Search the API catalog. Supports local file paths and remote URLs.
-
-```bash
-apx search <query>
-apx search --tag=public --lifecycle=stable
-apx search --catalog=https://raw.githubusercontent.com/org/apis/main/catalog/catalog.yaml
-```
-
-## `apx show`
-
-Display full identity and catalog data for a given API.
-
-```bash
-apx show <api-id>                                           # Show API with config-derived source repo
-apx show --source-repo github.com/acme/apis <id>            # Override source repo
-apx show --catalog path/to/catalog.yaml <id>                # Custom catalog path
-apx show --catalog https://example.com/catalog.yaml <id>    # Remote catalog URL
-apx --json show <api-id>                                    # JSON output
-```
-
-This command merges two data sources:
-
-1. **Derived fields** computed from the API ID — Go module/import paths, tag pattern, source path.
-   When `import_root` is set, Go paths use the custom root.
-2. **Catalog fields** from `catalog.yaml` — latest stable/prerelease versions, lifecycle, owners, tags
-
-The catalog source is resolved in order: `--catalog` flag → `catalog_url` from `apx.yaml` → `catalog/catalog.yaml`.
-If no catalog is available, only derived fields are shown, with a note to run `apx catalog generate`.
-
-Example:
-
-```bash
-$ apx show proto/payments/ledger/v1
-API:        proto/payments/ledger/v1
-Format:     proto
-Domain:     payments
-Name:       ledger
-Line:       v1
-Lifecycle:  stable
-Source:     github.com/acme/apis/proto/payments/ledger/v1
-Latest stable:      v1.2.3
-Latest prerelease:  v1.3.0-beta.1
-Go module:  github.com/acme/apis/proto/payments/ledger
-Go import:  github.com/acme/apis/proto/payments/ledger/v1
-Owners:     @platform/payments
-Compatibility:
-  Level:    full
-  Promise:  full backward compatibility within the major version line
-  Breaking: backward-incompatible changes are blocked on this line
-  Use:      recommended for production
-```
-
-For a v0 API the lifecycle section shows the reduced compatibility guarantee:
-
-```bash
-$ apx show proto/payments/ledger/v0
-API:        proto/payments/ledger/v0
-Format:     proto
-Domain:     payments
-Name:       ledger
-Line:       v0
-Lifecycle:  experimental
-Source:     github.com/acme/apis/proto/payments/ledger/v0
-Latest stable:      (none)
-Latest prerelease:  0.3.0
-Go module:  github.com/acme/apis/proto/payments/ledger
-Go import:  github.com/acme/apis/proto/payments/ledger/v0
-Compatibility:
-  Level:    none
-  Promise:  no backward-compatibility guarantee; anything may change
-  Breaking: breaking changes are allowed (minor version bump)
-  Use:      not recommended for production
-```
+See [Utility Commands](utility-commands.md#apx-explain) for full flag tables and examples.
 
 ## `apx config`
 

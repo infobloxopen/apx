@@ -156,11 +156,13 @@ Points `apx search`, `apx show`, `apx add`, `apx update`, and `apx upgrade` at y
 catalog_url: https://raw.githubusercontent.com/acme/apis/main/catalog/catalog.yaml
 ```
 
-**Resolution order** for all five commands:
+**Resolution order** (same as the unified catalog resolution below):
 
 1. `--catalog` flag (if provided)
-2. `catalog_url` from `apx.yaml` (this field)
-3. Local `catalog/catalog.yaml`
+2. `catalog_registries` from `apx.yaml` (if configured)
+3. Auto-discover from `org` (query GHCR for `*-catalog` packages)
+4. `catalog_url` from `apx.yaml`
+5. Local `catalog/catalog.yaml`
 
 **Use cases:**
 - App repos that don't clone the canonical repo still get `apx search`/`apx show` working
@@ -481,7 +483,7 @@ Validation checks include:
 - **Required fields**: `version`, `org`, `repo` must be present
 - **Type checking**: Each field must match the expected type (string, boolean, integer, list, map)
 - **Enum validation**: Fields with allowed values are checked (e.g., `execution.mode` must be `local` or `container`)
-- **Pattern validation**: `releasing.tag_format` must contain `{version}`
+- **Pattern validation**: `release.tag_format` must contain `{version}`
 - **Unknown keys**: Any field not in the schema is reported as an error
 - **Deprecated fields**: Fields marked as deprecated emit warnings (not errors)
 

@@ -194,6 +194,6 @@ A typical CI pipeline runs all three validation commands:
 
 ## See Also
 
-- [Release Guardrails](../publishing/release-guardrails.md) — version and lifecycle enforcement
+- [Release Guardrails](../releasing/release-guardrails.md) — version and lifecycle enforcement
 - [Versioning Strategy](../dependencies/versioning-strategy.md) — the three-layer versioning model
 - [Buf Issues](../troubleshooting/buf-issues.md) — troubleshooting Buf-related problems

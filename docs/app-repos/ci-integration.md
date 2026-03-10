@@ -352,7 +352,7 @@ The `|| true` after `apx breaking` makes it advisory. If you want strict breakin
 
 ## Next Steps
 
-- [Release Workflow](publishing-workflow.md) — manual vs CI release paths
+- [Release Workflow](release-workflow.md) — manual vs CI release paths
 - [CI Templates](../canonical-repo/ci-templates.md) — canonical repo workflow details
 - [Protection](../canonical-repo/protection.md) — branch/tag protection and GitHub App setup
 - [Layout](layout.md) — where the workflow file lives in the repo structure

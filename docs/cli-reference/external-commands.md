@@ -30,8 +30,8 @@ apx external register <api-id> [flags]
 | `--description` | string | No | | Human-readable description |
 | `--lifecycle` | string | No | | Lifecycle state (`experimental`, `beta`, `stable`, `deprecated`, `sunset`) |
 | `--version` | string | No | | Current version of the managed snapshot |
-| `--owners` | string | No | | Comma-separated list of owners |
-| `--tags` | string | No | | Comma-separated list of tags |
+| `--owners` | []string | No | | Comma-separated list of owners (repeatable) |
+| `--tags` | []string | No | | Comma-separated list of tags (repeatable) |
 
 ### Examples
 

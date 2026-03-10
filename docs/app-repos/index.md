@@ -116,5 +116,5 @@ directories:
 
 1. [Set up the directory layout](layout.md)
 2. [Configure local development](local-development.md)
-3. [Implement release workflow](publishing-workflow.md)
+3. [Implement release workflow](release-workflow.md)
 4. [Add CI integration](ci-integration.md)

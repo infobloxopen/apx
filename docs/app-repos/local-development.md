@@ -458,7 +458,7 @@ apx gen go && apx sync
 
 ## Next Steps
 
-- [Release Workflow](publishing-workflow.md) — release to the canonical repo
+- [Release Workflow](release-workflow.md) — release to the canonical repo
 - [CI Integration](ci-integration.md) — automate validation and releasing
 - [Code Generation](../dependencies/code-generation.md) — multi-language generation details
 - [Versioning Strategy](../dependencies/versioning-strategy.md) — SemVer and API line conventions

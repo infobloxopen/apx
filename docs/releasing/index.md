@@ -1,4 +1,4 @@
-# Release Workflow
+# Releasing
 
 
 APX implements a **PR-first release model**: every API change reaches the

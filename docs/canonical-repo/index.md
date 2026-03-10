@@ -1,4 +1,4 @@
-# Canonical Repository Setup
+# Canonical Repository
 
 The canonical repository (`github.com/<org>/apis`) is the single source of truth for all organization APIs. This is what consumers depend on and where CI creates official releases.
 

@@ -63,6 +63,7 @@ apx release prepare proto/payments/ledger/v1 --version v2.0.0 --force
 | `--strict` | bool | false | Fail on `go_package` validation warnings |
 | `--skip-gomod` | bool | false | Skip `go.mod` validation |
 | `--force` | bool | false | Override lifecycle and policy checks |
+| `--dry-run` | bool | false | Show what would be prepared without writing the manifest |
 
 ### What Happens
 
@@ -194,15 +195,11 @@ apx release inspect
 # Show tags for a specific API (when no manifest exists)
 apx release inspect proto/payments/ledger/v1
 
-# JSON output
-apx release inspect --json
+# JSON output (uses the global --json flag)
+apx --json release inspect
 ```
 
-### Flags
-
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--json` | bool | false | Output in JSON format |
+No command-specific flags. Uses the [global `--json` flag](global-options.md) for JSON output.
 
 ---
 

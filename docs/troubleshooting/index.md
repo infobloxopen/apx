@@ -296,5 +296,5 @@ If using APX in an organization:
 - [Review common errors](common-errors.md) for your specific issue
 - [Debug Buf integration](buf-issues.md) for Protocol Buffer problems
 - [Resolve versioning problems](versioning-problems.md) for Go module issues
-- [Fix publishing failures](publishing-failures.md) for CI problems
+- [Fix release failures](release-failures.md) for CI problems
 - [Check the FAQ](faq.md) for frequently asked questions

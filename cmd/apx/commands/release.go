@@ -620,12 +620,11 @@ Examples:
 		Args: cobra.MaximumNArgs(1),
 		RunE: releaseInspectAction,
 	}
-	cmd.Flags().Bool("json", false, "Output in JSON format")
 	return cmd
 }
 
 func releaseInspectAction(cmd *cobra.Command, args []string) error {
-	jsonOut, _ := cmd.Flags().GetBool("json")
+	jsonOut, _ := cmd.Root().PersistentFlags().GetBool("json")
 
 	// Try reading manifest first
 	manifest, err := publisher.ReadManifest(".apx-release.yaml")

@@ -59,7 +59,7 @@ Error: v0 APIs are limited to "experimental" or "beta" lifecycle
 The `v0` line is reserved for APIs under active development. Stable graduation requires moving to `v1`:
 
 1. Create `proto/payments/ledger/v1/` (copy and evolve from v0)
-2. Publish with `proto/payments/ledger/v1` as the API ID
+2. Release with `proto/payments/ledger/v1` as the API ID
 3. Set lifecycle to `stable`
 4. Deprecate the v0 line
 
@@ -162,7 +162,7 @@ If `apx semver suggest` or `apx release history` shows unexpected ordering, ensu
 
 ## See Also
 
-- [Release Guardrails](../publishing/release-guardrails.md) — full lifecycle and version enforcement rules
+- [Release Guardrails](../releasing/release-guardrails.md) — full lifecycle and version enforcement rules
 - [Versioning Strategy](../dependencies/versioning-strategy.md) — the three-layer versioning model
-- [Publishing Failures](publishing-failures.md) — publish and release errors
+- [Release Failures](release-failures.md) — release pipeline errors
 - [Common Errors](common-errors.md) — general error reference

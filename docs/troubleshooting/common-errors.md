@@ -90,7 +90,7 @@ Error: lifecycle "stable" requires a stable version (no prerelease), got v1.0.0-
 
 **Cause:** The version's prerelease tag doesn't match the declared lifecycle.
 
-**Fix:** See [Release Guardrails](../publishing/release-guardrails.md) for the compatibility matrix.
+**Fix:** See [Release Guardrails](../releasing/release-guardrails.md) for the compatibility matrix.
 
 ---
 
@@ -190,7 +190,7 @@ No results found for "nonexistent-api"
 ## See Also
 
 - [Buf Issues](buf-issues.md) — Buf-specific troubleshooting
-- [Release Failures](publishing-failures.md) — release pipeline errors
+- [Release Failures](release-failures.md) — release pipeline errors
 - [Versioning Problems](versioning-problems.md) — version and lifecycle issues
 - [Code Generation](code-generation.md) — generation troubleshooting
 - [FAQ](faq.md) — frequently asked questions

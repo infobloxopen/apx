@@ -335,5 +335,5 @@ See [Quickstart](../getting-started/quickstart.md) for a complete walkthrough.
 ## Next Steps
 
 - [Local Development](local-development.md) — day-to-day workflow with these files
-- [Release Workflow](publishing-workflow.md) — how schemas move from app repo to canonical repo
+- [Release Workflow](release-workflow.md) — how schemas move from app repo to canonical repo
 - [CI Integration](ci-integration.md) — automated validation and releasing
