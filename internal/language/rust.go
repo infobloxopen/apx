@@ -69,9 +69,11 @@ func deriveRustCrate(org string, api *config.APIIdentity) string {
 //   - Sub-modules: <name>::<line> (4-part) or <line> (3-part)
 //   - All lowercase, underscore for crate root, :: for module path
 //   - Example: org="acme", proto/payments/ledger/v1 → "acme_payments::ledger::v1"
+//   - Example: org="Acme-Corp", proto/payments/ledger/v1 → "acme_corp_payments::ledger::v1"
 //   - Example: org="acme", proto/orders/v1 (3-part) → "acme_orders::v1"
 func deriveRustModule(org string, api *config.APIIdentity) string {
-	orgLower := strings.ToLower(org)
+	// Rust identifiers cannot contain hyphens; replace with underscores.
+	orgLower := strings.ReplaceAll(strings.ToLower(org), "-", "_")
 	if api.Domain != "" {
 		// 4-part: acme_payments::ledger::v1
 		root := orgLower + "_" + strings.ToLower(api.Domain)

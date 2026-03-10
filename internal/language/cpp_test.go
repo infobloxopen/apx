@@ -98,6 +98,12 @@ func TestDeriveCppConanRef(t *testing.T) {
 			api:  &config.APIIdentity{Format: "openapi", Domain: "billing", Name: "invoices", Line: "v1"},
 			want: "acme-billing-invoices-v1-proto",
 		},
+		{
+			name: "hyphenated org kept in conan ref",
+			org:  "acme-corp",
+			api:  &config.APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "acme-corp-payments-ledger-v1-proto",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -130,6 +136,12 @@ func TestDeriveCppNamespace(t *testing.T) {
 			org:  "ACME",
 			api:  &config.APIIdentity{Format: "proto", Domain: "Payments", Name: "Ledger", Line: "v2"},
 			want: "acme::payments::ledger::v2",
+		},
+		{
+			name: "hyphenated org normalized to underscores",
+			org:  "acme-corp",
+			api:  &config.APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "acme_corp::payments::ledger::v1",
 		},
 	}
 	for _, tt := range tests {

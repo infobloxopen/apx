@@ -98,6 +98,12 @@ func TestDeriveRustCrate(t *testing.T) {
 			api:  &config.APIIdentity{Format: "openapi", Domain: "billing", Name: "invoices", Line: "v1"},
 			want: "acme-billing-invoices-v1-proto",
 		},
+		{
+			name: "hyphenated org kept in crate name",
+			org:  "acme-corp",
+			api:  &config.APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "acme-corp-payments-ledger-v1-proto",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -136,6 +142,12 @@ func TestDeriveRustModule(t *testing.T) {
 			org:  "myorg",
 			api:  &config.APIIdentity{Format: "proto", Domain: "events", Name: "click", Line: "v0"},
 			want: "myorg_events::click::v0",
+		},
+		{
+			name: "hyphenated org normalized to underscores",
+			org:  "acme-corp",
+			api:  &config.APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "acme_corp_payments::ledger::v1",
 		},
 	}
 	for _, tt := range tests {

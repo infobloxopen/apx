@@ -94,6 +94,12 @@ func TestDerivePythonDistName(t *testing.T) {
 			api:  &config.APIIdentity{Format: "avro", Domain: "events", Name: "click", Line: "v0"},
 			want: "myorg-events-click-v0",
 		},
+		{
+			name: "hyphenated org kept in dist name",
+			org:  "acme-corp",
+			api:  &config.APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "acme-corp-payments-ledger-v1",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -132,6 +138,12 @@ func TestDerivePythonImport(t *testing.T) {
 			org:  "myorg",
 			api:  &config.APIIdentity{Format: "avro", Domain: "events", Name: "click", Line: "v0"},
 			want: "myorg_apis.events.click.v0",
+		},
+		{
+			name: "hyphenated org normalized to underscores",
+			org:  "acme-corp",
+			api:  &config.APIIdentity{Format: "proto", Domain: "payments", Name: "ledger", Line: "v1"},
+			want: "acme_corp_apis.payments.ledger.v1",
 		},
 	}
 	for _, tt := range tests {

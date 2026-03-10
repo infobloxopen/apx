@@ -68,9 +68,11 @@ func deriveCppConanRef(org string, api *config.APIIdentity) string {
 //   - Pattern: <org>::<domain>::<name>::<line> (4-part) or <org>::<name>::<line> (3-part)
 //   - All lowercase, joined with ::
 //   - Example: org="acme", proto/payments/ledger/v1 → "acme::payments::ledger::v1"
+//   - Example: org="Acme-Corp", proto/payments/ledger/v1 → "acme_corp::payments::ledger::v1"
 //   - Example: org="acme", proto/orders/v1 (3-part) → "acme::orders::v1"
 func deriveCppNamespace(org string, api *config.APIIdentity) string {
-	parts := []string{strings.ToLower(org)}
+	// C++ identifiers cannot contain hyphens; replace with underscores.
+	parts := []string{strings.ReplaceAll(strings.ToLower(org), "-", "_")}
 	if api.Domain != "" {
 		parts = append(parts, strings.ToLower(api.Domain))
 	}

@@ -151,9 +151,11 @@ func derivePythonDistName(org string, api *config.APIIdentity) string {
 //   - Top-level namespace: {org}_apis (underscore-joined, Python identifier safe)
 //   - Sub-packages: domain (if present), name, line
 //   - Example: org="acme", proto/payments/ledger/v1 → "acme_apis.payments.ledger.v1"
+//   - Example: org="Acme-Corp", proto/payments/ledger/v1 → "acme_corp_apis.payments.ledger.v1"
 //   - Example: org="acme", proto/orders/v1 → "acme_apis.orders.v1"
 func derivePythonImport(org string, api *config.APIIdentity) string {
-	namespace := strings.ToLower(org) + "_apis"
+	// Python identifiers cannot contain hyphens; replace with underscores.
+	namespace := strings.ReplaceAll(strings.ToLower(org), "-", "_") + "_apis"
 	parts := []string{namespace}
 	if api.Domain != "" {
 		parts = append(parts, strings.ToLower(api.Domain))
