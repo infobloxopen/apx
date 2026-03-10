@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/infobloxopen/apx/main/apx_logo.svg" alt="APX Logo" width="400">
+  <img src="https://raw.githubusercontent.com/infobloxopen/apx/b2be95c/apx_logo.svg" alt="APX Logo" width="400">
   <br><br>
 
   [![Go Version](https://img.shields.io/github/go-mod/go-version/infobloxopen/apx)](https://golang.org/)
