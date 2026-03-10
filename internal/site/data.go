@@ -10,11 +10,13 @@
 package site
 
 import (
+	"path/filepath"
 	"time"
 
 	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/language"
+	"github.com/infobloxopen/apx/internal/site/schema"
 )
 
 // SiteData is the top-level structure serialized to index.json.
@@ -28,21 +30,22 @@ type SiteData struct {
 
 // APIEntry is the JSON-serialized form of one API in the catalog explorer.
 type APIEntry struct {
-	ID               string                       `json:"id"`
-	Format           string                       `json:"format"`
-	Domain           string                       `json:"domain,omitempty"`
-	Name             string                       `json:"name,omitempty"`
-	Line             string                       `json:"line,omitempty"`
-	Description      string                       `json:"description,omitempty"`
-	Version          string                       `json:"version,omitempty"`
-	LatestStable     string                       `json:"latest_stable,omitempty"`
-	LatestPrerelease string                       `json:"latest_prerelease,omitempty"`
-	Lifecycle        string                       `json:"lifecycle,omitempty"`
-	Compatibility    *CompatibilityInfo           `json:"compatibility,omitempty"`
-	Tags             []string                     `json:"tags,omitempty"`
-	Owners           []string                     `json:"owners,omitempty"`
-	Origin           string                       `json:"origin,omitempty"`
-	Languages        map[string][]LanguageCoord   `json:"languages,omitempty"`
+	ID               string                     `json:"id"`
+	Format           string                     `json:"format"`
+	Domain           string                     `json:"domain,omitempty"`
+	Name             string                     `json:"name,omitempty"`
+	Line             string                     `json:"line,omitempty"`
+	Description      string                     `json:"description,omitempty"`
+	Version          string                     `json:"version,omitempty"`
+	LatestStable     string                     `json:"latest_stable,omitempty"`
+	LatestPrerelease string                     `json:"latest_prerelease,omitempty"`
+	Lifecycle        string                     `json:"lifecycle,omitempty"`
+	Compatibility    *CompatibilityInfo         `json:"compatibility,omitempty"`
+	Tags             []string                   `json:"tags,omitempty"`
+	Owners           []string                   `json:"owners,omitempty"`
+	Origin           string                     `json:"origin,omitempty"`
+	Languages        map[string][]LanguageCoord `json:"languages,omitempty"`
+	Schema           *schema.SchemaDetail       `json:"schema,omitempty"`
 }
 
 // CompatibilityInfo describes the backward-compatibility contract.
@@ -61,7 +64,9 @@ type LanguageCoord struct {
 
 // BuildSiteData converts a catalog into the site data structure,
 // deriving language coordinates for every module.
-func BuildSiteData(cat *catalog.Catalog, sourceRepo, importRoot, org string) *SiteData {
+// If repoDir is non-empty, schema files are extracted from the filesystem
+// at each module's path relative to repoDir.
+func BuildSiteData(cat *catalog.Catalog, sourceRepo, importRoot, org, repoDir string) *SiteData {
 	data := &SiteData{
 		Org:         cat.Org,
 		Repo:        cat.Repo,
@@ -73,6 +78,11 @@ func BuildSiteData(cat *catalog.Catalog, sourceRepo, importRoot, org string) *Si
 	for _, m := range cat.Modules {
 		entry := buildAPIEntry(m, sourceRepo, importRoot, org)
 		if entry != nil {
+			// Extract schema content when repoDir is provided.
+			if repoDir != "" && m.Path != "" {
+				modulePath := filepath.Join(repoDir, m.Path)
+				entry.Schema = schema.ExtractSchema(modulePath, m.Format)
+			}
 			data.APIs = append(data.APIs, *entry)
 		}
 	}

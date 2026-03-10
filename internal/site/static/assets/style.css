@@ -377,6 +377,174 @@ main {
 .site-footer a:hover { text-decoration: underline; }
 
 /* ===== Responsive ===== */
+/* ===== Schema Section ===== */
+
+.schema-file {
+  margin-bottom: 1.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.schema-filename {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--bg);
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.schema-meta {
+  font-size: 0.85rem;
+  margin-bottom: 0.25rem;
+  color: var(--text-secondary);
+}
+.schema-meta strong {
+  color: var(--text);
+}
+
+.schema-comment {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin-bottom: 0.25rem;
+}
+
+.schema-section {
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.schema-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  padding: 0.4rem 0.6rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+.schema-section summary:hover {
+  background: var(--border);
+}
+
+.schema-section[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.schema-table {
+  width: 100%;
+  font-size: 0.8rem;
+  border-collapse: collapse;
+}
+.schema-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 0.3rem 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  background: var(--bg);
+}
+.schema-table td {
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.78rem;
+}
+.schema-table td.schema-comment {
+  font-family: inherit;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.schema-type-badge {
+  display: inline-block;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--border);
+  color: var(--text-secondary);
+}
+
+.schema-symbols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* HTTP method badges */
+.method-badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  text-transform: uppercase;
+  min-width: 3.5em;
+  text-align: center;
+}
+.method-get    { background: #c8e6c9; color: #1b5e20; }
+.method-post   { background: #bbdefb; color: #1565c0; }
+.method-put    { background: #ffe0b2; color: #e65100; }
+.method-delete { background: #ffcdd2; color: #b71c1c; }
+.method-patch  { background: #e1bee7; color: #6a1b9a; }
+
+.openapi-endpoint {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.openapi-endpoint:last-child { border-bottom: none; }
+
+.openapi-path {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-weight: 500;
+  font-size: 0.82rem;
+}
+
+.openapi-schema-name {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.3rem 0.5rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  margin-top: 0.5rem;
+}
+.openapi-schema-name:first-child { margin-top: 0; }
+
+.required-marker {
+  color: #c62828;
+  font-weight: 700;
+  font-size: 0.7rem;
+}
+
+/* Dark mode overrides for schema elements */
+@media (prefers-color-scheme: dark) {
+  .method-get    { background: rgba(27,94,32,0.25); color: #a5d6a7; }
+  .method-post   { background: rgba(21,101,192,0.25); color: #90caf9; }
+  .method-put    { background: rgba(230,81,0,0.2); color: #ffcc80; }
+  .method-delete { background: rgba(183,28,28,0.2); color: #ef9a9a; }
+  .method-patch  { background: rgba(106,27,154,0.2); color: #ce93d8; }
+  .required-marker { color: #ef5350; }
+}
+
+/* ===== Responsive ===== */
+
 @media (max-width: 768px) {
   .header-content {
     flex-direction: column;

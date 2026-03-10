@@ -48,6 +48,7 @@ The output directory contains a self-contained static site ready for deployment.
 	cmd.Flags().StringP("output", "o", "_site", "output directory for the generated site")
 	cmd.Flags().String("catalog", "", "path or URL to catalog.yaml (default: same resolution as apx search)")
 	cmd.Flags().String("base-path", "", "URL base path for asset references (e.g. /catalog)")
+	cmd.Flags().String("dir", "", "repository root directory for schema file extraction")
 
 	return cmd
 }
@@ -56,6 +57,7 @@ func catalogSiteGenerateAction(cmd *cobra.Command, args []string) error {
 	outputDir, _ := cmd.Flags().GetString("output")
 	catalogFlag, _ := cmd.Flags().GetString("catalog")
 	basePath, _ := cmd.Flags().GetString("base-path")
+	dir, _ := cmd.Flags().GetString("dir")
 
 	// Resolve context from config (same helpers as show/search commands).
 	sourceRepo := resolveSourceRepo(cmd)
@@ -90,8 +92,11 @@ func catalogSiteGenerateAction(cmd *cobra.Command, args []string) error {
 		ui.Info("  Import root: %s", importRoot)
 	}
 	ui.Info("  Languages: %d plugins registered", len(language.All()))
+	if dir != "" {
+		ui.Info("  Schema dir: %s", dir)
+	}
 
-	data := site.BuildSiteData(cat, sourceRepo, importRoot, org)
+	data := site.BuildSiteData(cat, sourceRepo, importRoot, org, dir)
 
 	ui.Info("Generating site to %s...", outputDir)
 	if err := site.Generate(data, outputDir, basePath); err != nil {
@@ -121,6 +126,7 @@ Press Ctrl+C to stop the server.`,
 
 	cmd.Flags().IntP("port", "p", defaultServePort, "port to serve on")
 	cmd.Flags().String("catalog", "", "path or URL to catalog.yaml (default: same resolution as apx search)")
+	cmd.Flags().String("dir", "", "repository root directory for schema file extraction")
 	cmd.Flags().Bool("no-open", false, "don't open the browser automatically")
 
 	return cmd
@@ -129,6 +135,7 @@ Press Ctrl+C to stop the server.`,
 func catalogSiteServeAction(cmd *cobra.Command, args []string) error {
 	port, _ := cmd.Flags().GetInt("port")
 	catalogFlag, _ := cmd.Flags().GetString("catalog")
+	dir, _ := cmd.Flags().GetString("dir")
 	noOpen, _ := cmd.Flags().GetBool("no-open")
 
 	// Generate to a temp directory.
@@ -162,7 +169,7 @@ func catalogSiteServeAction(cmd *cobra.Command, args []string) error {
 	}
 
 	ui.Info("Building site data for %d APIs...", len(cat.Modules))
-	data := site.BuildSiteData(cat, sourceRepo, importRoot, org)
+	data := site.BuildSiteData(cat, sourceRepo, importRoot, org, dir)
 
 	// Generate with empty base path (served from root).
 	if err := site.Generate(data, tmpDir, ""); err != nil {

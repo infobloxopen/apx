@@ -275,6 +275,9 @@
       html += "</div>";
     }
 
+    // Schema section
+    html += renderSchema(api);
+
     // Tags section
     if (api.tags && api.tags.length > 0) {
       html += '<div class="detail-section"><h3>Tags</h3><div class="tag-list">';
@@ -346,6 +349,263 @@
       '<div class="detail-label">' + esc(label) + "</div>" +
       '<div class="detail-value">' + esc(value || "—") + "</div>"
     );
+  }
+
+  // ===== Schema Rendering =====
+
+  function renderSchema(api) {
+    if (!api.schema || !api.schema.files || api.schema.files.length === 0) return "";
+
+    let html = '<div class="detail-section"><h3>Schema</h3>';
+    for (const file of api.schema.files) {
+      html += '<div class="schema-file">';
+      html += '<div class="schema-filename">' + esc(file.filename) + '</div>';
+      if (file.proto) html += renderProtoSchema(file.proto);
+      if (file.openapi) html += renderOpenAPISchema(file.openapi);
+      if (file.avro) html += renderAvroSchema(file.avro);
+      if (file.jsonschema) html += renderJSONSchema(file.jsonschema);
+      if (file.parquet) html += renderParquetSchema(file.parquet);
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // ── Proto ────────────────────────────────────────────────────────
+
+  function renderProtoSchema(proto) {
+    let html = '';
+    if (proto.package) {
+      html += '<div class="schema-meta">package <strong>' + esc(proto.package) + '</strong></div>';
+    }
+
+    // Services
+    for (const svc of (proto.services || [])) {
+      html += '<details class="schema-section" open>';
+      html += '<summary>service ' + esc(svc.name) + '</summary>';
+      if (svc.comment) html += '<div class="schema-comment">' + esc(svc.comment) + '</div>';
+      if (svc.methods && svc.methods.length > 0) {
+        html += '<table class="schema-table"><thead><tr><th>RPC</th><th>Request</th><th>Response</th><th></th></tr></thead><tbody>';
+        for (const m of svc.methods) {
+          const stream = [];
+          if (m.client_streaming) stream.push('client-stream');
+          if (m.server_streaming) stream.push('server-stream');
+          html += '<tr>';
+          html += '<td>' + esc(m.name) + '</td>';
+          html += '<td>' + (m.client_streaming ? 'stream ' : '') + esc(m.input_type) + '</td>';
+          html += '<td>' + (m.server_streaming ? 'stream ' : '') + esc(m.output_type) + '</td>';
+          html += '<td class="schema-comment">' + esc(m.comment || '') + '</td>';
+          html += '</tr>';
+        }
+        html += '</tbody></table>';
+      }
+      html += '</details>';
+    }
+
+    // Messages
+    for (const msg of (proto.messages || [])) {
+      html += renderProtoMessage(msg, 0);
+    }
+
+    // Enums
+    for (const en of (proto.enums || [])) {
+      html += renderProtoEnum(en);
+    }
+
+    return html;
+  }
+
+  function renderProtoMessage(msg, depth) {
+    const tag = depth > 0 ? ' (nested)' : '';
+    let html = '<details class="schema-section"' + (depth === 0 ? ' open' : '') + '>';
+    html += '<summary>message ' + esc(msg.name) + tag + '</summary>';
+    if (msg.comment) html += '<div class="schema-comment">' + esc(msg.comment) + '</div>';
+
+    if (msg.fields && msg.fields.length > 0) {
+      html += '<table class="schema-table"><thead><tr><th>#</th><th>Field</th><th>Type</th><th>Label</th><th></th></tr></thead><tbody>';
+      for (const f of msg.fields) {
+        html += '<tr>';
+        html += '<td>' + f.number + '</td>';
+        html += '<td>' + esc(f.name) + '</td>';
+        html += '<td>' + esc(f.type) + '</td>';
+        html += '<td>' + esc(f.label || '') + '</td>';
+        html += '<td class="schema-comment">' + esc(f.comment || '') + '</td>';
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+    }
+
+    // Nested messages
+    for (const nested of (msg.nested || [])) {
+      html += renderProtoMessage(nested, depth + 1);
+    }
+    // Nested enums
+    for (const en of (msg.enums || [])) {
+      html += renderProtoEnum(en);
+    }
+
+    html += '</details>';
+    return html;
+  }
+
+  function renderProtoEnum(en) {
+    let html = '<details class="schema-section">';
+    html += '<summary>enum ' + esc(en.name) + '</summary>';
+    if (en.comment) html += '<div class="schema-comment">' + esc(en.comment) + '</div>';
+    if (en.values && en.values.length > 0) {
+      html += '<table class="schema-table"><thead><tr><th>Value</th><th>Number</th></tr></thead><tbody>';
+      for (const v of en.values) {
+        html += '<tr><td>' + esc(v.name) + '</td><td>' + v.number + '</td></tr>';
+      }
+      html += '</tbody></table>';
+    }
+    html += '</details>';
+    return html;
+  }
+
+  // ── OpenAPI ──────────────────────────────────────────────────────
+
+  function renderOpenAPISchema(spec) {
+    let html = '';
+    if (spec.title || spec.version) {
+      html += '<div class="schema-meta">';
+      if (spec.title) html += '<strong>' + esc(spec.title) + '</strong>';
+      if (spec.version) html += ' v' + esc(spec.version);
+      html += '</div>';
+      if (spec.description) html += '<div class="schema-comment">' + esc(spec.description) + '</div>';
+    }
+
+    // Endpoints
+    if (spec.paths && spec.paths.length > 0) {
+      html += '<details class="schema-section" open><summary>Endpoints (' + spec.paths.reduce(function(a, p) { return a + p.operations.length; }, 0) + ')</summary>';
+      for (const p of spec.paths) {
+        for (const op of p.operations) {
+          html += '<div class="openapi-endpoint">';
+          html += '<span class="method-badge method-' + esc(op.method.toLowerCase()) + '">' + esc(op.method) + '</span> ';
+          html += '<span class="openapi-path">' + esc(p.path) + '</span>';
+          if (op.summary) html += ' <span class="schema-comment">' + esc(op.summary) + '</span>';
+          html += '</div>';
+        }
+      }
+      html += '</details>';
+    }
+
+    // Schemas
+    if (spec.schemas && spec.schemas.length > 0) {
+      html += '<details class="schema-section" open><summary>Schemas (' + spec.schemas.length + ')</summary>';
+      for (const s of spec.schemas) {
+        html += '<div class="openapi-schema-name">' + esc(s.name);
+        if (s.type) html += ' <span class="schema-type-badge">' + esc(s.type) + '</span>';
+        html += '</div>';
+        if (s.properties && s.properties.length > 0) {
+          html += '<table class="schema-table"><thead><tr><th>Property</th><th>Type</th><th></th><th></th></tr></thead><tbody>';
+          for (const prop of s.properties) {
+            html += '<tr>';
+            html += '<td>' + esc(prop.name) + (prop.required ? ' <span class="required-marker">*</span>' : '') + '</td>';
+            html += '<td>' + esc(prop.type) + '</td>';
+            html += '<td class="schema-comment">' + esc(prop.description || '') + '</td>';
+            html += '</tr>';
+          }
+          html += '</tbody></table>';
+        }
+      }
+      html += '</details>';
+    }
+
+    return html;
+  }
+
+  // ── Avro ─────────────────────────────────────────────────────────
+
+  function renderAvroSchema(schema) {
+    let html = '';
+    const label = schema.type === 'enum' ? 'enum' : 'record';
+    html += '<div class="schema-meta">' + label + ' <strong>' + esc(schema.name) + '</strong>';
+    if (schema.namespace) html += ' <span class="schema-comment">(' + esc(schema.namespace) + ')</span>';
+    html += '</div>';
+    if (schema.doc) html += '<div class="schema-comment">' + esc(schema.doc) + '</div>';
+
+    // Enum symbols
+    if (schema.symbols && schema.symbols.length > 0) {
+      html += '<div class="schema-symbols">';
+      for (const s of schema.symbols) {
+        html += '<span class="tag">' + esc(s) + '</span>';
+      }
+      html += '</div>';
+    }
+
+    // Record fields
+    if (schema.fields && schema.fields.length > 0) {
+      html += '<table class="schema-table"><thead><tr><th>Field</th><th>Type</th><th>Default</th><th></th></tr></thead><tbody>';
+      for (const f of schema.fields) {
+        html += '<tr>';
+        html += '<td>' + esc(f.name) + '</td>';
+        html += '<td>' + esc(f.type) + '</td>';
+        html += '<td>' + esc(f.default || '') + '</td>';
+        html += '<td class="schema-comment">' + esc(f.doc || '') + '</td>';
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+    }
+
+    return html;
+  }
+
+  // ── JSON Schema ──────────────────────────────────────────────────
+
+  function renderJSONSchema(schema) {
+    let html = '';
+    if (schema.title) html += '<div class="schema-meta"><strong>' + esc(schema.title) + '</strong></div>';
+    if (schema.description) html += '<div class="schema-comment">' + esc(schema.description) + '</div>';
+    if (schema.type) html += '<div class="schema-meta">type: <span class="schema-type-badge">' + esc(schema.type) + '</span></div>';
+
+    if (schema.properties && schema.properties.length > 0) {
+      html += renderJSONSchemaProps(schema.properties, 0);
+    }
+    return html;
+  }
+
+  function renderJSONSchemaProps(props, depth) {
+    let html = '<table class="schema-table"><thead><tr><th>Property</th><th>Type</th><th></th></tr></thead><tbody>';
+    for (const p of props) {
+      const indent = depth > 0 ? '&nbsp;'.repeat(depth * 4) : '';
+      html += '<tr>';
+      html += '<td>' + indent + esc(p.name) + (p.required ? ' <span class="required-marker">*</span>' : '') + '</td>';
+      html += '<td>' + esc(p.type || '') + '</td>';
+      html += '<td class="schema-comment">' + esc(p.description || '') + '</td>';
+      html += '</tr>';
+      if (p.properties && p.properties.length > 0) {
+        // Render nested properties inline (strip table wrapper).
+        const nested = renderJSONSchemaProps(p.properties, depth + 1);
+        // Extract just the tbody rows.
+        const match = nested.match(/<tbody>([\s\S]*?)<\/tbody>/);
+        if (match) html += match[1];
+      }
+    }
+    html += '</tbody></table>';
+    return html;
+  }
+
+  // ── Parquet ──────────────────────────────────────────────────────
+
+  function renderParquetSchema(schema) {
+    let html = '';
+    html += '<div class="schema-meta">message <strong>' + esc(schema.message_name) + '</strong></div>';
+
+    if (schema.columns && schema.columns.length > 0) {
+      html += '<table class="schema-table"><thead><tr><th>Column</th><th>Physical Type</th><th>Annotation</th><th>Repetition</th></tr></thead><tbody>';
+      for (const c of schema.columns) {
+        html += '<tr>';
+        html += '<td>' + esc(c.name) + '</td>';
+        html += '<td>' + esc(c.phys_type) + '</td>';
+        html += '<td>' + esc(c.annotation || '') + '</td>';
+        html += '<td>' + esc(c.repetition) + '</td>';
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+    }
+
+    return html;
   }
 
   // ===== Hash Routing =====

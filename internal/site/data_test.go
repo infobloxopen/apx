@@ -1,6 +1,8 @@
 package site
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/infobloxopen/apx/internal/catalog"
@@ -19,7 +21,7 @@ func TestBuildSiteData_EmptyCatalog(t *testing.T) {
 		Modules: []catalog.Module{},
 	}
 
-	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme")
+	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme", "")
 
 	assert.Equal(t, "acme", data.Org)
 	assert.Equal(t, "apis", data.Repo)
@@ -49,7 +51,7 @@ func TestBuildSiteData_SingleModule(t *testing.T) {
 		},
 	}
 
-	data := BuildSiteData(cat, "github.com/acme/apis", "go.acme.dev/apis", "acme")
+	data := BuildSiteData(cat, "github.com/acme/apis", "go.acme.dev/apis", "acme", "")
 
 	require.Len(t, data.APIs, 1)
 	api := data.APIs[0]
@@ -82,7 +84,7 @@ func TestBuildSiteData_LifecycleEnrichment(t *testing.T) {
 		},
 	}
 
-	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme")
+	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme", "")
 
 	require.Len(t, data.APIs, 1)
 	api := data.APIs[0]
@@ -109,7 +111,7 @@ func TestBuildSiteData_LifecycleNormalization(t *testing.T) {
 		},
 	}
 
-	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme")
+	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme", "")
 
 	require.Len(t, data.APIs, 1)
 	assert.Equal(t, "beta", data.APIs[0].Lifecycle)
@@ -130,7 +132,7 @@ func TestBuildSiteData_GoLanguageCoords(t *testing.T) {
 		},
 	}
 
-	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme")
+	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme", "")
 
 	require.Len(t, data.APIs, 1)
 	api := data.APIs[0]
@@ -161,7 +163,7 @@ func TestBuildSiteData_ImportRootAffectsGoCoords(t *testing.T) {
 		},
 	}
 
-	data := BuildSiteData(cat, "github.com/acme/apis", "go.acme.dev/apis", "acme")
+	data := BuildSiteData(cat, "github.com/acme/apis", "go.acme.dev/apis", "acme", "")
 
 	require.Len(t, data.APIs, 1)
 	goCoords := data.APIs[0].Languages["go"]
@@ -186,7 +188,7 @@ func TestBuildSiteData_MultiLanguageCoords(t *testing.T) {
 	}
 
 	// With org set, all language plugins should be available.
-	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme")
+	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme", "")
 
 	require.Len(t, data.APIs, 1)
 	langs := data.APIs[0].Languages
@@ -218,7 +220,7 @@ func TestBuildSiteData_NoOrg_OnlyGoCoords(t *testing.T) {
 	}
 
 	// Without org, Tier 2 plugins (Python, Java, etc.) are not available.
-	data := BuildSiteData(cat, "github.com/unknown/apis", "", "")
+	data := BuildSiteData(cat, "github.com/unknown/apis", "", "", "")
 
 	require.Len(t, data.APIs, 1)
 	langs := data.APIs[0].Languages
@@ -247,7 +249,7 @@ func TestBuildSiteData_UnparseableID_Skipped(t *testing.T) {
 		},
 	}
 
-	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme")
+	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme", "")
 
 	// The bad-id module should be skipped; only the valid one should appear.
 	assert.Len(t, data.APIs, 1)
@@ -271,7 +273,7 @@ func TestBuildSiteData_ExternalAPI(t *testing.T) {
 		},
 	}
 
-	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme")
+	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme", "")
 
 	require.Len(t, data.APIs, 1)
 	assert.Equal(t, "external", data.APIs[0].Origin)
@@ -304,7 +306,7 @@ func TestBuildSiteData_MultipleFormats(t *testing.T) {
 		},
 	}
 
-	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme")
+	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme", "")
 
 	assert.Len(t, data.APIs, 3)
 	formats := make(map[string]bool)
@@ -314,4 +316,67 @@ func TestBuildSiteData_MultipleFormats(t *testing.T) {
 	assert.True(t, formats["proto"])
 	assert.True(t, formats["openapi"])
 	assert.True(t, formats["avro"])
+}
+
+func TestBuildSiteData_WithSchemaExtraction(t *testing.T) {
+	// Create a temp dir with a proto file at the module path.
+	repoDir := t.TempDir()
+	modulePath := filepath.Join(repoDir, "proto", "payments", "ledger", "v1")
+	os.MkdirAll(modulePath, 0o755)
+	os.WriteFile(filepath.Join(modulePath, "ledger.proto"), []byte(`syntax = "proto3";
+package payments.ledger.v1;
+message Entry {
+  string id = 1;
+  int64 amount = 2;
+}
+`), 0o644)
+
+	cat := &catalog.Catalog{
+		Version: 1,
+		Org:     "acme",
+		Repo:    "apis",
+		Modules: []catalog.Module{
+			{
+				ID:      "proto/payments/ledger/v1",
+				Format:  "proto",
+				Domain:  "payments",
+				APILine: "v1",
+				Path:    "proto/payments/ledger/v1",
+			},
+		},
+	}
+
+	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme", repoDir)
+
+	require.Len(t, data.APIs, 1)
+	require.NotNil(t, data.APIs[0].Schema, "Schema should be populated when repoDir is set")
+	require.Len(t, data.APIs[0].Schema.Files, 1)
+	assert.Equal(t, "ledger.proto", data.APIs[0].Schema.Files[0].Filename)
+	assert.NotNil(t, data.APIs[0].Schema.Files[0].Proto)
+	assert.Equal(t, "proto3", data.APIs[0].Schema.Files[0].Proto.Syntax)
+	require.Len(t, data.APIs[0].Schema.Files[0].Proto.Messages, 1)
+	assert.Equal(t, "Entry", data.APIs[0].Schema.Files[0].Proto.Messages[0].Name)
+}
+
+func TestBuildSiteData_NoRepoDir_NoSchema(t *testing.T) {
+	cat := &catalog.Catalog{
+		Version: 1,
+		Org:     "acme",
+		Repo:    "apis",
+		Modules: []catalog.Module{
+			{
+				ID:      "proto/payments/ledger/v1",
+				Format:  "proto",
+				Domain:  "payments",
+				APILine: "v1",
+				Path:    "proto/payments/ledger/v1",
+			},
+		},
+	}
+
+	// Empty repoDir → no schema extraction.
+	data := BuildSiteData(cat, "github.com/acme/apis", "", "acme", "")
+
+	require.Len(t, data.APIs, 1)
+	assert.Nil(t, data.APIs[0].Schema, "Schema should be nil when repoDir is empty")
 }

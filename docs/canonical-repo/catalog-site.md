@@ -1,6 +1,9 @@
 # Catalog Site
 
-The catalog site is a static API explorer generated from `catalog.yaml`. It lets teams browse all APIs, filter by format and lifecycle, and view language-specific import coordinates — all in a self-contained website deployable to GitHub Pages.
+!!! warning "In Development"
+    The catalog site is under active development. Commands, flags, and output may change without notice.
+
+The catalog site is a static API explorer generated from `catalog.yaml`. It lets teams browse all APIs, filter by format and lifecycle, view language-specific import coordinates, and inspect the actual schema structure (services, endpoints, messages, fields) — all in a self-contained website deployable to GitHub Pages.
 
 ## Generating the Site
 
@@ -30,6 +33,7 @@ _site/
 | `--output, -o` | `_site` | Output directory |
 | `--catalog, -c` | (auto) | Path or URL to `catalog.yaml` (same resolution as `apx search`) |
 | `--base-path` | `` | URL base path (e.g., `/catalog` if deployed at `example.com/catalog/`) |
+| `--dir` | `` | Path to repo root for schema extraction (see [Schema Content](#schema-content)) |
 
 ## Local Preview
 
@@ -45,6 +49,7 @@ This generates the site to a temporary directory, starts a local HTTP server on 
 |------|---------|-------------|
 | `--port, -p` | `10451` | Port to serve on |
 | `--catalog` | (auto) | Path or URL to `catalog.yaml` |
+| `--dir` | `` | Path to repo root for schema extraction |
 | `--no-open` | `false` | Skip opening the browser automatically |
 
 ## Features
@@ -54,9 +59,34 @@ The generated site includes:
 - **Search** — free-text search across API IDs, descriptions, domains, and tags
 - **Filters** — filter by schema format, lifecycle state, domain, and origin (first-party/external/forked)
 - **API detail** — click any API to see version history, lifecycle compatibility, and language coordinates
+- **Schema content** — when `--dir` is set, shows the actual structure: proto services/RPCs/messages, OpenAPI endpoints, Avro records, JSON Schema properties, and Parquet columns
 - **Language coordinates** — tabbed view of Go, Python, Java, TypeScript, Rust, and C++ import paths
 - **Deep linking** — hash-based URLs (e.g., `#proto/payments/ledger/v1`) for sharing
 - **Dark mode** — automatic light/dark theme based on system preference
+
+## Schema Content
+
+By default the site shows only metadata (name, version, lifecycle, coordinates). To include the actual schema structure — services, endpoints, messages, fields — pass `--dir` pointing to your repository root:
+
+```bash
+apx catalog site generate --dir=.              # from the repo root
+apx catalog site serve --dir=.                 # local preview with schemas
+```
+
+The `--dir` flag tells APX where to find schema files on disk. For each API in the catalog, it reads the files at `Module.Path` relative to `--dir` and extracts structural information using built-in parsers:
+
+| Format | Files scanned | What's extracted |
+|--------|--------------|-----------------|
+| proto | `*.proto` | Services, RPCs, messages, fields, enums, comments |
+| openapi | `*.yaml`, `*.yml`, `*.json` | Paths, HTTP operations, parameters, component schemas |
+| avro | `*.avsc`, `*.json` | Records, fields with types, enums, documentation |
+| jsonschema | `*.json` | Properties, types, required markers, nested objects |
+| parquet | `*.parquet` | Message name, columns with physical/logical types |
+
+When `--dir` is not set (the default), schema extraction is skipped entirely and the site works exactly as before — metadata only.
+
+!!! note "Pure-Go parsers"
+    Schema extraction uses built-in parsers with no external dependencies. It does not invoke `buf`, `protoc`, `spectral`, or any other tool. The parsers extract structural information from the raw source files.
 
 ## GitHub Pages Deployment
 
@@ -103,7 +133,7 @@ jobs:
         run: apx catalog generate
 
       - name: Generate site
-        run: apx catalog site generate --output=_site
+        run: apx catalog site generate --output=_site --dir=.
 
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
@@ -132,8 +162,9 @@ The `apx catalog site generate` command:
 1. Loads `catalog.yaml` using the same resolution as `apx search` (explicit flag, config registries, `catalog_url`, local file)
 2. For each API module, derives language-specific coordinates using the same plugin system as `apx show` and `apx inspect identity`
 3. Enriches lifecycle information with compatibility promises and production recommendations
-4. Writes a `data/index.json` file containing all API metadata
-5. Copies the embedded HTML/CSS/JS shell to the output directory
+4. When `--dir` is set, reads schema files at each module's path and extracts structural content
+5. Writes a `data/index.json` file containing all API metadata (and schema content when available)
+6. Copies the embedded HTML/CSS/JS shell to the output directory
 
 The frontend is a vanilla JavaScript single-page application that loads `index.json` and provides client-side search and filtering — no server required.
 

@@ -76,3 +76,6 @@ dist/
 
 # Generated completion scripts
 completions/
+
+# Demo / hack output (built binaries, generated sites)
+hack/demo-catalog-site/

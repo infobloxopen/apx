@@ -40,11 +40,11 @@ func TestGenerate_IndexJSONContent(t *testing.T) {
 		GeneratedAt: "2026-03-09T00:00:00Z",
 		APIs: []APIEntry{
 			{
-				ID:       "proto/payments/ledger/v1",
-				Format:   "proto",
-				Domain:   "payments",
-				Name:     "ledger",
-				Line:     "v1",
+				ID:        "proto/payments/ledger/v1",
+				Format:    "proto",
+				Domain:    "payments",
+				Name:      "ledger",
+				Line:      "v1",
 				Lifecycle: "stable",
 			},
 		},
