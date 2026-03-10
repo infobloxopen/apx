@@ -17,6 +17,7 @@ func newCatalogCmd() *cobra.Command {
 		Short: "Catalog operations",
 	}
 	cmd.AddCommand(newCatalogGenerateCmd())
+	cmd.AddCommand(newCatalogSiteCmd())
 	return cmd
 }
 

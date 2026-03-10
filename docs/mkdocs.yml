@@ -112,6 +112,7 @@ nav:
     - Setup: canonical-repo/setup.md
     - Structure: canonical-repo/structure.md
     - CI Templates: canonical-repo/ci-templates.md
+    - Catalog Site: canonical-repo/catalog-site.md
     - Protection: canonical-repo/protection.md
   - App Repos:
     - app-repos/index.md

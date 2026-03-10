@@ -66,7 +66,7 @@ env/
 .env
 
 # MkDocs build output
-site/
+/site/
 
 # Generated doc includes (built by go generate / cmd/docgen)
 docs/_generated/
