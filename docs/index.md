@@ -1,5 +1,5 @@
 <div align="center" markdown>
-  <img src="assets/logo.svg" alt="APX Logo" width="360">
+  <img src="assets/logo.png" alt="APX Logo" width="360">
 </div>
 
 # APX — API Schema Management
