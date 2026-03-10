@@ -42,9 +42,8 @@ The API surface is stabilizing.  The design is mostly defined, but minor breakin
 - **Production use:** use with caution
 - **Required versions:** must carry `-alpha.*`, `-beta.*`, or `-rc.*` prerelease tag
 
-:::{note}
-`preview` is accepted as a backward-compatible alias for `beta`.  The canonical name is `beta`; APX normalizes `preview` → `beta` internally.
-:::
+!!! note
+    `preview` is accepted as a backward-compatible alias for `beta`.  The canonical name is `beta`; APX normalizes `preview` → `beta` internally.
 
 ### `stable`
 

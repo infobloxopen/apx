@@ -338,9 +338,8 @@ The `line` field represents the API compatibility line (`v1`, `v2`, etc.). Only 
 | `deprecated` | Superseded by a newer line, still supported |
 | `sunset` | End-of-life, will be removed |
 
-:::{note}
-`preview` is accepted as a backward-compatible alias for `beta`.
-:::
+!!! note
+    `preview` is accepted as a backward-compatible alias for `beta`.
 
 ### `source`
 

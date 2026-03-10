@@ -1,15 +1,5 @@
 # Release Workflow
 
-```{toctree}
-:hidden:
-
-overview
-lifecycle
-canonical-pr
-tagging-strategy
-release-guardrails
-validation
-```
 
 APX implements a **PR-first release model**: every API change reaches the
 canonical repository through a pull request that is validated before merge
@@ -23,40 +13,41 @@ immutable release record.
 
 ## The Release Pipeline
 
-::::{grid} 1 1 3 3
-:gutter: 2
+<div class="grid cards" markdown>
+-   **1. Prepare**
 
-:::{grid-item-card} **1. Prepare**
-^^^
-```bash
-apx release prepare \
-  proto/payments/ledger/v1 \
-  --version v1.0.0-beta.1 \
-  --lifecycle beta
-```
-Validates schemas, lifecycle policy, version-line compatibility.
-Writes `.apx-release.yaml`.
-:::
+    ---
 
-:::{grid-item-card} **2. Submit**
-^^^
-```bash
-apx release submit
-```
-Clones the canonical repo, copies the snapshot to a release branch,
-opens a PR via `gh`.  Idempotent — safe to retry.
-:::
+    ```bash
+    apx release prepare \
+    proto/payments/ledger/v1 \
+    --version v1.0.0-beta.1 \
+    --lifecycle beta
+    ```
+    Validates schemas, lifecycle policy, version-line compatibility.
+    Writes `.apx-release.yaml`.
 
-:::{grid-item-card} **3. Finalize**
-^^^
-```bash
-apx release finalize
-```
-Run by canonical CI after merge: re-validates schemas, creates the
-official tag, updates the catalog, emits a release record.
-:::
+-   **2. Submit**
 
-::::
+    ---
+
+    ```bash
+    apx release submit
+    ```
+    Clones the canonical repo, copies the snapshot to a release branch,
+    opens a PR via `gh`.  Idempotent — safe to retry.
+
+-   **3. Finalize**
+
+    ---
+
+    ```bash
+    apx release finalize
+    ```
+    Run by canonical CI after merge: re-validates schemas, creates the
+    official tag, updates the catalog, emits a release record.
+
+</div>
 
 See [Release Commands](../cli-reference/release-commands.md) for full
 flag reference and state machine details.
@@ -90,42 +81,44 @@ See [Lifecycle Reference](lifecycle.md) for the full lifecycle model.
 
 Every release goes through validation at multiple stages:
 
-::::{grid} 1 1 2 2
-:gutter: 3
+<div class="grid cards" markdown>
+-   **Pre-Release (Local / App CI)**
 
-:::{grid-item-card} **Pre-Release (Local / App CI)**
-^^^
-- `apx lint` — schema linting
-- `apx breaking` — backward compatibility
-- `apx semver suggest` — version recommendation
-- `apx policy check` — organizational policy
-:::
+    ---
 
-:::{grid-item-card} **Prepare**
-^^^
-- API ID parsing and identity derivation
-- Lifecycle-version compatibility
-- `go_package` consistency (proto)
-- `go.mod` module path validation
-- Idempotency check (SHA-256 content hash)
-:::
+    - `apx lint` — schema linting
+    - `apx breaking` — backward compatibility
+    - `apx semver suggest` — version recommendation
+    - `apx policy check` — organizational policy
 
-:::{grid-item-card} **Canonical CI (PR)**
-^^^
-- Re-validates schemas in canonical context
-- Re-checks breaking changes against previous tag
-- Runs policy validation
-:::
+-   **Prepare**
 
-:::{grid-item-card} **Finalize (Release Pipeline)**
-^^^
-- Re-runs lint and breaking checks
-- Creates annotated git tag
-- Updates catalog
-- Emits release record with CI provenance
-:::
+    ---
 
-::::
+    - API ID parsing and identity derivation
+    - Lifecycle-version compatibility
+    - `go_package` consistency (proto)
+    - `go.mod` module path validation
+    - Idempotency check (SHA-256 content hash)
+
+-   **Canonical CI (PR)**
+
+    ---
+
+    - Re-validates schemas in canonical context
+    - Re-checks breaking changes against previous tag
+    - Runs policy validation
+
+-   **Finalize (Release Pipeline)**
+
+    ---
+
+    - Re-runs lint and breaking checks
+    - Creates annotated git tag
+    - Updates catalog
+    - Emits release record with CI provenance
+
+</div>
 
 See [Release Validation](validation.md) for the full validation matrix.
 

@@ -1,93 +1,57 @@
 # APX — API Schema Management
 
-```{toctree}
-:maxdepth: 2
-:caption: Contents
 
-getting-started/index
-canonical-repo/index
-app-repos/index
-dependencies/index
-publishing/index
-cli-reference/index
-troubleshooting/index
-```
+<div class="grid cards" markdown>
 
-::::{grid} 1 1 2 3
-:gutter: 3
+-   :material-rocket-launch: **Getting Started**
 
-:::{grid-item-card}
-:link: getting-started/index
-:link-type: doc
-:class-header: bg-light
+    ---
 
-🚀 **Getting Started**
-^^^
+    Install APX and learn the core concepts for API schema management.
 
-Install APX and learn the core concepts for API schema management.
+    [:octicons-arrow-right-24: Get started](getting-started/index.md)
 
-:::
+-   :material-bank: **Canonical Repo**
 
-:::{grid-item-card}
-:link: canonical-repo/index
-:link-type: doc
-:class-header: bg-light
+    ---
 
-🏛️ **Canonical Repo**
-^^^
+    Set up the organization-wide source of truth for all API schemas.
 
-Set up the organization-wide source of truth for all API schemas.
+    [:octicons-arrow-right-24: Learn more](canonical-repo/index.md)
 
-:::
+-   :material-application-brackets: **App Repos**
 
-:::{grid-item-card}
-:link: app-repos/index
-:link-type: doc
-:class-header: bg-light
+    ---
 
-� **App Repos**
-^^^
+    Author and release schemas from your application repositories.
 
-Author and release schemas from your application repositories.
+    [:octicons-arrow-right-24: Learn more](app-repos/index.md)
 
-:::
+-   :material-package-variant: **Dependencies**
 
-:::{grid-item-card}
-:link: dependencies/index
-:link-type: doc
-:class-header: bg-light
+    ---
 
-� **Dependencies**
-^^^
+    Discover, add, and update API dependencies with versioning.
 
-Discover, add, and update API dependencies with versioning.
+    [:octicons-arrow-right-24: Learn more](dependencies/index.md)
 
-:::
+-   :material-tag-arrow-up: **Releasing**
 
-:::{grid-item-card}
-:link: publishing/index
-:link-type: doc
-:class-header: bg-light
+    ---
 
-� **Releasing**
-^^^
+    Tag-based release workflow from app repos to canonical repo.
 
-Tag-based release workflow from app repos to canonical repo.
+    [:octicons-arrow-right-24: Learn more](publishing/index.md)
 
-:::
+-   :material-github: **GitHub**
 
-:::{grid-item-card}
-:link: https://github.com/infobloxopen/apx
-:class-header: bg-light
+    ---
 
-🐙 **GitHub**
-^^^
+    View source code, report issues, and contribute to APX.
 
-View source code, report issues, and contribute to APX.
+    [:octicons-arrow-right-24: View source](https://github.com/infobloxopen/apx)
 
-:::
-
-::::
+</div>
 
 ## What is APX?
 
@@ -103,26 +67,26 @@ View source code, report issues, and contribute to APX.
 
 ### Architecture Overview
 
-::::{grid} 1 1 1 2
-:gutter: 3
+<div class="grid cards" markdown>
+-   **App Repos**
 
-:::{grid-item-card} **App Repos**
-^^^
-- Teams author schemas locally
-- Tag releases in app repo
-- `apx release prepare` + `submit` opens PRs
-- CI validates before release
-:::
+    ---
 
-:::{grid-item-card} **Canonical Repo**
-^^^
-- Single source of truth
-- Versioned API modules
-- Protected branches & tags
-- CI creates releases
-:::
+    - Teams author schemas locally
+    - Tag releases in app repo
+    - `apx release prepare` + `submit` opens PRs
+    - CI validates before release
 
-::::
+-   **Canonical Repo**
+
+    ---
+
+    - Single source of truth
+    - Versioned API modules
+    - Protected branches & tags
+    - CI creates releases
+
+</div>
 
 ### Quick Start
 
@@ -149,46 +113,44 @@ apx gen go
 
 ### Supported Schema Formats
 
-::::{grid} 1 1 2 2
-:gutter: 2
+<div class="grid cards" markdown>
+-   **Protocol Buffers (Primary)**
 
-:::{grid-item-card}
-**Protocol Buffers** (Primary)
-^^^
-- Buf integration and workspace
-- gRPC service definitions  
-- Semantic Import Versioning
-- Breaking change detection
-:::
+    ---
 
-:::{grid-item-card}
-**OpenAPI**
-^^^
-- OpenAPI 3.0+ specifications
-- oasdiff breaking checks
-- Spectral linting
-- REST API definitions
-:::
+    - Buf integration and workspace
+    - gRPC service definitions
+    - Semantic Import Versioning
+    - Breaking change detection
 
-:::{grid-item-card}
-**Apache Avro**
-^^^
-- Schema compatibility checks
-- BACKWARD compatibility default
-- Field defaults and aliases
-- Data serialization schemas
-:::
+-   **OpenAPI**
 
-:::{grid-item-card}
-**JSON Schema & Parquet**
-^^^
-- JSON Schema validation
-- Parquet additive nullable columns
-- Custom compatibility rules
-- Schema evolution support
-:::
+    ---
 
-::::
+    - OpenAPI 3.0+ specifications
+    - oasdiff breaking checks
+    - Spectral linting
+    - REST API definitions
+
+-   **Apache Avro**
+
+    ---
+
+    - Schema compatibility checks
+    - BACKWARD compatibility default
+    - Field defaults and aliases
+    - Data serialization schemas
+
+-   **JSON Schema & Parquet**
+
+    ---
+
+    - JSON Schema validation
+    - Parquet additive nullable columns
+    - Custom compatibility rules
+    - Schema evolution support
+
+</div>
 
 ### Release Guardrails
 

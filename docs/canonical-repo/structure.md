@@ -115,35 +115,36 @@ APX follows Go's semantic import versioning:
 
 ### Directory vs Package vs Module
 
-::::{grid} 1 1 1 3
-:gutter: 2
+<div class="grid cards" markdown>
+-   **Directory Structure**
 
-:::{grid-item-card} **Directory Structure**
-^^^
-```
-proto/payments/ledger/
-├── v1/ (files)
-└── v2/ (files)
-```
-:::
+    ---
 
-:::{grid-item-card} **Proto Package Names**
-^^^
-```
-<org>.payments.ledger.v1
-<org>.payments.ledger.v2
-```
-:::
+    ```
+    proto/payments/ledger/
+    ├── v1/ (files)
+    └── v2/ (files)
+    ```
 
-:::{grid-item-card} **Go Module Paths**
-^^^
-```
-github.com/<org>/apis/proto/payments/ledger (v1)
-github.com/<org>/apis/proto/payments/ledger/v2
-```
-:::
+-   **Proto Package Names**
 
-::::
+    ---
+
+    ```
+    <org>.payments.ledger.v1
+    <org>.payments.ledger.v2
+    ```
+
+-   **Go Module Paths**
+
+    ---
+
+    ```
+    github.com/<org>/apis/proto/payments/ledger (v1)
+    github.com/<org>/apis/proto/payments/ledger/v2
+    ```
+
+</div>
 
 ### Example go.mod Files
 

@@ -44,9 +44,8 @@ The `lifecycle` field signals maturity and support level independently from the 
 | `deprecated` | Superseded — maintained for existing users |
 | `sunset` | End of life — no further releases |
 
-:::{note}
-`preview` is accepted as a backward-compatible alias for `beta`.
-:::
+!!! note
+    `preview` is accepted as a backward-compatible alias for `beta`.
 
 See [Lifecycle Reference](lifecycle.md) for detailed lifecycle rules, the compatibility promise model, and enforcement policies.
 
@@ -156,9 +155,8 @@ automatically.
 | `deprecated` | any | *(caller warned)* |
 | `sunset` | **blocked** | *(releases not allowed)* |
 
-:::{note}
-`preview` is accepted as a backward-compatible alias for `beta`.
-:::
+!!! note
+    `preview` is accepted as a backward-compatible alias for `beta`.
 
 ### Experimental — early exploration
 
@@ -266,9 +264,8 @@ import ledgerv1 "github.com/acme/apis/proto/payments/ledger/v1"
 
 Only the resolved module version changes.
 
-:::{tip}
-If your organization sets `import_root` in `apx.yaml` (e.g. `import_root: go.acme.dev/apis`), the import path above would instead be `go.acme.dev/apis/proto/payments/ledger/v1`. See [Configuration Reference](../cli-reference/configuration.md#import_root).
-:::
+!!! tip
+    If your organization sets `import_root` in `apx.yaml` (e.g. `import_root: go.acme.dev/apis`), the import path above would instead be `go.acme.dev/apis/proto/payments/ledger/v1`. See [Configuration Reference](../cli-reference/configuration.md#import_root).
 
 See [Lifecycle Reference](lifecycle.md) for the full lifecycle model, transition
 rules, v0 line policy, and compatibility promise tables.

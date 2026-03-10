@@ -1,64 +1,53 @@
 # API Dependencies Management
 
-```{toctree}
-:hidden:
-
-adding-dependencies
-code-generation
-discovery
-versioning-strategy
-updates-and-upgrades
-external-apis
-catalog-schema
-../concepts/multi-language-strategy
-```
 
 APX provides powerful tools for discovering, adding, and managing API dependencies across your organization.
 
-:::{note}
-Full per-topic guides are in progress. See sub-pages once available.
-:::
+!!! note
+    Full per-topic guides are in progress. See sub-pages once available.
 
 ## Overview
 
 Dependency management workflow:
 
-::::{grid} 1 1 2 2
-:gutter: 3
+<div class="grid cards" markdown>
+-   **Discover**
 
-:::{grid-item-card} **Discover**
-^^^
-- Search organization APIs
-- Browse by domain or format
-- View available versions
-- Understand compatibility
-:::
+    ---
 
-:::{grid-item-card} **Add & Pin**
-^^^
-- Add specific versions
-- Pin in `apx.lock`
-- Record codegen preferences  
-- Manage transitive deps
-:::
+    - Search organization APIs
+    - Browse by domain or format
+    - View available versions
+    - Understand compatibility
 
-:::{grid-item-card} **Generate**
-^^^
-- Multi-language code generation
-- Never commit generated code
-- Reproducible builds
-- Format-specific generators
-:::
+-   **Add & Pin**
 
-:::{grid-item-card} **Update**
-^^^
-- Compatible updates (patch/minor)
-- Major version upgrades
-- Breaking change analysis
-- Migration assistance
-:::
+    ---
 
-::::
+    - Add specific versions
+    - Pin in `apx.lock`
+    - Record codegen preferences
+    - Manage transitive deps
+
+-   **Generate**
+
+    ---
+
+    - Multi-language code generation
+    - Never commit generated code
+    - Reproducible builds
+    - Format-specific generators
+
+-   **Update**
+
+    ---
+
+    - Compatible updates (patch/minor)
+    - Major version upgrades
+    - Breaking change analysis
+    - Migration assistance
+
+</div>
 
 ## Quick Reference
 

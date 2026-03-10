@@ -60,9 +60,8 @@ service LedgerService {
 
 APX validates this during `apx lint` and `apx release prepare`, warning if the `go_package` doesn't match the canonical path derived from the API ID.
 
-:::{note}
-**No local `go.mod` is needed** for the schema directory. Buf ignores `go.mod`. APX synthesizes the correct `go.mod` when releasing to the canonical repo.
-:::
+!!! note
+    **No local `go.mod` is needed** for the schema directory. Buf ignores `go.mod`. APX synthesizes the correct `go.mod` when releasing to the canonical repo.
 
 ---
 
@@ -145,9 +144,8 @@ internal/gen/
 
 The generated `go.mod` uses the **canonical module path** (`github.com/<org>/apis/proto/...`), which is the key to the overlay system.
 
-:::{important}
-**Never commit generated code.** The `internal/gen/` directory should be in `.gitignore`. Commit `apx.lock` instead — it ensures reproducible generation.
-:::
+!!! important
+    **Never commit generated code.** The `internal/gen/` directory should be in `.gitignore`. Commit `apx.lock` instead — it ensures reproducible generation.
 
 ---
 

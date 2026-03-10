@@ -45,9 +45,8 @@ The lifecycle field communicates maturity and support level **independently** fr
 | `deprecated` | Superseded, maintained for existing users | Maintained — no new features | Migrate away |
 | `sunset` | End of life, no further releases | End of life | Do not use |
 
-:::{note}
-`preview` is accepted as a backward-compatible alias for `beta`.
-:::
+!!! note
+    `preview` is accepted as a backward-compatible alias for `beta`.
 
 ### Why separate layers?
 

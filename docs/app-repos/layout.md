@@ -156,9 +156,8 @@ plugins:
     opt: paths=source_relative
 ```
 
-:::{note}
-During `apx gen go`, APX uses the overlay manager rather than raw `buf generate` to ensure the generated code has canonical module paths and `go.mod` files. The `buf.gen.yaml` configuration is used as input but the output location is managed by APX.
-:::
+!!! note
+    During `apx gen go`, APX uses the overlay manager rather than raw `buf generate` to ensure the generated code has canonical module paths and `go.mod` files. The `buf.gen.yaml` configuration is used as input but the output location is managed by APX.
 
 ### buf.work.yaml
 
@@ -182,9 +181,8 @@ use ./internal/gen/go/proto/payments/ledger@v1.2.3
 use ./internal/gen/go/proto/users/profile@v1.0.1
 ```
 
-:::{warning}
-Do not edit `go.work` manually. Use `apx sync` to regenerate it. CI environments regenerate it from `apx.lock` via `apx gen go && apx sync`.
-:::
+!!! warning
+    Do not edit `go.work` manually. Use `apx sync` to regenerate it. CI environments regenerate it from `apx.lock` via `apx gen go && apx sync`.
 
 ### .gitignore
 

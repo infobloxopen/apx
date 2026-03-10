@@ -65,9 +65,8 @@ Lifecycle state is tracked separately from the version tag:
 | `deprecated` | Superseded by a newer line, still supported |
 | `sunset` | End-of-life, will be removed |
 
-:::{note}
-`preview` is accepted as a backward-compatible alias for `beta`.
-:::
+!!! note
+    `preview` is accepted as a backward-compatible alias for `beta`.
 
 ## Inspect Tags
 

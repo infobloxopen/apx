@@ -2,56 +2,49 @@
 
 App repositories are where teams author schemas day-to-day and generate code with canonical import paths. They release via tag + PR to the canonical repository, enabling distributed authoring with centralized governance and seamless local-to-released transitions.
 
-```{toctree}
-:maxdepth: 2
-
-layout
-local-development
-working-with-forks
-publishing-workflow
-ci-integration
-```
 
 ## Overview
 
 App repos handle the development lifecycle:
 
-::::{grid} 1 1 2 2
-:gutter: 3
+<div class="grid cards" markdown>
+-   **Daily Authoring**
 
-:::{grid-item-card} **Daily Authoring**
-^^^
-- Teams work in familiar app repositories
-- Schema files alongside application code
-- Local validation and testing
-- Standard development workflows
-:::
+    ---
 
-:::{grid-item-card} **Buf-First Approach**
-^^^
-- No local `go.mod` required for authoring
-- Buf workspace configuration
-- APX synthesizes canonical `go.mod` on release
-- Clean separation of concerns
-:::
+    - Teams work in familiar app repositories
+    - Schema files alongside application code
+    - Local validation and testing
+    - Standard development workflows
 
-:::{grid-item-card} **Automated Releasing**
-^^^
-- Tag releases in app repo
-- CI automatically opens canonical repo PR
-- PR-based release to canonical repo
-- Validation before and after release
-:::
+-   **Buf-First Approach**
 
-:::{grid-item-card} **Canonical Import Paths**
-^^^
-- Generated code uses canonical import paths
-- `go.work` overlays for local development
-- Seamless switch to released modules
-- No import rewrites or replace directives
-:::
+    ---
 
-::::
+    - No local `go.mod` required for authoring
+    - Buf workspace configuration
+    - APX synthesizes canonical `go.mod` on release
+    - Clean separation of concerns
+
+-   **Automated Releasing**
+
+    ---
+
+    - Tag releases in app repo
+    - CI automatically opens canonical repo PR
+    - PR-based release to canonical repo
+    - Validation before and after release
+
+-   **Canonical Import Paths**
+
+    ---
+
+    - Generated code uses canonical import paths
+    - `go.work` overlays for local development
+    - Seamless switch to released modules
+    - No import rewrites or replace directives
+
+</div>
 
 ## Key Benefits
 

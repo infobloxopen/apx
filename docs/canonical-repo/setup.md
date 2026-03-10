@@ -12,14 +12,13 @@ This guide walks through creating the repository, scaffolding the directory stru
 | **git** | Version control | Pre-installed on most systems |
 | **buf** | Protocol Buffer tooling (optional) | `brew install bufbuild/buf/buf` |
 
-:::{tip}
-If you plan to use `--setup-github` for automated protection rules and org secrets, authenticate `gh` first:
+!!! tip
+    If you plan to use `--setup-github` for automated protection rules and org secrets, authenticate `gh` first:
 
-```bash
-gh auth login
-gh auth refresh -h github.com -s admin:org   # needed for org secrets
-```
-:::
+    ```bash
+    gh auth login
+    gh auth refresh -h github.com -s admin:org   # needed for org secrets
+    ```
 
 ## Step 1: Create the GitHub Repository
 
@@ -35,9 +34,8 @@ git clone https://github.com/<org>/apis.git
 cd apis
 ```
 
-:::{note}
-The repo name `apis` is conventional but not required. Use whatever name fits your organization — just pass `--repo=<name>` to `apx init canonical`.
-:::
+!!! note
+    The repo name `apis` is conventional but not required. Use whatever name fits your organization — just pass `--repo=<name>` to `apx init canonical`.
 
 ## Step 2: Scaffold the Structure
 
@@ -121,9 +119,8 @@ Repository: apis
 ✓ Canonical API repository initialized successfully!
 ```
 
-:::{tip}
-Running `apx init canonical` is **idempotent** — it skips files that already exist, so you can safely re-run it.
-:::
+!!! tip
+    Running `apx init canonical` is **idempotent** — it skips files that already exist, so you can safely re-run it.
 
 ## Step 3: Configure GitHub Protections
 
@@ -175,16 +172,15 @@ On subsequent runs, already-configured items are reported as skipped:
   ✓ Already configured: branch protection on main
 ```
 
-:::{important}
-The `--setup-github` flow requires the `admin:org` OAuth scope. If your token is missing it, APX will tell you:
+!!! important
+    The `--setup-github` flow requires the `admin:org` OAuth scope. If your token is missing it, APX will tell you:
 
-```
-gh token is missing the 'admin:org' scope needed for org secrets.
-Run: gh auth refresh -h github.com -s admin:org
-```
+    ```
+    gh token is missing the 'admin:org' scope needed for org secrets.
+    Run: gh auth refresh -h github.com -s admin:org
+    ```
 
-Some operations (org secrets, tag rulesets) require **organization admin** privileges. If you lack them, APX logs a warning with the manual command to run as an admin.
-:::
+    Some operations (org secrets, tag rulesets) require **organization admin** privileges. If you lack them, APX logs a warning with the manual command to run as an admin.
 
 #### Credential Caching
 

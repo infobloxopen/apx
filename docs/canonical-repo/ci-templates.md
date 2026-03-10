@@ -51,9 +51,8 @@ jobs:
 - **`apx lint`** — runs Buf lint (for proto) or format-specific validators on all schemas in the repo
 - **`apx breaking --against origin/main`** — detects backward-incompatible changes against the main branch
 
-:::{note}
-`fetch-depth: 0` is required so that `apx breaking` can compare against `origin/main`.
-:::
+!!! note
+    `fetch-depth: 0` is required so that `apx breaking` can compare against `origin/main`.
 
 The `validate` job name matches the required status check configured by branch protection (see [Protection](protection.md)).
 
@@ -156,9 +155,8 @@ jobs:
 6. **Attests build provenance** — SLSA provenance attestation recording how the image was built
 7. **Generates and attests SBOM** — produces an SPDX bill of materials and attests it to the registry for supply-chain transparency
 
-:::{important}
-The catalog data (`catalog/catalog.yaml`) is gitignored and not committed. It is a CI-only artifact that is baked into the Docker image and pushed to GHCR. Consumers discover APIs by pulling the catalog image from the registry.
-:::
+!!! important
+    The catalog data (`catalog/catalog.yaml`) is gitignored and not committed. It is a CI-only artifact that is baked into the Docker image and pushed to GHCR. Consumers discover APIs by pulling the catalog image from the registry.
 
 ---
 
@@ -244,9 +242,8 @@ jobs:
 4. **Validates locally** — runs lint and breaking-change checks before releasing
 5. **Releases via PR** — `apx release prepare` validates and stages the release, then `apx release submit` clones the canonical repo, copies module files to a release branch, and opens a pull request
 
-:::{note}
-The `owner` and `repositories` fields in the token step are filled in by `apx init app` or `apx workflows sync` based on your `apx.yaml` configuration.
-:::
+!!! note
+    The `owner` and `repositories` fields in the token step are filled in by `apx init app` or `apx workflows sync` based on your `apx.yaml` configuration.
 
 ---
 
@@ -316,9 +313,8 @@ The generated workflows are standard GitHub Actions YAML — you can customize t
 - **Language package releasing** in the on-merge workflow
 - **Matrix builds** for multi-format repos
 
-:::{warning}
-Running `apx workflows sync` will **overwrite** your customizations. If you've modified the generated workflows, either skip syncing or re-apply your changes after syncing.
-:::
+!!! warning
+    Running `apx workflows sync` will **overwrite** your customizations. If you've modified the generated workflows, either skip syncing or re-apply your changes after syncing.
 
 ## Next Steps
 

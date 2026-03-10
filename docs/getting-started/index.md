@@ -1,13 +1,5 @@
 # Getting Started
 
-```{toctree}
-:maxdepth: 2
-:hidden:
-
-installation
-quickstart
-interactive-init
-```
 
 Welcome to APX! This section will help you get up and running quickly with the API Publishing eXperience CLI.
 
@@ -26,36 +18,30 @@ Before you begin, make sure you have:
 - **GitHub or Gitea** as your canonical repository hosting platform
 - Basic familiarity with command-line tools
 
-:::{note}
-**Platform requirement:** APX 1.0 will support **GitHub** (github.com or GitHub Enterprise) and **Gitea** (self-hosted) as Git hosting platforms for the canonical repository. GitLab, Bitbucket, Azure DevOps, and other platforms are non-goals for v1.0. See [Platform Requirements](../index.md#platform-requirements-v10-scope).
-:::
+!!! note
+    **Platform requirement:** APX 1.0 will support **GitHub** (github.com or GitHub Enterprise) and **Gitea** (self-hosted) as Git hosting platforms for the canonical repository. GitLab, Bitbucket, Azure DevOps, and other platforms are non-goals for v1.0. See [Platform Requirements](../index.md#platform-requirements-v10-scope).
 
 ## Choose Your Path
 
-::::{grid} 1 1 2 2
-:gutter: 3
+<div class="grid cards" markdown>
 
-:::{grid-item-card}
-:link: installation
-:link-type: doc
-:class-header: bg-primary text-white
+-   :material-rocket-launch: **New to APX?**
 
-🚀 **New to APX?**
-^^^
-Start with installation and basic setup
-:::
+    ---
 
-:::{grid-item-card}
-:link: quickstart
-:link-type: doc
-:class-header: bg-success text-white
+    Start with installation and basic setup.
 
-⚡ **Ready to Go?**
-^^^
-Jump straight into creating your first schema
-:::
+    [:octicons-arrow-right-24: Install APX](installation.md)
 
-::::
+-   :material-lightning-bolt: **Ready to Go?**
+
+    ---
+
+    Jump straight into creating your first schema.
+
+    [:octicons-arrow-right-24: Quick start](quickstart.md)
+
+</div>
 
 ## What's Next?
 

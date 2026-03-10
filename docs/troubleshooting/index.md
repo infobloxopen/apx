@@ -2,68 +2,59 @@
 
 Common issues and solutions when working with APX.
 
-```{toctree}
-:maxdepth: 2
-
-common-errors
-buf-issues
-versioning-problems
-publishing-failures
-code-generation
-e2e-tests
-faq
-../testing/e2e-tests
-../testing/format-maturity
-```
 
 ## Common Error Categories
 
-::::{grid} 1 1 2 3
-:gutter: 3
+<div class="grid cards" markdown>
+-   **Schema Validation**
 
-:::{grid-item-card} **Schema Validation**
-^^^
-- Buf compilation errors
-- Breaking change detection
-- Policy violations
-:::
+    ---
 
-:::{grid-item-card} **Versioning**
-^^^
-- SemVer mismatches
-- Go module path errors
-- Tag format issues
-:::
+    - Buf compilation errors
+    - Breaking change detection
+    - Policy violations
 
-:::{grid-item-card} **Releasing**
-^^^
-- PR creation errors
-- Permission errors
-- CI failures
-:::
+-   **Versioning**
 
-:::{grid-item-card} **Code Generation**
-^^^
-- Missing generators
-- Import path issues
-- Output directory problems
-:::
+    ---
 
-:::{grid-item-card} **Dependencies**
-^^^
-- Version resolution
-- Circular dependencies
-- Cache corruption
-:::
+    - SemVer mismatches
+    - Go module path errors
+    - Tag format issues
 
-:::{grid-item-card} **Configuration**
-^^^
-- Invalid YAML syntax
-- Path resolution
-- Environment issues
-:::
+-   **Releasing**
 
-::::
+    ---
+
+    - PR creation errors
+    - Permission errors
+    - CI failures
+
+-   **Code Generation**
+
+    ---
+
+    - Missing generators
+    - Import path issues
+    - Output directory problems
+
+-   **Dependencies**
+
+    ---
+
+    - Version resolution
+    - Circular dependencies
+    - Cache corruption
+
+-   **Configuration**
+
+    ---
+
+    - Invalid YAML syntax
+    - Path resolution
+    - Environment issues
+
+</div>
 
 ## Quick Fixes
 
@@ -259,11 +250,9 @@ permissions:
 
 ### Container Environments
 
-```{admonition} Planned
-:class: note
-Container-based execution (`--use-container` / `APX_USE_CONTAINER`) is planned for a future release.
-Currently, APX manages reproducible builds via pinned toolchain versions in `apx.lock`.
-```
+!!! note "Planned"
+    Container-based execution (`--use-container` / `APX_USE_CONTAINER`) is planned for a future release.
+    Currently, APX manages reproducible builds via pinned toolchain versions in `apx.lock`.
 
 ### Network Restrictions
 

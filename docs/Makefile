@@ -1,15 +1,10 @@
-# Makefile for Sphinx documentation
+# Makefile for APX documentation (MkDocs Material)
 
-# You can set these variables from the command line, and also
-# from the environment for the first two.
-SPHINXOPTS    ?= --keep-going
-SPHINXBUILD  ?= sphinx-build
-SOURCEDIR    = .
-BUILDDIR     = _build
-VENV         = venv
-PYTHON       = python3
+VENV    = venv
+PYTHON  = python3
+BUILDDIR = ../site
 
-# Put it first so that "make" without argument is like "make help".
+# Default: show help
 help:
 	@echo "APX Documentation Build Commands:"
 	@echo ""
@@ -19,23 +14,18 @@ help:
 	@echo ""
 	@echo "Building:"
 	@echo "  html        Build HTML documentation"
-	@echo "  livehtml    Build and serve with live reload (kills port 8000 first)"
+	@echo "  serve       Serve with live reload (port 8000)"
 	@echo "  clean       Clean build directory"
 	@echo ""
-	@echo "Quality:"
-	@echo "  linkcheck   Check for broken links"
-	@echo "  spelling    Spell check documentation"
-	@echo ""
-	@echo "Note: Use 'make setup' for first-time local development"
 
-.PHONY: help Makefile setup venv-check gen
+.PHONY: help setup install gen html serve clean clean-all
 
 # Create virtual environment and install dependencies (local development)
 setup: $(VENV)/bin/activate
-	@echo "✅ Virtual environment ready. Activate with: source $(VENV)/bin/activate"
+	@echo "Virtual environment ready. Activate with: source $(VENV)/bin/activate"
 
 $(VENV)/bin/activate:
-	@echo "🔧 Creating virtual environment..."
+	@echo "Creating virtual environment..."
 	$(PYTHON) -m venv $(VENV)
 	$(VENV)/bin/pip install --upgrade pip
 	$(VENV)/bin/pip install -r requirements.txt
@@ -43,13 +33,11 @@ $(VENV)/bin/activate:
 # Check if we're in a virtual environment or CI
 venv-check:
 	@if [ -z "$$VIRTUAL_ENV" ] && [ -z "$$CI" ] && [ ! -f "$(VENV)/bin/activate" ]; then \
-		echo "❌ No virtual environment detected."; \
+		echo "No virtual environment detected."; \
 		echo ""; \
 		echo "For local development, run:"; \
 		echo "  make setup"; \
 		echo "  source $(VENV)/bin/activate"; \
-		echo ""; \
-		echo "Or activate an existing virtual environment."; \
 		exit 1; \
 	fi
 
@@ -64,8 +52,8 @@ gen:
 		echo "Generating language plugin doc includes..."; \
 		cd .. && GOTOOLCHAIN=go1.26.1 go generate ./internal/language/...; \
 	elif [ ! -d "_generated" ]; then \
-		echo "⚠️  Go toolchain not found and _generated/ is missing."; \
-		echo "   Install Go or run 'go generate ./internal/language/...' from the repo root."; \
+		echo "Go toolchain not found and _generated/ is missing."; \
+		echo "Install Go or run 'go generate ./internal/language/...' from the repo root."; \
 		exit 1; \
 	else \
 		echo "Skipping doc generation (Go not available, using existing _generated/)."; \
@@ -73,35 +61,17 @@ gen:
 
 # Build documentation (regenerates plugin includes first)
 html: venv-check gen
-	@$(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	mkdocs build -f mkdocs.yml
+
+# Serve with live reload
+serve: venv-check gen
+	@echo "Starting live documentation server on http://localhost:8000"
+	mkdocs serve -f mkdocs.yml -a localhost:8000
 
 # Clean build directory
 clean:
-	@$(SPHINXBUILD) -M clean "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
-
-# Live rebuild with auto-refresh
-livehtml: venv-check
-	@echo "🔍 Checking for existing processes on port 8000..."
-	@-lsof -ti:8000 | xargs kill -9 2>/dev/null || true
-	@echo "🚀 Starting live documentation server on http://localhost:8000"
-	$(VENV)/bin/sphinx-autobuild "$(SOURCEDIR)" "$(BUILDDIR)/html" --host 0.0.0.0 --port 8000 $(SPHINXOPTS) $(O)
-
-# Check for broken links
-linkcheck: venv-check
-	@$(SPHINXBUILD) -M linkcheck "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
-
-# Spell check (requires sphinxcontrib-spelling)
-spelling: venv-check
-	@$(SPHINXBUILD) -M spelling "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
-
-# Build all formats
-all: clean html
+	rm -rf $(BUILDDIR)
 
 # Clean everything including virtual environment
 clean-all: clean
 	rm -rf $(VENV)
-
-# Catch-all target: route all unknown targets to Sphinx using the new
-# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile
-	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)

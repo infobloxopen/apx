@@ -14,8 +14,8 @@ APX provides a symmetric developer experience across languages. The core princip
 
 ## Language Support Matrix
 
-```{include} ../_generated/language-support-matrix.md
-```
+--8<-- "_generated/language-support-matrix.md"
+
 
 ### Tier definitions
 
@@ -27,8 +27,8 @@ APX provides a symmetric developer experience across languages. The core princip
 
 Given `org=acme` and API path `proto/payments/ledger/v1`:
 
-```{include} ../_generated/identity-derivation-table.md
-```
+--8<-- "_generated/identity-derivation-table.md"
+
 
 ## Organization Name Normalization
 

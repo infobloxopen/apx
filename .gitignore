@@ -65,8 +65,8 @@ venv/
 env/
 .env
 
-# Sphinx build output
-docs/_build/
+# MkDocs build output
+site/
 
 # Generated doc includes (built by go generate / cmd/docgen)
 docs/_generated/

@@ -1,17 +1,5 @@
 # CLI Reference
 
-```{toctree}
-:hidden:
-
-core-commands
-dependency-commands
-release-commands
-validation-commands
-utility-commands
-external-commands
-configuration
-global-options
-```
 
 Complete reference for all APX commands and options.
 
@@ -19,56 +7,60 @@ Complete reference for all APX commands and options.
 
 APX commands are organized into logical categories:
 
-::::{grid} 1 1 2 3
-:gutter: 3
+<div class="grid cards" markdown>
+-   **Core Commands**
 
-:::{grid-item-card} **Core Commands**
-^^^
-- `apx init` - Initialize projects
-- `apx fetch` - Download toolchain  
-- `apx gen` - Generate code with canonical imports
-- `apx sync` - Update go.work overlays
-- `apx link` - Link Python/TypeScript overlays for local dev
-- `apx unlink` - Remove overlays for released APIs
-:::
+    ---
 
-:::{grid-item-card} **Dependencies**
-^^^
-- `apx search` - Discover APIs
-- `apx show` - View API details
-- `apx add` - Add dependencies
-:::
+    - `apx init` - Initialize projects
+    - `apx fetch` - Download toolchain
+    - `apx gen` - Generate code with canonical imports
+    - `apx sync` - Update go.work overlays
+    - `apx link` - Link Python/TypeScript overlays for local dev
+    - `apx unlink` - Remove overlays for released APIs
 
-:::{grid-item-card} **Releasing**
-^^^
-- `apx release` - Release pipeline (prepare, submit, finalize)
-- `apx semver suggest` - Suggest version bump
-:::
+-   **Dependencies**
 
-:::{grid-item-card} **Validation**
-^^^  
-- `apx lint` - Schema validation
-- `apx breaking` - Breaking changes
-- `apx policy` - Policy enforcement
-:::
+    ---
 
-:::{grid-item-card} **Utilities**
-^^^
-- `apx config` - Configuration management
-- `apx fetch` - Download toolchain
-- `apx inspect` / `apx explain` - Identity analysis
-- `apx external` - External API management
-:::
+    - `apx search` - Discover APIs
+    - `apx show` - View API details
+    - `apx add` - Add dependencies
 
-:::{grid-item-card} **Global Options**
-^^^
-- `--verbose` - Detailed output
-- `--json` - Machine-readable output
-- `--quiet` / `--no-color` - Output control
-- `--config` - Custom config file
-:::
+-   **Releasing**
 
-::::
+    ---
+
+    - `apx release` - Release pipeline (prepare, submit, finalize)
+    - `apx semver suggest` - Suggest version bump
+
+-   **Validation**
+
+    ---
+
+    - `apx lint` - Schema validation
+    - `apx breaking` - Breaking changes
+    - `apx policy` - Policy enforcement
+
+-   **Utilities**
+
+    ---
+
+    - `apx config` - Configuration management
+    - `apx fetch` - Download toolchain
+    - `apx inspect` / `apx explain` - Identity analysis
+    - `apx external` - External API management
+
+-   **Global Options**
+
+    ---
+
+    - `--verbose` - Detailed output
+    - `--json` - Machine-readable output
+    - `--quiet` / `--no-color` - Output control
+    - `--config` - Custom config file
+
+</div>
 
 ## Quick Reference
 
@@ -130,23 +122,23 @@ type Service struct {
 
 ## Path Mapping Reference
 
-```{include} ../_generated/path-mapping-go.md
-```
+--8<-- "_generated/path-mapping-go.md"
 
-```{include} ../_generated/path-mapping-cpp.md
-```
 
-```{include} ../_generated/path-mapping-java.md
-```
+--8<-- "_generated/path-mapping-cpp.md"
 
-```{include} ../_generated/path-mapping-python.md
-```
 
-```{include} ../_generated/path-mapping-rust.md
-```
+--8<-- "_generated/path-mapping-java.md"
 
-```{include} ../_generated/path-mapping-typescript.md
-```
+
+--8<-- "_generated/path-mapping-python.md"
+
+
+--8<-- "_generated/path-mapping-rust.md"
+
+
+--8<-- "_generated/path-mapping-typescript.md"
+
 
 **Local Overlay Paths**
 
@@ -199,10 +191,8 @@ export APX_VERBOSE=true
 apx lint  # now shows verbose diagnostics
 ```
 
-```{admonition} Planned
-:class: note
-`APX_USE_CONTAINER` and `APX_CACHE_DIR` environment variables are planned for a future release.
-```
+!!! note "Planned"
+    `APX_USE_CONTAINER` and `APX_CACHE_DIR` environment variables are planned for a future release.
 
 ## Configuration File
 

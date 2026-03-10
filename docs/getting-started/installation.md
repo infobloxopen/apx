@@ -2,10 +2,8 @@
 
 APX can be installed from pre-built binaries (GitHub Releases), Homebrew, or from source.
 
-:::{admonition} Beta Release
-:class: note
-APX is currently in **beta** (`v0.9.0-beta.2`). The Homebrew formula and other package manager entries are not yet stable-released. We recommend installing from GitHub Releases or from source for the beta period.
-:::
+!!! note "Beta Release"
+    APX is currently in **beta** (`v0.9.0-beta.2`). The Homebrew formula and other package manager entries are not yet stable-released. We recommend installing from GitHub Releases or from source for the beta period.
 
 ## GitHub Releases (Recommended for Beta)
 
@@ -70,9 +68,8 @@ APX bundles pinned generators and tools via `apx.lock` for reproducible builds:
 apx fetch
 ```
 
-:::{note}
-APX manages its own toolchain to ensure consistent results across environments. The first `apx fetch` will download necessary tools like `buf`, `protoc`, and language-specific generators.
-:::
+!!! note
+    APX manages its own toolchain to ensure consistent results across environments. The first `apx fetch` will download necessary tools like `buf`, `protoc`, and language-specific generators.
 
 ## Shell Completion
 

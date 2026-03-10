@@ -1,0 +1,157 @@
+site_name: APX Documentation
+site_description: APX - API Publishing eXperience CLI for managing schema evolution
+site_url: https://infobloxopen.github.io/apx/
+repo_url: https://github.com/infobloxopen/apx
+repo_name: infobloxopen/apx
+edit_uri: edit/main/docs/
+docs_dir: .
+site_dir: ../site
+exclude_docs: |
+  _build/
+  _generated/
+  _static/
+  venv/
+  target.md
+  requirements*.txt
+  mkdocs.yml
+  Makefile
+  *.py
+
+copyright: Copyright &copy; 2025 Infoblox
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: deep purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: deep purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/infobloxopen/apx
+
+markdown_extensions:
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+  # PyMdown Extensions
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.snippets:
+      base_path: docs
+      check_paths: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - getting-started/index.md
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Interactive Init: getting-started/interactive-init.md
+  - Canonical Repo:
+    - canonical-repo/index.md
+    - Setup: canonical-repo/setup.md
+    - Structure: canonical-repo/structure.md
+    - CI Templates: canonical-repo/ci-templates.md
+    - Protection: canonical-repo/protection.md
+  - App Repos:
+    - app-repos/index.md
+    - Layout: app-repos/layout.md
+    - Local Development: app-repos/local-development.md
+    - Working with Forks: app-repos/working-with-forks.md
+    - Release Workflow: app-repos/publishing-workflow.md
+    - CI Integration: app-repos/ci-integration.md
+  - Dependencies:
+    - dependencies/index.md
+    - Adding Dependencies: dependencies/adding-dependencies.md
+    - Code Generation: dependencies/code-generation.md
+    - Discovery: dependencies/discovery.md
+    - Versioning Strategy: dependencies/versioning-strategy.md
+    - Updates & Upgrades: dependencies/updates-and-upgrades.md
+    - External APIs: dependencies/external-apis.md
+    - Catalog Schema: dependencies/catalog-schema.md
+    - Multi-Language Strategy: concepts/multi-language-strategy.md
+  - Releasing:
+    - publishing/index.md
+    - Overview: publishing/overview.md
+    - Lifecycle: publishing/lifecycle.md
+    - Canonical PR: publishing/canonical-pr.md
+    - Tagging Strategy: publishing/tagging-strategy.md
+    - Release Guardrails: publishing/release-guardrails.md
+    - Validation: publishing/validation.md
+  - CLI Reference:
+    - cli-reference/index.md
+    - Core Commands: cli-reference/core-commands.md
+    - Dependency Commands: cli-reference/dependency-commands.md
+    - Release Commands: cli-reference/release-commands.md
+    - Validation Commands: cli-reference/validation-commands.md
+    - Utility Commands: cli-reference/utility-commands.md
+    - External Commands: cli-reference/external-commands.md
+    - Configuration: cli-reference/configuration.md
+    - Global Options: cli-reference/global-options.md
+  - Troubleshooting:
+    - troubleshooting/index.md
+    - Common Errors: troubleshooting/common-errors.md
+    - Buf Issues: troubleshooting/buf-issues.md
+    - Versioning Problems: troubleshooting/versioning-problems.md
+    - Publishing Failures: troubleshooting/publishing-failures.md
+    - Code Generation: troubleshooting/code-generation.md
+    - E2E Tests: troubleshooting/e2e-tests.md
+    - FAQ: troubleshooting/faq.md
+  - Testing:
+    - E2E Tests: testing/e2e-tests.md
+    - Format Maturity: testing/format-maturity.md

@@ -268,9 +268,8 @@ You can extend the generated workflow with additional steps. Common additions:
           go test ./...
 ```
 
-:::{warning}
-When customizing, keep `apx workflows sync` in mind. It **overwrites** the entire file. If you have custom steps, either maintain the file manually or re-add customizations after each sync.
-:::
+!!! warning
+    When customizing, keep `apx workflows sync` in mind. It **overwrites** the entire file. If you have custom steps, either maintain the file manually or re-add customizations after each sync.
 
 ---
 

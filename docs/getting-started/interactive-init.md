@@ -6,26 +6,26 @@ APX provides intelligent interactive initialization for both **canonical reposit
 
 APX supports two distinct initialization patterns:
 
-::::{grid} 1 1 2 2
-:gutter: 3
+<div class="grid cards" markdown>
+-   **Canonical Repository**
 
-:::{grid-item-card} **Canonical Repository**
-^^^
-- Single source of truth for all org APIs
-- `github.com/<org>/apis` structure
-- Policy enforcement and governance
-- CI-only releases and tagging
-:::
+    ---
 
-:::{grid-item-card} **App Repository**  
-^^^
-- Daily schema authoring by teams
-- Releases to canonical via PRs
-- Local development and testing
-- Tag-based release workflow
-:::
+    - Single source of truth for all org APIs
+    - `github.com/<org>/apis` structure
+    - Policy enforcement and governance
+    - CI-only releases and tagging
 
-::::
+-   **App Repository**
+
+    ---
+
+    - Daily schema authoring by teams
+    - Releases to canonical via PRs
+    - Local development and testing
+    - Tag-based release workflow
+
+</div>
 
 Key benefits:
 - **🎯 Context-aware**: Detects canonical vs app repo setup

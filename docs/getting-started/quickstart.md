@@ -31,9 +31,8 @@ Every API in the canonical repo maps to a deterministic set of coordinates:
 
 **One canonical repo. One default import root. One path model.**
 
-:::{tip}
-**Custom import roots**: Set `import_root` in `apx.yaml` to use a vanity domain instead of the Git hosting path. For example, with `import_root: go.myorg.dev/apis`, the Go module becomes `go.myorg.dev/apis/proto/payments/ledger` and the import becomes `go.myorg.dev/apis/proto/payments/ledger/v1`. See [Configuration Reference](../cli-reference/configuration.md#import_root) for details.
-:::
+!!! tip
+    **Custom import roots**: Set `import_root` in `apx.yaml` to use a vanity domain instead of the Git hosting path. For example, with `import_root: go.myorg.dev/apis`, the Go module becomes `go.myorg.dev/apis/proto/payments/ledger` and the import becomes `go.myorg.dev/apis/proto/payments/ledger/v1`. See [Configuration Reference](../cli-reference/configuration.md#import_root) for details.
 
 ## 1. Bootstrap the Canonical API Repo
 
@@ -143,13 +142,12 @@ languages:                            # per-language derived coordinates
     import: github.com/<org>/apis/proto/payments/ledger/v1   # Go import path
 ```
 
-:::{tip}
-You only need to supply the **API ID** (`api.id`), **source repo**, and **lifecycle**.
-APX derives the remaining fields — `format`, `domain`, `name`, `line`,
-`source.path`, and all `languages` coordinates — automatically via
-`apx init app` or `apx inspect identity`.  They are shown here so you can see
-the full coordinate model that the rest of this guide builds on.
-:::
+!!! tip
+    You only need to supply the **API ID** (`api.id`), **source repo**, and **lifecycle**.
+    APX derives the remaining fields — `format`, `domain`, `name`, `line`,
+    `source.path`, and all `languages` coordinates — automatically via
+    `apx init app` or `apx inspect identity`.  They are shown here so you can see
+    the full coordinate model that the rest of this guide builds on.
 
 **buf.work.yaml** (app repo):
 ```yaml
@@ -221,9 +219,8 @@ message GetEntryResponse {
 }
 ```
 
-:::{note}
-**No local `go.mod` required** for authoring. Buf ignores it. `apx release` synthesizes the correct `go.mod` in the PR to canonical repo.
-:::
+!!! note
+    **No local `go.mod` required** for authoring. Buf ignores it. `apx release` synthesizes the correct `go.mod` in the PR to canonical repo.
 
 ## 4. Local Development with Canonical Import Paths
 
@@ -339,9 +336,8 @@ internal/gen/go/proto/payments/ledger@v1.2.3/
 │   └── ledger_grpc.pb.go          # imports canonical path
 ```
 
-:::{important}
-**Policy**: `/internal/gen/**` is git-ignored. Never commit generated code. Commit `apx.lock` instead. Generated Go code uses canonical import paths resolved via go.work overlays.
-:::
+!!! important
+    **Policy**: `/internal/gen/**` is git-ignored. Never commit generated code. Commit `apx.lock` instead. Generated Go code uses canonical import paths resolved via go.work overlays.
 
 ## 5. Release Workflow
 

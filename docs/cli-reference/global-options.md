@@ -53,9 +53,8 @@ apx --json inspect identity proto/payments/ledger/v1
 apx --json explain go-path proto/payments/ledger/v1
 ```
 
-:::{note}
-`--json` is a persistent flag on the root command. It can be placed before or after the subcommand: `apx --json show ...` or `apx show --json ...` both work.
-:::
+!!! note
+    `--json` is a persistent flag on the root command. It can be placed before or after the subcommand: `apx --json show ...` or `apx show --json ...` both work.
 
 ---
 
