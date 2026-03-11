@@ -77,6 +77,7 @@ func TestFetchRemoteImportRoot_RemoteFails_CachedCatalog(t *testing.T) {
 	// Create a temp cache directory with a catalog
 	tmpHome := t.TempDir()
 	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome) // Windows: os.UserHomeDir uses USERPROFILE
 
 	cacheDir := filepath.Join(tmpHome, ".cache", "apx", "catalogs", "acme", "apis")
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
@@ -106,6 +107,7 @@ func TestFetchRemoteImportRoot_AllFail(t *testing.T) {
 	// No cached catalog either (temp HOME has nothing)
 	tmpHome := t.TempDir()
 	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome) // Windows: os.UserHomeDir uses USERPROFILE
 
 	result := FetchRemoteImportRoot("acme", "apis")
 	assert.Equal(t, "", result)
@@ -125,6 +127,7 @@ func TestFetchRemoteImportRoot_MalformedYAML(t *testing.T) {
 
 	tmpHome := t.TempDir()
 	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome) // Windows: os.UserHomeDir uses USERPROFILE
 
 	result := FetchRemoteImportRoot("acme", "apis")
 	assert.Equal(t, "", result)
@@ -165,6 +168,7 @@ func TestFetchRemoteImportRoot_GHEndpoint(t *testing.T) {
 
 	tmpHome := t.TempDir()
 	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome) // Windows: os.UserHomeDir uses USERPROFILE
 
 	FetchRemoteImportRoot("myorg", "apis")
 	assert.Equal(t, "repos/myorg/apis/contents/apx.yaml", capturedEndpoint)

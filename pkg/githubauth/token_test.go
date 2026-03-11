@@ -3,6 +3,7 @@ package githubauth
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -85,7 +86,10 @@ func TestTokenFilePermissions(t *testing.T) {
 	info, err := os.Stat(p)
 	require.NoError(t, err)
 	// File should be readable/writable only by owner (0600).
-	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	// Windows does not support Unix file permission bits.
+	if runtime.GOOS != "windows" {
+		assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+	}
 }
 
 func TestReadWriteCache(t *testing.T) {
