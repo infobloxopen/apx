@@ -16,6 +16,7 @@ import (
 	"github.com/infobloxopen/apx/internal/publisher"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/infobloxopen/apx/internal/validator"
+	"github.com/infobloxopen/apx/pkg/githubauth"
 	"github.com/spf13/cobra"
 )
 
@@ -500,13 +501,22 @@ func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// ── Preflight: gh CLI check ──────────────────────────────────────
-	if err := publisher.CheckGHCLI(); err != nil {
+	// ── Auth: ensure GitHub token ────────────────────────────────────
+	org, orgErr := githubauth.DetectOrg()
+	if orgErr != nil {
 		return publisher.NewReleaseError(
 			publisher.ErrCodePRCreationFailed,
-			"GitHub CLI (gh) is required for release submission",
-		).WithHint("Install gh from https://cli.github.com and run: gh auth login")
+			"Cannot detect GitHub org from git remote",
+		).WithHint("Ensure you are in a git repository with a GitHub remote")
 	}
+	token, tokenErr := githubauth.EnsureToken(org)
+	if tokenErr != nil {
+		return publisher.NewReleaseError(
+			publisher.ErrCodePRCreationFailed,
+			fmt.Sprintf("GitHub authentication failed: %v", tokenErr),
+		).WithHint("Run 'apx init canonical --setup-github' to set up GitHub authentication")
+	}
+	ghClient := githubauth.NewClient(token)
 
 	// ── Submit via PR ────────────────────────────────────────────────
 	ui.Info("Submitting release %s @ %s", manifest.APIID, manifest.RequestedVersion)
@@ -514,14 +524,14 @@ func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
 	// Build CI provenance extra for PR body
 	prBodyExtra := buildCIProvenance()
 
-	resp, err := publisher.SubmitReleaseWithPR(manifest, manifest.SourcePath, prBodyExtra)
+	resp, err := publisher.SubmitReleaseWithPR(ghClient, manifest, manifest.SourcePath, prBodyExtra)
 	if err != nil {
 		manifest.Fail(string(publisher.ErrCodePRCreationFailed), err.Error(), "submit")
 		_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
 		return &publisher.ReleaseError{
 			Code:    publisher.ErrCodePRCreationFailed,
 			Message: fmt.Sprintf("release submission failed: %v", err),
-			Hint:    "Check gh auth status and try 'apx release submit' again",
+			Hint:    "Check authentication and try 'apx release submit' again",
 		}
 	}
 

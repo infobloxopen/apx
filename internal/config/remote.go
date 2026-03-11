@@ -7,12 +7,13 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/infobloxopen/apx/pkg/githubauth"
 )
 
 // remoteConfig is a minimal struct for parsing only the import_root field
@@ -36,7 +37,7 @@ var ghAPIFn = ghAPIReal
 //
 // Resolution order:
 //  1. raw.githubusercontent.com/{org}/{repo}/HEAD/apx.yaml (public repos)
-//  2. gh api repos/{org}/{repo}/contents/apx.yaml (private repos)
+//  2. GitHub REST API repos/{org}/{repo}/contents/apx.yaml (private repos, via cached token)
 //  3. Cached catalog at ~/.cache/apx/catalogs/{org}/{repo}/catalog.yaml
 //
 // Returns "" on any failure — never surfaces errors to the caller.
@@ -50,7 +51,7 @@ func FetchRemoteImportRoot(org, repo string) string {
 		}
 	}
 
-	// 2. Try gh api (private repos, requires gh auth)
+	// 2. Try GitHub REST API (private repos, uses cached token if available)
 	endpoint := fmt.Sprintf("repos/%s/%s/contents/apx.yaml", org, repo)
 	if data, err := ghAPIFn(endpoint); err == nil {
 		var resp ghContentsResponse
@@ -90,13 +91,31 @@ func httpGetReal(url string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// ghAPIReal calls `gh api <endpoint>` and returns the raw output.
+// ghAPIReal uses a cached githubauth token (if available) to call the
+// GitHub REST API. It does NOT trigger the device flow — if no token is
+// cached, it silently fails so callers can fall through to the next
+// resolution method.
 func ghAPIReal(endpoint string) ([]byte, error) {
-	out, err := exec.Command("gh", "api", endpoint).Output()
+	// Try to detect the org from git remote for token lookup.
+	org, err := githubauth.DetectOrg()
+	if err != nil {
+		return nil, fmt.Errorf("no org detected: %w", err)
+	}
+
+	tok, err := githubauth.LoadToken(org)
+	if err != nil || tok == nil {
+		return nil, fmt.Errorf("no cached token for org %q", org)
+	}
+
+	client := githubauth.NewClient(tok.AccessToken)
+	body, status, err := client.Get("/" + endpoint)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	if status >= 400 {
+		return nil, fmt.Errorf("HTTP %d", status)
+	}
+	return body, nil
 }
 
 // importRootFromCachedCatalog reads import_root from a locally cached catalog.

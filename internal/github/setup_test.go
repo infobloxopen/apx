@@ -1,8 +1,10 @@
 package github
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,7 +14,22 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/infobloxopen/apx/pkg/githubauth"
 )
+
+// setupTestClient creates a test HTTP server and returns a client + cleanup func.
+func setupTestClient(t *testing.T, handler http.Handler) (*githubauth.Client, func()) {
+	t.Helper()
+	server := httptest.NewServer(handler)
+	orig := githubauth.APIBaseURL
+	githubauth.APIBaseURL = server.URL
+	client := githubauth.NewClient("test-token-123")
+	return client, func() {
+		githubauth.APIBaseURL = orig
+		server.Close()
+	}
+}
 
 // ---------------------------------------------------------------------------
 // PEM cache tests
@@ -38,7 +55,7 @@ func TestCachePEM_CopiesAndCaches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "fake-pem-data", contents)
 
-	// Verify the cached file exists with 0600 (skip on Windows where perms aren't enforced)
+	// Verify the cached file exists with 0600 (skip on Windows)
 	cachedPath := filepath.Join(cacheDir, "testorg-app.pem")
 	info, err := os.Stat(cachedPath)
 	require.NoError(t, err)
@@ -100,59 +117,23 @@ func TestSetupResult_Add(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// orgSecretExists tests (with stub)
+// orgSecretExists tests (via HTTP mock)
 // ---------------------------------------------------------------------------
 
 func TestOrgSecretExists(t *testing.T) {
-	origGHRun := GHRun
-	t.Cleanup(func() { GHRun = origGHRun })
+	client, cleanup := setupTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/APX_APP_ID") {
+			w.WriteHeader(200)
+			fmt.Fprint(w, `{"name":"APX_APP_ID"}`)
+		} else {
+			w.WriteHeader(404)
+			fmt.Fprint(w, `{"message":"Not Found"}`)
+		}
+	}))
+	defer cleanup()
 
-	GHRun = func(args ...string) (string, error) {
-		return "APX_APP_ID\tUpdated 2025-01-01\nOTHER_SECRET\tUpdated 2025-01-01", nil
-	}
-
-	assert.True(t, orgSecretExists("myorg", "APX_APP_ID"))
-	assert.False(t, orgSecretExists("myorg", "APX_APP_PRIVATE_KEY"))
-}
-
-func TestOrgSecretExists_Error(t *testing.T) {
-	origGHRun := GHRun
-	t.Cleanup(func() { GHRun = origGHRun })
-
-	GHRun = func(args ...string) (string, error) {
-		return "", fmt.Errorf("not authenticated")
-	}
-
-	assert.False(t, orgSecretExists("myorg", "APX_APP_ID"))
-}
-
-// ---------------------------------------------------------------------------
-// CheckGHScopes tests
-// ---------------------------------------------------------------------------
-
-func TestCheckGHScopes_HasAdminOrg(t *testing.T) {
-	origGHRun := GHRun
-	t.Cleanup(func() { GHRun = origGHRun })
-
-	GHRun = func(args ...string) (string, error) {
-		return "github.com\n  Token: gho_xxx\n  Token scopes: 'admin:org', 'repo', 'read:org'", nil
-	}
-
-	assert.NoError(t, CheckGHScopes())
-}
-
-func TestCheckGHScopes_MissingAdminOrg(t *testing.T) {
-	origGHRun := GHRun
-	t.Cleanup(func() { GHRun = origGHRun })
-
-	GHRun = func(args ...string) (string, error) {
-		return "github.com\n  Token: gho_xxx\n  Token scopes: 'repo', 'read:org'", nil
-	}
-
-	err := CheckGHScopes()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "admin:org")
-	assert.Contains(t, err.Error(), "gh auth refresh")
+	assert.True(t, orgSecretExists(client, "myorg", "APX_APP_ID"))
+	assert.False(t, orgSecretExists(client, "myorg", "APX_APP_PRIVATE_KEY"))
 }
 
 // ---------------------------------------------------------------------------
@@ -174,7 +155,7 @@ func TestCacheAndGetAppID(t *testing.T) {
 	// Read it back
 	assert.Equal(t, "12345", GetCachedAppID("acme"))
 
-	// File has 0600 perms (skip on Windows where perms aren't enforced)
+	// File has 0600 perms (skip on Windows)
 	info, err := os.Stat(filepath.Join(tmp, "acme-app-id"))
 	require.NoError(t, err)
 	if runtime.GOOS != "windows" {
@@ -210,39 +191,33 @@ func TestCachePEMFromContents(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCreateAppViaManifest_ExchangesCode(t *testing.T) {
-	origGHRun := GHRun
 	origBrowser := openBrowserFn
-	t.Cleanup(func() {
-		GHRun = origGHRun
-		openBrowserFn = origBrowser
-	})
+	t.Cleanup(func() { openBrowserFn = origBrowser })
 
-	GHRun = func(args ...string) (string, error) {
-		// auth status check
-		if len(args) >= 2 && args[0] == "auth" && args[1] == "status" {
-			return "Logged in", nil
-		}
-		// manifest code exchange
-		if len(args) >= 2 && args[0] == "api" && strings.HasPrefix(args[1], "app-manifests/") {
-			return `{"id": 99999, "slug": "apx-apis-acme", "pem": "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----"}`, nil
-		}
-		// installations check (for EnsureAppInstalled polling)
-		if len(args) >= 2 && args[0] == "api" && strings.Contains(args[1], "/installations") {
-			return `[{"app_id": 99999}]`, nil
-		}
-		return "", fmt.Errorf("unexpected gh call: %v", args)
-	}
+	// Mock the manifest code exchange endpoint.
+	exchangeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Contains(t, r.URL.Path, "/app-manifests/testcode/conversions")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"id":        99999,
+			"slug":      "apx-acme-user",
+			"pem":       "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----",
+			"client_id": "Iv1.abc123",
+		})
+	}))
+	defer exchangeServer.Close()
 
-	// Instead of actually opening browser, hit the callback directly
+	origExchangeURL := ManifestExchangeURL
+	ManifestExchangeURL = exchangeServer.URL + "/app-manifests/%s/conversions"
+	t.Cleanup(func() { ManifestExchangeURL = origExchangeURL })
+
+	// Instead of actually opening browser, hit the callback directly.
 	openBrowserFn = func(url string) error {
-		// If it's an install URL, just return (already installed per mock above)
 		if strings.Contains(url, "/installations/new") {
 			return nil
 		}
-		// Parse the port from the URL and hit /callback?code=testcode
 		go func() {
 			time.Sleep(100 * time.Millisecond)
-			// Extract port from http://localhost:<port>/
 			port := strings.TrimPrefix(url, "http://localhost:")
 			port = strings.TrimSuffix(port, "/")
 			resp, err := http.Get(fmt.Sprintf("http://localhost:%s/callback?code=testcode", port))
@@ -253,9 +228,105 @@ func TestCreateAppViaManifest_ExchangesCode(t *testing.T) {
 		return nil
 	}
 
-	appID, slug, pem, err := CreateAppViaManifest("acme", "apis")
+	creds, err := CreateAppViaManifest("acme", "apx-acme-user", UserAppPermissions)
 	require.NoError(t, err)
-	assert.Equal(t, "99999", appID)
-	assert.Equal(t, "apx-apis-acme", slug)
-	assert.Contains(t, pem, "BEGIN RSA PRIVATE KEY")
+	assert.Equal(t, 99999, creds.ID)
+	assert.Equal(t, "apx-acme-user", creds.Slug)
+	assert.Contains(t, creds.PEM, "BEGIN RSA PRIVATE KEY")
+	assert.Equal(t, "Iv1.abc123", creds.ClientID)
+}
+
+// ---------------------------------------------------------------------------
+// EnsureBranchProtection tests (via HTTP mock)
+// ---------------------------------------------------------------------------
+
+func TestEnsureBranchProtection_AlreadyExists(t *testing.T) {
+	client, cleanup := setupTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]string{"url": "https://api.github.com/repos/acme/apis/branches/main/protection"})
+	}))
+	defer cleanup()
+
+	res := &SetupResult{}
+	err := EnsureBranchProtection(client, "acme", "apis", res)
+	require.NoError(t, err)
+	assert.Contains(t, res.Skipped, "branch protection on main")
+}
+
+func TestEnsureBranchProtection_Creates(t *testing.T) {
+	callCount := 0
+	client, cleanup := setupTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if r.Method == "GET" {
+			w.WriteHeader(404)
+			return
+		}
+		// PUT
+		w.WriteHeader(200)
+		fmt.Fprint(w, `{"url":"created"}`)
+	}))
+	defer cleanup()
+
+	res := &SetupResult{}
+	err := EnsureBranchProtection(client, "acme", "apis", res)
+	require.NoError(t, err)
+	assert.Contains(t, res.Created, "branch protection on main")
+}
+
+// ---------------------------------------------------------------------------
+// CheckAppInstalled tests
+// ---------------------------------------------------------------------------
+
+func TestCheckAppInstalled_Found(t *testing.T) {
+	client, cleanup := setupTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"total_count": 1,
+			"installations": []map[string]interface{}{
+				{"app_id": 99999, "id": 1},
+			},
+		})
+	}))
+	defer cleanup()
+
+	assert.True(t, CheckAppInstalled(client, "acme", 99999))
+}
+
+func TestCheckAppInstalled_NotFound(t *testing.T) {
+	client, cleanup := setupTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"total_count":   1,
+			"installations": []map[string]interface{}{{"app_id": 11111, "id": 1}},
+		})
+	}))
+	defer cleanup()
+
+	assert.False(t, CheckAppInstalled(client, "acme", 99999))
+}
+
+// ---------------------------------------------------------------------------
+// User app cache tests
+// ---------------------------------------------------------------------------
+
+func TestUserAppCache(t *testing.T) {
+	tmp := t.TempDir()
+	orig := githubauth.ConfigDir
+	githubauth.ConfigDir = func() (string, error) { return tmp, nil }
+	t.Cleanup(func() { githubauth.ConfigDir = orig })
+
+	require.NoError(t, CacheUserAppClientID("acme", "Iv1.abc123"))
+	assert.Equal(t, "Iv1.abc123", GetCachedUserAppClientID("acme"))
+
+	require.NoError(t, CacheUserAppID("acme", "12345"))
+	assert.Equal(t, "12345", GetCachedUserAppID("acme"))
+
+	require.NoError(t, CacheUserAppSlug("acme", "apx-acme-user"))
+	assert.Equal(t, "apx-acme-user", GetCachedUserAppSlug("acme"))
+}
+
+// ---------------------------------------------------------------------------
+// App name tests
+// ---------------------------------------------------------------------------
+
+func TestAppNames(t *testing.T) {
+	assert.Equal(t, "apx-acme-user", UserAppName("acme"))
+	assert.Equal(t, "apx-apis-acme", CIAppName("apis", "acme"))
 }

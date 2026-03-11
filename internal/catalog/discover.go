@@ -3,8 +3,9 @@ package catalog
 import (
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strings"
+
+	"github.com/infobloxopen/apx/pkg/githubauth"
 )
 
 // ghPackage represents a minimal GitHub Package from the Packages API.
@@ -16,27 +17,38 @@ type ghPackage struct {
 // in the given org. It returns a RegistrySource for each package whose name
 // ends with "-catalog".
 //
-// Requires `gh` to be installed and authenticated with read:packages scope.
-// Returns nil (no sources) if gh is not available or no catalogs are found.
+// Uses the githubauth package for authentication. Returns nil (no sources)
+// if authentication is unavailable or no catalogs are found.
 func DiscoverRegistries(org string) []CatalogSource {
 	return discoverRegistries(org, ghRunDiscover)
 }
 
-// ghRunDiscover is the default implementation that calls `gh api`.
+// ghRunDiscover is the default implementation that calls the GitHub API
+// via githubauth.
 var ghRunDiscover = ghRunDiscoverReal
 
 func ghRunDiscoverReal(org string) ([]byte, error) {
-	return exec.Command("gh", "api",
-		fmt.Sprintf("/orgs/%s/packages?package_type=container", org),
-		"--paginate",
-	).Output()
+	token, err := githubauth.EnsureToken(org)
+	if err != nil {
+		return nil, fmt.Errorf("GitHub auth failed: %w", err)
+	}
+
+	client := githubauth.NewClient(token)
+	items, err := client.GetPaginated(fmt.Sprintf("/orgs/%s/packages?package_type=container", org))
+	if err != nil {
+		return nil, err
+	}
+
+	// Re-serialize the items as a JSON array for backward compatibility
+	// with the existing parser below.
+	return json.Marshal(items)
 }
 
 // discoverRegistries is the testable core — accepts a runner function.
 func discoverRegistries(org string, runner func(string) ([]byte, error)) []CatalogSource {
 	output, err := runner(org)
 	if err != nil {
-		return nil // gh not available or API error — silent fallback
+		return nil // auth not available or API error — silent fallback
 	}
 
 	var packages []ghPackage

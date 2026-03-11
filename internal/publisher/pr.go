@@ -7,33 +7,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/infobloxopen/apx/pkg/githubauth"
 )
-
-// ---------------------------------------------------------------------------
-// gh CLI helper (stubable for tests, same pattern as internal/github)
-// ---------------------------------------------------------------------------
-
-// GHRun is the function used to invoke the gh CLI.  Tests can replace it
-// with a stub.
-var GHRun = ghRunReal
-
-func ghRunReal(args ...string) (string, error) {
-	cmd := exec.Command("gh", args...)
-	out, err := cmd.CombinedOutput()
-	return strings.TrimSpace(string(out)), err
-}
-
-// CheckGHCLI verifies that gh is installed and authenticated.
-func CheckGHCLI() error {
-	if _, err := exec.LookPath("gh"); err != nil {
-		return fmt.Errorf("gh CLI not found — install from https://cli.github.com")
-	}
-	out, err := GHRun("auth", "status")
-	if err != nil {
-		return fmt.Errorf("gh is not authenticated: %s\nRun: gh auth login", out)
-	}
-	return nil
-}
 
 // ---------------------------------------------------------------------------
 // Canonical repo URL helpers
@@ -67,56 +43,50 @@ type PRResponse struct {
 	State   string `json:"state"`
 }
 
-// CreatePR opens a pull request on the canonical repo using the gh CLI.
+// CreatePR opens a pull request on the canonical repo via the GitHub REST API.
 //
 //   - canonicalNWO is "owner/repo" for the canonical repo (e.g. "acme/apis").
 //   - head is the branch (or fork:branch) containing the changes.
 //   - base is the target branch (usually "main").
 //   - title / body are the PR metadata.
-func CreatePR(canonicalNWO, head, base, title, body string) (*PRResponse, error) {
-	out, err := GHRun(
-		"pr", "create",
-		"--repo", canonicalNWO,
-		"--head", head,
-		"--base", base,
-		"--title", title,
-		"--body", body,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("gh pr create failed: %s", out)
+func CreatePR(client *githubauth.Client, canonicalNWO, head, base, title, body string) (*PRResponse, error) {
+	reqBody := map[string]string{
+		"title": title,
+		"head":  head,
+		"base":  base,
+		"body":  body,
 	}
 
-	// gh pr create prints the PR URL on success.
-	// Try to parse JSON first (if --json were used), fall back to URL.
+	respBody, status, err := client.Post(fmt.Sprintf("/repos/%s/pulls", canonicalNWO), reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("PR create failed: %w", err)
+	}
+	if status >= 400 {
+		return nil, fmt.Errorf("PR create failed: HTTP %d: %s", status, respBody)
+	}
+
 	var resp PRResponse
-	if jsonErr := json.Unmarshal([]byte(out), &resp); jsonErr != nil {
-		return &PRResponse{HTMLURL: out}, nil
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, fmt.Errorf("parsing PR create response: %w", err)
 	}
 	return &resp, nil
 }
 
 // FindExistingPR checks whether an open PR already exists for the given
 // branch on the canonical repo. Returns nil if no PR is found.
-func FindExistingPR(canonicalNWO, branch string) (*PRResponse, error) {
-	out, err := GHRun(
-		"pr", "list",
-		"--repo", canonicalNWO,
-		"--head", branch,
-		"--state", "open",
-		"--json", "number,url,state",
-	)
+func FindExistingPR(client *githubauth.Client, canonicalNWO, branch string) (*PRResponse, error) {
+	endpoint := fmt.Sprintf("/repos/%s/pulls?head=%s&state=open", canonicalNWO, branch)
+	respBody, status, err := client.Get(endpoint)
 	if err != nil {
-		return nil, fmt.Errorf("gh pr list failed: %s", out)
+		return nil, fmt.Errorf("PR list failed: %w", err)
 	}
-
-	out = strings.TrimSpace(out)
-	if out == "" || out == "[]" {
-		return nil, nil
+	if status >= 400 {
+		return nil, fmt.Errorf("PR list failed: HTTP %d: %s", status, respBody)
 	}
 
 	var prs []PRResponse
-	if jsonErr := json.Unmarshal([]byte(out), &prs); jsonErr != nil {
-		return nil, fmt.Errorf("parsing PR list response: %w", jsonErr)
+	if err := json.Unmarshal(respBody, &prs); err != nil {
+		return nil, fmt.Errorf("parsing PR list response: %w", err)
 	}
 	if len(prs) == 0 {
 		return nil, nil
@@ -137,20 +107,8 @@ func ComputeReleaseBranchName(apiID, version string) string {
 
 // SubmitReleaseWithPR performs a PR-based release submission of a prepared
 // snapshot into the canonical repository.
-//
-// Flow:
-//  1. Shallow-clone the canonical repo to a temp directory.
-//  2. Create a release branch named apx/release/<api-id-normalized>/<version>.
-//  3. Copy snapshot files from snapshotDir into <clone>/<canonicalPath>.
-//  4. Optionally generate go.mod for Go modules.
-//  5. git add + commit.
-//  6. git push --force the release branch (force for retry safety).
-//  7. Check for an existing PR on the branch; if found, return it.
-//  8. gh pr create with release metadata.
-//
-// The prBodyExtra parameter allows callers to append CI provenance or other
-// metadata to the PR body.
 func SubmitReleaseWithPR(
+	client *githubauth.Client,
 	manifest *ReleaseManifest,
 	snapshotDir string,
 	prBodyExtra string,
@@ -190,7 +148,6 @@ func SubmitReleaseWithPR(
 
 	// ── 4. Generate go.mod if needed ─────────────────────────────────
 	if goCoords, ok := manifest.Languages["go"]; ok && goCoords.Module != "" {
-		// go.mod lives one level up from the line dir (e.g. proto/payments/ledger/)
 		goModDir := filepath.Dir(destDir)
 		goModPath := filepath.Join(goModDir, "go.mod")
 
@@ -216,10 +173,7 @@ func SubmitReleaseWithPR(
 	commitMsg := fmt.Sprintf("release: %s@%s\n\nCreated by apx release submit",
 		manifest.APIID, manifest.RequestedVersion)
 	if out, commitErr := runGitIn(cloneDir, "commit", "-m", commitMsg); commitErr != nil {
-		if strings.Contains(out, "nothing to commit") {
-			// Content already matches — still need to push for branch creation
-			// and check for existing PR. This is a no-change retry scenario.
-		} else {
+		if !strings.Contains(out, "nothing to commit") {
 			return nil, fmt.Errorf("git commit: %s", out)
 		}
 	}
@@ -230,10 +184,9 @@ func SubmitReleaseWithPR(
 	}
 
 	// ── 7. Check for existing PR (idempotency) ───────────────────────
-	existing, findErr := FindExistingPR(canonicalNWO, branch)
+	existing, findErr := FindExistingPR(client, canonicalNWO, branch)
 	if findErr != nil {
-		// Non-fatal: if we can't check, try creating a new one
-		_ = findErr
+		_ = findErr // Non-fatal: if we can't check, try creating a new one
 	}
 	if existing != nil {
 		return existing, nil
@@ -241,7 +194,7 @@ func SubmitReleaseWithPR(
 
 	// ── 8. Create PR ─────────────────────────────────────────────────
 	title := fmt.Sprintf("release: %s@%s", manifest.APIID, manifest.RequestedVersion)
-	body := fmt.Sprintf(
+	prBody := fmt.Sprintf(
 		"Automated release submission of API `%s` at version `%s`.\n\n"+
 			"- **Tag**: `%s`\n"+
 			"- **Source**: `%s/%s`\n\n"+
@@ -251,18 +204,12 @@ func SubmitReleaseWithPR(
 		manifest.SourceRepo, manifest.SourcePath,
 	)
 	if prBodyExtra != "" {
-		body += "\n\n" + prBodyExtra
+		prBody += "\n\n" + prBodyExtra
 	}
 
-	pr, createErr := CreatePR(canonicalNWO, branch, "main", title, body)
+	pr, createErr := CreatePR(client, canonicalNWO, branch, "main", title, prBody)
 	if createErr != nil {
 		return nil, createErr
-	}
-
-	// Populate branch on result for manifest storage
-	if pr.HTMLURL != "" && pr.Number == 0 {
-		// URL-only response: try to extract PR number from URL is not reliable,
-		// so leave Number as 0
 	}
 
 	return pr, nil

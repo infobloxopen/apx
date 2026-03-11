@@ -12,6 +12,7 @@ import (
 	"github.com/infobloxopen/apx/internal/interactive"
 	"github.com/infobloxopen/apx/internal/schema"
 	"github.com/infobloxopen/apx/internal/ui"
+	"github.com/infobloxopen/apx/pkg/githubauth"
 	"github.com/spf13/cobra"
 )
 
@@ -54,7 +55,7 @@ func newInitCanonicalCmd() *cobra.Command {
 	cmd.Flags().String("site-url", "", "Custom domain for the catalog site (e.g. apis.internal.infoblox.dev)")
 	cmd.Flags().Bool("skip-git", false, "Skip git initialization")
 	cmd.Flags().Bool("non-interactive", false, "Disable interactive prompts and require all flags")
-	cmd.Flags().Bool("setup-github", false, "Configure GitHub repo settings (branch/tag protection, org secrets) via gh CLI")
+	cmd.Flags().Bool("setup-github", false, "Configure GitHub repo settings (apps, branch/tag protection, org secrets)")
 	cmd.Flags().String("app-id", "", "GitHub App ID for org secrets (used with --setup-github)")
 	cmd.Flags().String("app-pem-file", "", "Path to GitHub App private key PEM file (used with --setup-github)")
 	return cmd
@@ -71,7 +72,7 @@ func newInitAppCmd() *cobra.Command {
 	cmd.Flags().String("repo", "", "Repository name")
 	cmd.Flags().String("import-root", "", "Custom public Go import prefix (e.g. go.acme.dev/apis)")
 	cmd.Flags().Bool("non-interactive", false, "Disable interactive prompts and require all flags")
-	cmd.Flags().Bool("setup-github", false, "Configure GitHub repo settings (branch protection) via gh CLI")
+	cmd.Flags().Bool("setup-github", false, "Configure GitHub repo settings (branch protection)")
 	return cmd
 }
 
@@ -251,26 +252,69 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 	ui.Success("\u2713 Generated .github/workflows/ci.yml")
 	ui.Success("\u2713 Generated .github/workflows/on-merge.yml")
 
-	// --setup-github: configure GitHub repo settings via gh CLI
+	// --setup-github: configure GitHub repo settings
 	setupGitHub, _ := cmd.Flags().GetBool("setup-github")
 	if setupGitHub {
-		// Preflight: verify gh is installed, authenticated, and has required scopes.
-		if err := gh.CheckGHAuth(); err != nil {
-			return fmt.Errorf("GitHub setup preflight failed: %w", err)
-		}
-		if err := gh.CheckGHScopes(); err != nil {
-			return fmt.Errorf("GitHub setup preflight failed: %w", err)
-		}
-
 		appID, _ := cmd.Flags().GetString("app-id")
 		pemFile, _ := cmd.Flags().GetString("app-pem-file")
 
-		// Try to resolve from cache if flags are not provided.
+		// ── Step 1: User App ────────────────────────────────────────
+		// Create the user-facing GitHub App (apx-{org}-user) if not cached.
+		// This app provides device-flow OAuth for human users.
+		userClientID := gh.GetCachedUserAppClientID(org)
+		if userClientID == "" {
+			if nonInteractive {
+				return fmt.Errorf("user app not configured for org %q; run interactively first", org)
+			}
+			ui.Info("\nCreating user app %q via GitHub App manifest flow...", gh.UserAppName(org))
+			creds, createErr := gh.CreateAppViaManifest(org, gh.UserAppName(org), gh.UserAppPermissions)
+			if createErr != nil {
+				return fmt.Errorf("failed to create user app: %w", createErr)
+			}
+			if err := gh.CacheUserAppClientID(org, creds.ClientID); err != nil {
+				return fmt.Errorf("failed to cache user app client ID: %w", err)
+			}
+			if err := gh.CacheUserAppID(org, fmt.Sprintf("%d", creds.ID)); err != nil {
+				return fmt.Errorf("failed to cache user app ID: %w", err)
+			}
+			if creds.Slug != "" {
+				if err := gh.CacheUserAppSlug(org, creds.Slug); err != nil {
+					ui.Warning("Failed to cache user app slug: %v", err)
+				}
+			}
+			userClientID = creds.ClientID
+			ui.Success("User app created! Client ID: %s", userClientID)
+		} else {
+			ui.Info("User app already configured (client_id cached).")
+		}
+
+		// ── Step 2: Device flow login ───────────────────────────────
+		// Authenticate the user via OAuth device flow to get a token.
+		token, tokenErr := githubauth.EnsureToken(org)
+		if tokenErr != nil {
+			return fmt.Errorf("GitHub authentication failed: %w", tokenErr)
+		}
+		client := githubauth.NewClient(token)
+
+		// ── Step 3: Ensure user app is installed ────────────────────
+		userAppIDStr := gh.GetCachedUserAppID(org)
+		userAppSlug := gh.GetCachedUserAppSlug(org)
+		if userAppIDStr != "" && userAppSlug != "" {
+			userAppIDInt, _ := strconv.Atoi(userAppIDStr)
+			if userAppIDInt > 0 {
+				if err := gh.EnsureAppInstalled(client, org, userAppIDInt, userAppSlug); err != nil {
+					ui.Warning("Could not verify user app installation: %v", err)
+				}
+			}
+		}
+
+		// ── Step 4: CI App ──────────────────────────────────────────
+		// Create the CI GitHub App (apx-{repo}-{org}) if not cached.
 		if appID == "" {
 			appID = gh.GetCachedAppID(org)
 		}
 		pemCached := false
-		if cachePath, err := gh.PEMCachePath(org); err == nil {
+		if cachePath, pemErr := gh.PEMCachePath(org); pemErr == nil {
 			if _, statErr := os.Stat(cachePath); statErr == nil {
 				pemCached = true
 			}
@@ -278,43 +322,47 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 
 		needsApp := appID == "" || (!pemCached && pemFile == "")
 		if needsApp && !nonInteractive {
-			ui.Info("\nNo GitHub App configured for org %q.", org)
-			ui.Info("Creating one via the GitHub App manifest flow...\n")
-
-			newAppID, appSlug, pemContents, err := gh.CreateAppViaManifest(org, repo)
-			if err != nil {
-				return fmt.Errorf("failed to create GitHub App: %w", err)
+			ui.Info("\nCreating CI app %q via GitHub App manifest flow...", gh.CIAppName(repo, org))
+			creds, createErr := gh.CreateAppViaManifest(org, gh.CIAppName(repo, org), gh.CIAppPermissions)
+			if createErr != nil {
+				return fmt.Errorf("failed to create CI app: %w", createErr)
 			}
-
-			if err := gh.CachePEMFromContents(org, pemContents); err != nil {
+			if err := gh.CachePEMFromContents(org, creds.PEM); err != nil {
 				return fmt.Errorf("failed to cache PEM: %w", err)
 			}
-			if err := gh.CacheAppID(org, newAppID); err != nil {
-				return fmt.Errorf("failed to cache app ID: %w", err)
+			if err := gh.CacheAppID(org, fmt.Sprintf("%d", creds.ID)); err != nil {
+				return fmt.Errorf("failed to cache CI app ID: %w", err)
 			}
-			if appSlug != "" {
-				if err := gh.CacheAppSlug(org, appSlug); err != nil {
-					ui.Warning("Failed to cache app slug: %v", err)
+			if creds.Slug != "" {
+				if err := gh.CacheAppSlug(org, creds.Slug); err != nil {
+					ui.Warning("Failed to cache CI app slug: %v", err)
 				}
 			}
+			appID = fmt.Sprintf("%d", creds.ID)
+			ui.Success("CI app created! App ID: %s", appID)
 
-			appID = newAppID
-			ui.Success("GitHub App created! App ID: %s", appID)
+			// Ensure CI app is installed on the org.
+			if creds.Slug != "" {
+				if err := gh.EnsureAppInstalled(client, org, creds.ID, creds.Slug); err != nil {
+					ui.Warning("Could not verify CI app installation: %v", err)
+				}
+			}
 		} else if needsApp {
 			return fmt.Errorf("--app-id and --app-pem-file are required with --setup-github in non-interactive mode")
 		} else {
-			// App already exists – ensure it is installed on the org
-			appSlug := gh.GetCachedAppSlug(org)
-			if appSlug != "" {
+			// CI app already exists – ensure it is installed on the org.
+			ciSlug := gh.GetCachedAppSlug(org)
+			if ciSlug != "" {
 				appIDInt, _ := strconv.Atoi(appID)
 				if appIDInt > 0 {
-					if err := gh.EnsureAppInstalled(org, appIDInt, appSlug); err != nil {
-						ui.Warning("Could not verify app installation: %v", err)
+					if err := gh.EnsureAppInstalled(client, org, appIDInt, ciSlug); err != nil {
+						ui.Warning("Could not verify CI app installation: %v", err)
 					}
 				}
 			}
 		}
 
+		// ── Step 5: Set up canonical repo ───────────────────────────
 		// Resolve siteURL from config if not provided via flag.
 		if siteURL == "" {
 			if cfg, cfgErr := config.LoadRaw("apx.yaml"); cfgErr == nil && cfg.SiteURL != "" {
@@ -323,9 +371,9 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 		}
 
 		ui.Info("\nConfiguring GitHub repository...")
-		res, err := gh.SetupCanonicalRepo(org, repo, appID, pemFile, siteURL)
-		if err != nil {
-			return fmt.Errorf("GitHub setup failed: %w", err)
+		res, setupErr := gh.SetupCanonicalRepo(client, org, repo, appID, pemFile, siteURL)
+		if setupErr != nil {
+			return fmt.Errorf("GitHub setup failed: %w", setupErr)
 		}
 		res.Print()
 	}
@@ -342,7 +390,7 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 		ui.Info("   - Restrict direct pushes to main")
 		ui.Info("5. Push: git remote add origin <url> && git push -u origin main")
 		ui.Info("")
-		ui.Info("Or re-run with --setup-github to configure automatically via gh CLI.")
+		ui.Info("Or re-run with --setup-github to configure automatically.")
 	}
 
 	ui.Success("\n\u2713 Canonical API repository initialized successfully!")
@@ -460,16 +508,19 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 	ui.Success("\u2713 Generated buf.work.yaml")
 	ui.Success("\u2713 Generated .github/workflows/apx-release.yml")
 
-	// --setup-github: configure GitHub repo settings via gh CLI
+	// --setup-github: configure GitHub repo settings
 	setupGitHub, _ := cmd.Flags().GetBool("setup-github")
 	if setupGitHub {
-		if err := gh.CheckGHAuth(); err != nil {
-			return fmt.Errorf("GitHub setup preflight failed: %w", err)
+		token, tokenErr := githubauth.EnsureToken(org)
+		if tokenErr != nil {
+			return fmt.Errorf("GitHub authentication failed: %w", tokenErr)
 		}
+		client := githubauth.NewClient(token)
+
 		ui.Info("\nConfiguring GitHub repository...")
-		res, err := gh.SetupAppRepo(org, repo)
-		if err != nil {
-			return fmt.Errorf("GitHub setup failed: %w", err)
+		res, setupErr := gh.SetupAppRepo(client, org, repo)
+		if setupErr != nil {
+			return fmt.Errorf("GitHub setup failed: %w", setupErr)
 		}
 		res.Print()
 	}

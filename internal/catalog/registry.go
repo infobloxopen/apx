@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os/exec"
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/infobloxopen/apx/pkg/githubauth"
 )
 
 // ghcrHost is the default GHCR registry host.
@@ -146,15 +147,20 @@ func (r *RegistrySource) ghToken() (string, error) {
 	return ghAuthToken()
 }
 
-// ghAuthToken runs `gh auth token` and returns the token string.
+// ghAuthToken returns a GitHub token for GHCR auth.
+// Uses the githubauth package (device flow + token cache) instead of `gh auth token`.
 var ghAuthToken = ghAuthTokenReal
 
 func ghAuthTokenReal() (string, error) {
-	out, err := exec.Command("gh", "auth", "token").Output()
+	org, err := githubauth.DetectOrg()
 	if err != nil {
-		return "", fmt.Errorf("gh auth token failed (is gh installed and authenticated?): %w", err)
+		return "", fmt.Errorf("cannot detect GitHub org: %w", err)
 	}
-	return strings.TrimSpace(string(out)), nil
+	token, err := githubauth.EnsureToken(org)
+	if err != nil {
+		return "", fmt.Errorf("GitHub auth failed: %w", err)
+	}
+	return token, nil
 }
 
 // pullManifest fetches the OCI manifest for the given image reference and tag.

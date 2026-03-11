@@ -1,11 +1,15 @@
 package github
 
 import (
+	"encoding/json"
 	"fmt"
-	"strings"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/infobloxopen/apx/pkg/githubauth"
 )
 
 // ---------------------------------------------------------------------------
@@ -13,62 +17,55 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestEnsureGitHubPages_AlreadyEnabled(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
-
-	GHRun = func(args ...string) (string, error) {
+	client, cleanup := setupTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// GET repos/org/repo/pages succeeds → already enabled.
-		if args[0] == "api" && strings.Contains(args[1], "/pages") && len(args) == 3 {
-			return `{"status":"built"}`, nil
-		}
-		return "", nil
-	}
+		w.WriteHeader(200)
+		fmt.Fprint(w, `{"status":"built"}`)
+	}))
+	defer cleanup()
 
 	res := &SetupResult{}
-	err := EnsureGitHubPages("myorg", "apis", res)
+	err := EnsureGitHubPages(client, "myorg", "apis", res)
 	assert.NoError(t, err)
 	assert.Contains(t, res.Skipped, "GitHub Pages")
 	assert.Empty(t, res.Created)
 }
 
 func TestEnsureGitHubPages_NewlyEnabled(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
-
 	callCount := 0
-	GHRun = func(args ...string) (string, error) {
+	client, cleanup := setupTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		if callCount == 1 {
-			// GET check fails → not enabled yet.
-			return "", fmt.Errorf("HTTP 404")
+		if r.Method == "GET" {
+			w.WriteHeader(404) // not enabled yet
+			return
 		}
 		// POST to enable succeeds.
-		return `{"status":"built"}`, nil
-	}
+		w.WriteHeader(201)
+		fmt.Fprint(w, `{"status":"built"}`)
+	}))
+	defer cleanup()
 
 	res := &SetupResult{}
-	err := EnsureGitHubPages("myorg", "apis", res)
+	err := EnsureGitHubPages(client, "myorg", "apis", res)
 	assert.NoError(t, err)
 	assert.Contains(t, res.Created, "GitHub Pages (Actions deployment)")
 }
 
 func TestEnsureGitHubPages_409AlreadyExists(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
-
 	callCount := 0
-	GHRun = func(args ...string) (string, error) {
+	client, cleanup := setupTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		if callCount == 1 {
-			// GET check fails.
-			return "", fmt.Errorf("HTTP 404")
+		if r.Method == "GET" {
+			w.WriteHeader(404) // not enabled yet
+			return
 		}
 		// POST returns 409 conflict.
-		return "", fmt.Errorf("HTTP 409: Conflict")
-	}
+		w.WriteHeader(409)
+	}))
+	defer cleanup()
 
 	res := &SetupResult{}
-	err := EnsureGitHubPages("myorg", "apis", res)
+	err := EnsureGitHubPages(client, "myorg", "apis", res)
 	assert.NoError(t, err)
 	assert.Contains(t, res.Skipped, "GitHub Pages")
 }
@@ -78,38 +75,40 @@ func TestEnsureGitHubPages_409AlreadyExists(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestConfigurePagesVisibility_PrivateRepo(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
-
-	var putCalled bool
-	GHRun = func(args ...string) (string, error) {
-		if args[0] == "api" && !strings.Contains(args[1], "/pages") {
-			return "true", nil // repo is private
+	putCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			json.NewEncoder(w).Encode(map[string]bool{"private": true})
+			return
 		}
-		if args[0] == "api" && strings.Contains(args[1], "/pages") {
+		if r.Method == "PUT" {
 			putCalled = true
-			return "", nil
+			w.WriteHeader(204)
+			return
 		}
-		return "", nil
-	}
+	}))
+	defer server.Close()
+
+	orig := githubauth.APIBaseURL
+	githubauth.APIBaseURL = server.URL
+	defer func() { githubauth.APIBaseURL = orig }()
+	client := githubauth.NewClient("test-token")
 
 	res := &SetupResult{}
-	err := ConfigurePagesVisibility("myorg", "apis", res)
+	err := ConfigurePagesVisibility(client, "myorg", "apis", res)
 	assert.NoError(t, err)
 	assert.True(t, putCalled, "should have called PUT to set visibility")
 	assert.Contains(t, res.Created, "GitHub Pages visibility: private")
 }
 
 func TestConfigurePagesVisibility_PublicRepo(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
-
-	GHRun = func(args ...string) (string, error) {
-		return "false", nil // repo is public
-	}
+	client, cleanup := setupTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]bool{"private": false})
+	}))
+	defer cleanup()
 
 	res := &SetupResult{}
-	err := ConfigurePagesVisibility("myorg", "apis", res)
+	err := ConfigurePagesVisibility(client, "myorg", "apis", res)
 	assert.NoError(t, err)
 	assert.Empty(t, res.Created)
 	assert.Empty(t, res.Skipped)
@@ -120,23 +119,18 @@ func TestConfigurePagesVisibility_PublicRepo(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestConfigurePagesDomain(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
-
-	var capturedArgs []string
-	GHRun = func(args ...string) (string, error) {
-		capturedArgs = args
-		return "", nil
-	}
+	var capturedBody map[string]string
+	client, cleanup := setupTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedBody)
+		w.WriteHeader(204)
+	}))
+	defer cleanup()
 
 	res := &SetupResult{}
-	err := ConfigurePagesDomain("myorg", "apis", "apis.internal.infoblox.dev", res)
+	err := ConfigurePagesDomain(client, "myorg", "apis", "apis.internal.infoblox.dev", res)
 	assert.NoError(t, err)
 	assert.Contains(t, res.Created, "GitHub Pages custom domain: apis.internal.infoblox.dev")
-
-	// Verify the gh api call includes the domain.
-	joined := strings.Join(capturedArgs, " ")
-	assert.Contains(t, joined, "cname=apis.internal.infoblox.dev")
+	assert.Equal(t, "apis.internal.infoblox.dev", capturedBody["cname"])
 }
 
 // ---------------------------------------------------------------------------

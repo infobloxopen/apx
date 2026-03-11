@@ -1,13 +1,32 @@
 package publisher
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/infobloxopen/apx/pkg/githubauth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// setupTestClient creates an httptest server and a githubauth.Client pointed at it.
+// The handler receives all API requests for assertions.
+func setupTestClient(t *testing.T, handler http.HandlerFunc) (*githubauth.Client, *httptest.Server) {
+	t.Helper()
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+
+	origBase := githubauth.APIBaseURL
+	t.Cleanup(func() { githubauth.APIBaseURL = origBase })
+	githubauth.APIBaseURL = server.URL
+
+	return githubauth.NewClient("test-token"), server
+}
 
 // ---------------------------------------------------------------------------
 // ParseCanonicalNWO
@@ -42,36 +61,25 @@ func TestParseCanonicalNWO(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// CreatePR (stubbed gh CLI)
+// CreatePR (via httptest)
 // ---------------------------------------------------------------------------
 
 func TestCreatePR_Success(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
+	client, _ := setupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/repos/acme/apis/pulls", r.URL.Path)
 
-	GHRun = func(args ...string) (string, error) {
-		// Verify the arguments look right
-		assert.Contains(t, args, "pr")
-		assert.Contains(t, args, "create")
-		assert.Contains(t, args, "--repo")
-		assert.Contains(t, args, "acme/apis")
-		return "https://github.com/acme/apis/pull/42", nil
-	}
+		var body map[string]string
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "title", body["title"])
+		assert.Equal(t, "apx/release/test", body["head"])
+		assert.Equal(t, "main", body["base"])
 
-	resp, err := CreatePR("acme/apis", "apx/release/test", "main", "title", "body")
-	require.NoError(t, err)
-	assert.Equal(t, "https://github.com/acme/apis/pull/42", resp.HTMLURL)
-}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"number":42,"url":"https://github.com/acme/apis/pull/42","state":"open"}`)
+	})
 
-func TestCreatePR_JSONResponse(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
-
-	GHRun = func(args ...string) (string, error) {
-		return `{"number":42,"url":"https://github.com/acme/apis/pull/42","state":"open"}`, nil
-	}
-
-	resp, err := CreatePR("acme/apis", "branch", "main", "title", "body")
+	resp, err := CreatePR(client, "acme/apis", "apx/release/test", "main", "title", "body")
 	require.NoError(t, err)
 	assert.Equal(t, 42, resp.Number)
 	assert.Equal(t, "https://github.com/acme/apis/pull/42", resp.HTMLURL)
@@ -79,16 +87,14 @@ func TestCreatePR_JSONResponse(t *testing.T) {
 }
 
 func TestCreatePR_Failure(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
+	client, _ := setupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprint(w, `{"message":"permission denied"}`)
+	})
 
-	GHRun = func(args ...string) (string, error) {
-		return "permission denied", assert.AnError
-	}
-
-	_, err := CreatePR("acme/apis", "branch", "main", "title", "body")
+	_, err := CreatePR(client, "acme/apis", "branch", "main", "title", "body")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "gh pr create failed")
+	assert.Contains(t, err.Error(), "PR create failed")
 }
 
 // ---------------------------------------------------------------------------
@@ -118,40 +124,20 @@ func TestCopyDir(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// CheckGHCLI
-// ---------------------------------------------------------------------------
-
-func TestCheckGHCLI_AuthFails(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
-
-	GHRun = func(args ...string) (string, error) {
-		return "not logged in", assert.AnError
-	}
-
-	err := CheckGHCLI()
-	// If gh is not in PATH this will fail at LookPath; if it is, it will
-	// hit our stubbed auth failure.  Either way we expect an error.
-	assert.Error(t, err)
-}
-
-// ---------------------------------------------------------------------------
 // FindExistingPR
 // ---------------------------------------------------------------------------
 
 func TestFindExistingPR_Found(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
+	client, _ := setupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "GET", r.Method)
+		assert.Contains(t, r.URL.Path, "/repos/acme/apis/pulls")
+		assert.Contains(t, r.URL.RawQuery, "state=open")
 
-	GHRun = func(args ...string) (string, error) {
-		assert.Contains(t, args, "pr")
-		assert.Contains(t, args, "list")
-		assert.Contains(t, args, "--head")
-		assert.Contains(t, args, "apx/release/proto-payments-ledger-v1/v1.2.0")
-		return `[{"number":42,"url":"https://github.com/acme/apis/pull/42","state":"open"}]`, nil
-	}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `[{"number":42,"url":"https://github.com/acme/apis/pull/42","state":"open"}]`)
+	})
 
-	resp, err := FindExistingPR("acme/apis", "apx/release/proto-payments-ledger-v1/v1.2.0")
+	resp, err := FindExistingPR(client, "acme/apis", "apx/release/proto-payments-ledger-v1/v1.2.0")
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, 42, resp.Number)
@@ -160,42 +146,25 @@ func TestFindExistingPR_Found(t *testing.T) {
 }
 
 func TestFindExistingPR_NotFound(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
+	client, _ := setupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `[]`)
+	})
 
-	GHRun = func(args ...string) (string, error) {
-		return "[]", nil
-	}
-
-	resp, err := FindExistingPR("acme/apis", "apx/release/test/v1.0.0")
+	resp, err := FindExistingPR(client, "acme/apis", "apx/release/test/v1.0.0")
 	require.NoError(t, err)
 	assert.Nil(t, resp)
 }
 
-func TestFindExistingPR_EmptyResponse(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
+func TestFindExistingPR_APIError(t *testing.T) {
+	client, _ := setupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, `{"message":"internal error"}`)
+	})
 
-	GHRun = func(args ...string) (string, error) {
-		return "", nil
-	}
-
-	resp, err := FindExistingPR("acme/apis", "apx/release/test/v1.0.0")
-	require.NoError(t, err)
-	assert.Nil(t, resp)
-}
-
-func TestFindExistingPR_GHError(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
-
-	GHRun = func(args ...string) (string, error) {
-		return "network error", assert.AnError
-	}
-
-	_, err := FindExistingPR("acme/apis", "apx/release/test/v1.0.0")
+	_, err := FindExistingPR(client, "acme/apis", "apx/release/test/v1.0.0")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "gh pr list failed")
+	assert.Contains(t, err.Error(), "PR list failed")
 }
 
 // ---------------------------------------------------------------------------
@@ -240,9 +209,6 @@ func stubGit(t *testing.T, gitFn func(args ...string) (string, error)) {
 }
 
 func TestSubmitReleaseWithPR_BranchAndCommit(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
-
 	// Track git commands to verify branch naming and commit message
 	var gitArgs [][]string
 	stubGit(t, func(args ...string) (string, error) {
@@ -250,27 +216,23 @@ func TestSubmitReleaseWithPR_BranchAndCommit(t *testing.T) {
 		return "", nil
 	})
 
-	// Stub gh CLI: FindExistingPR returns nothing, CreatePR returns URL
-	ghCalls := 0
-	GHRun = func(args ...string) (string, error) {
-		ghCalls++
-		if args[0] == "auth" {
-			return "Logged in", nil
+	// Mock GitHub API: FindExistingPR returns empty, CreatePR returns PR
+	reqNum := 0
+	client, _ := setupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		reqNum++
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/repos/acme/apis/pulls":
+			fmt.Fprint(w, `[]`) // no existing PR
+		case r.Method == "POST" && r.URL.Path == "/repos/acme/apis/pulls":
+			var body map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			assert.Contains(t, body["title"], "release:")
+			fmt.Fprint(w, `{"number":99,"url":"https://github.com/acme/apis/pull/99","state":"open"}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
 		}
-		if args[0] == "pr" && args[1] == "list" {
-			return "[]", nil
-		}
-		if args[0] == "pr" && args[1] == "create" {
-			// Verify title contains release prefix
-			for i, a := range args {
-				if a == "--title" && i+1 < len(args) {
-					assert.Contains(t, args[i+1], "release:")
-				}
-			}
-			return `{"number":99,"url":"https://github.com/acme/apis/pull/99","state":"open"}`, nil
-		}
-		return "", nil
-	}
+	})
 
 	// Create a temp snapshot directory
 	snapshotDir := t.TempDir()
@@ -292,7 +254,7 @@ func TestSubmitReleaseWithPR_BranchAndCommit(t *testing.T) {
 		Tag:              "proto/payments/ledger/v1/v1.2.0",
 	}
 
-	resp, err := SubmitReleaseWithPR(manifest, snapshotDir, "")
+	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, "")
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, 99, resp.Number)
@@ -319,24 +281,19 @@ func TestSubmitReleaseWithPR_BranchAndCommit(t *testing.T) {
 }
 
 func TestSubmitReleaseWithPR_ExistingPR(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
-
 	stubGit(t, func(args ...string) (string, error) {
 		return "", nil
 	})
 
-	GHRun = func(args ...string) (string, error) {
-		if args[0] == "auth" {
-			return "Logged in", nil
+	client, _ := setupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/repos/acme/apis/pulls":
+			fmt.Fprint(w, `[{"number":55,"url":"https://github.com/acme/apis/pull/55","state":"open"}]`)
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
-		if args[0] == "pr" && args[1] == "list" {
-			// Return an existing PR
-			return `[{"number":55,"url":"https://github.com/acme/apis/pull/55","state":"open"}]`, nil
-		}
-		t.Fatal("should not call pr create when existing PR found")
-		return "", nil
-	}
+	})
 
 	snapshotDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(snapshotDir, "test.proto"), []byte("proto"), 0o644))
@@ -351,7 +308,7 @@ func TestSubmitReleaseWithPR_ExistingPR(t *testing.T) {
 		Tag:              "proto/test/v1/v1.0.0",
 	}
 
-	resp, err := SubmitReleaseWithPR(manifest, snapshotDir, "")
+	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, "")
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, 55, resp.Number)
@@ -359,31 +316,23 @@ func TestSubmitReleaseWithPR_ExistingPR(t *testing.T) {
 }
 
 func TestSubmitReleaseWithPR_WithCIProvenance(t *testing.T) {
-	origGH := GHRun
-	defer func() { GHRun = origGH }()
-
 	stubGit(t, func(args ...string) (string, error) {
 		return "", nil
 	})
 
-	var capturedBody string
-	GHRun = func(args ...string) (string, error) {
-		if args[0] == "auth" {
-			return "Logged in", nil
+	var capturedBody map[string]string
+	client, _ := setupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/repos/acme/apis/pulls":
+			fmt.Fprint(w, `[]`)
+		case r.Method == "POST" && r.URL.Path == "/repos/acme/apis/pulls":
+			_ = json.NewDecoder(r.Body).Decode(&capturedBody)
+			fmt.Fprint(w, `{"number":77,"url":"https://github.com/acme/apis/pull/77","state":"open"}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
 		}
-		if args[0] == "pr" && args[1] == "list" {
-			return "[]", nil
-		}
-		if args[0] == "pr" && args[1] == "create" {
-			for i, a := range args {
-				if a == "--body" && i+1 < len(args) {
-					capturedBody = args[i+1]
-				}
-			}
-			return `{"number":77,"url":"https://github.com/acme/apis/pull/77","state":"open"}`, nil
-		}
-		return "", nil
-	}
+	})
 
 	snapshotDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(snapshotDir, "test.proto"), []byte("proto"), 0o644))
@@ -399,9 +348,9 @@ func TestSubmitReleaseWithPR_WithCIProvenance(t *testing.T) {
 	}
 
 	ciExtra := "**CI**: github-actions\n**Run**: https://github.com/acme/app/actions/runs/12345"
-	resp, err := SubmitReleaseWithPR(manifest, snapshotDir, ciExtra)
+	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, ciExtra)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Contains(t, capturedBody, "CI")
-	assert.Contains(t, capturedBody, "github-actions")
+	assert.Contains(t, capturedBody["body"], "CI")
+	assert.Contains(t, capturedBody["body"], "github-actions")
 }
