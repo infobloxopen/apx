@@ -917,6 +917,7 @@ mark {
 .type-anchor {
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
   gap: 0.4rem;
   margin-top: 2rem;
   margin-bottom: 0.25rem;
@@ -925,18 +926,25 @@ mark {
   scroll-margin-top: 1rem;
 }
 
+.type-anchor-left {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 .type-anchor-kind {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: lowercase;
+  color: var(--primary);
 }
 
 .type-anchor-name {
   font-family: var(--mono);
   font-size: 1.05rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--primary);
 }
 
 .type-anchor-link {
@@ -957,11 +965,139 @@ mark {
   color: var(--primary);
 }
 
-.type-comment {
-  font-size: 0.82rem;
+.type-source-file {
+  font-family: var(--mono);
+  font-size: 0.75rem;
   color: var(--text-secondary);
-  font-style: italic;
-  margin-bottom: 0.35rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.type-nested-in {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.type-comment {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+/* ===== Proto Section Headings ===== */
+.proto-section-heading {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 2px solid var(--border);
+}
+
+/* ===== Method Cards (Services) ===== */
+.method-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.method-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.method-keyword {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.method-name {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.method-sig {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  line-height: 1.7;
+}
+
+.method-sig-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.method-description {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ===== Field Tables (Messages & Enums) ===== */
+.field-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+}
+
+.field-table th {
+  background: var(--bg);
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.field-table td {
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.field-table tr:last-child td {
+  border-bottom: none;
+}
+
+.field-table .field-number {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  width: 2.5rem;
+  text-align: center;
+}
+
+.field-table .field-name {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.field-table .field-type {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.field-table .field-desc {
+  color: var(--text-secondary);
+  line-height: 1.45;
 }
 
 /* ===== Struct-like Code Blocks ===== */
@@ -1034,6 +1170,43 @@ mark {
   .method-delete { background: rgba(183,28,28,0.2); color: #ef9a9a; }
   .method-patch  { background: rgba(106,27,154,0.2); color: #ce93d8; }
   .required-marker { color: #ef5350; }
+}
+
+/* ===== Raw Source Viewer ===== */
+.source-viewer {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+  background: var(--bg);
+}
+
+.source-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.source-table td {
+  padding: 0;
+  vertical-align: top;
+}
+
+.source-line-num {
+  width: 1px;
+  white-space: nowrap;
+  padding: 0 0.75rem;
+  text-align: right;
+  color: var(--text-tertiary);
+  user-select: none;
+  border-right: 1px solid var(--border);
+}
+
+.source-line-code {
+  padding: 0 1rem;
+  white-space: pre;
 }
 
 /* ===== Footer ===== */

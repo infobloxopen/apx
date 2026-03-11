@@ -13,6 +13,7 @@ type SchemaDetail struct {
 // Exactly one format-specific field will be non-nil.
 type SchemaFile struct {
 	Filename   string         `json:"filename"`
+	RawContent string         `json:"raw_content,omitempty"` // original file text for source viewer
 	Proto      *ProtoFile     `json:"proto,omitempty"`
 	OpenAPI    *OpenAPISpec   `json:"openapi,omitempty"`
 	Avro       *AvroSchema    `json:"avro,omitempty"`
@@ -106,12 +107,14 @@ type OpenAPIPath struct {
 
 // OpenAPIOperation is a single HTTP operation (e.g. GET /users).
 type OpenAPIOperation struct {
-	Method      string   `json:"method"` // GET, POST, PUT, DELETE, PATCH
-	Summary     string   `json:"summary,omitempty"`
-	OperationID string   `json:"operation_id,omitempty"`
-	Description string   `json:"description,omitempty"`
-	Parameters  []string `json:"parameters,omitempty"` // "query: limit", "path: id"
-	Responses   []string `json:"responses,omitempty"`  // "200: OK", "404: Not Found"
+	Method       string   `json:"method"` // GET, POST, PUT, DELETE, PATCH
+	Summary      string   `json:"summary,omitempty"`
+	OperationID  string   `json:"operation_id,omitempty"`
+	Description  string   `json:"description,omitempty"`
+	Parameters   []string `json:"parameters,omitempty"`    // "query: limit", "path: id"
+	Responses    []string `json:"responses,omitempty"`     // "200: OK", "404: Not Found"
+	RequestBody  string   `json:"request_body,omitempty"`  // schema type name, e.g. "CreateUserRequest"
+	ResponseBody string   `json:"response_body,omitempty"` // schema type name, e.g. "User"
 }
 
 // OpenAPISchema is a component/definition schema.

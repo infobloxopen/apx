@@ -210,6 +210,172 @@ components:
 	assert.Equal(t, "array<LineItem>", order.Properties[1].Type)
 }
 
+func TestExtractOpenAPI_RequestResponseBody(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "api.yaml")
+	os.WriteFile(path, []byte(`openapi: "3.0.3"
+info:
+  title: Body Test
+  version: "1.0"
+paths:
+  /users:
+    get:
+      summary: List users
+      responses:
+        "200":
+          description: A list of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      summary: Create a user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /users/{id}:
+    put:
+      summary: Update a user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      summary: Delete a user
+      responses:
+        "204":
+          description: Deleted
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    CreateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+`), 0o644)
+
+	spec, err := ExtractOpenAPI(path)
+	require.NoError(t, err)
+
+	require.Len(t, spec.Paths, 2)
+
+	// GET /users — no request body, response body is array<User>.
+	getOp := spec.Paths[0].Operations[0]
+	assert.Equal(t, "GET", getOp.Method)
+	assert.Empty(t, getOp.RequestBody)
+	assert.Equal(t, "array<User>", getOp.ResponseBody)
+
+	// POST /users — request body is CreateUserRequest, response body is User.
+	postOp := spec.Paths[0].Operations[1]
+	assert.Equal(t, "POST", postOp.Method)
+	assert.Equal(t, "CreateUserRequest", postOp.RequestBody)
+	assert.Equal(t, "User", postOp.ResponseBody)
+
+	// PUT /users/{id} — request body is UpdateUserRequest, response body is User.
+	putOp := spec.Paths[1].Operations[0]
+	assert.Equal(t, "PUT", putOp.Method)
+	assert.Equal(t, "UpdateUserRequest", putOp.RequestBody)
+	assert.Equal(t, "User", putOp.ResponseBody)
+
+	// DELETE /users/{id} — no request body, no response body (204 has no content).
+	deleteOp := spec.Paths[1].Operations[1]
+	assert.Equal(t, "DELETE", deleteOp.Method)
+	assert.Empty(t, deleteOp.RequestBody)
+	assert.Empty(t, deleteOp.ResponseBody)
+}
+
+func TestExtractOpenAPI_Swagger2Body(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "api.yaml")
+	os.WriteFile(path, []byte(`swagger: "2.0"
+info:
+  title: Swagger Body Test
+  version: "1.0"
+paths:
+  /items:
+    post:
+      summary: Create item
+      parameters:
+        - name: body
+          in: body
+          schema:
+            $ref: "#/definitions/CreateItemRequest"
+      responses:
+        "200":
+          description: Created
+          schema:
+            $ref: "#/definitions/Item"
+    get:
+      summary: List items
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/Item"
+definitions:
+  Item:
+    type: object
+    properties:
+      id:
+        type: string
+  CreateItemRequest:
+    type: object
+    properties:
+      name:
+        type: string
+`), 0o644)
+
+	spec, err := ExtractOpenAPI(path)
+	require.NoError(t, err)
+
+	require.Len(t, spec.Paths, 1)
+
+	// GET /items — no request body, response body is array<Item>.
+	getOp := spec.Paths[0].Operations[0]
+	assert.Equal(t, "GET", getOp.Method)
+	assert.Empty(t, getOp.RequestBody)
+	assert.Equal(t, "array<Item>", getOp.ResponseBody)
+
+	// POST /items — request body is CreateItemRequest, response body is Item.
+	postOp := spec.Paths[0].Operations[1]
+	assert.Equal(t, "POST", postOp.Method)
+	assert.Equal(t, "CreateItemRequest", postOp.RequestBody)
+	assert.Equal(t, "Item", postOp.ResponseBody)
+}
+
 func TestExtractOpenAPI_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "bad.yaml")

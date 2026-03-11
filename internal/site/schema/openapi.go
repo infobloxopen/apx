@@ -87,6 +87,13 @@ func extractOpenAPIPaths(paths map[string]interface{}) []OpenAPIPath {
 			op.OperationID, _ = mapGet[string](opObj, "operationId")
 			op.Description, _ = mapGet[string](opObj, "description")
 
+			// Extract request body schema (OpenAPI 3.x).
+			if rb, ok := mapGet[map[string]interface{}](opObj, "requestBody"); ok {
+				if content, ok := mapGet[map[string]interface{}](rb, "content"); ok {
+					op.RequestBody = extractContentSchemaRef(content)
+				}
+			}
+
 			// Summarize parameters.
 			if params, ok := opObj["parameters"]; ok {
 				if paramSlice, ok := params.([]interface{}); ok {
@@ -94,7 +101,14 @@ func extractOpenAPIPaths(paths map[string]interface{}) []OpenAPIPath {
 						if pm, ok := p.(map[string]interface{}); ok {
 							in, _ := mapGet[string](pm, "in")
 							name, _ := mapGet[string](pm, "name")
-							if in != "" && name != "" {
+							if in == "body" {
+								// Swagger 2.0 body parameter — extract schema ref.
+								if op.RequestBody == "" {
+									if schema, ok := mapGet[map[string]interface{}](pm, "schema"); ok {
+										op.RequestBody = openAPIPropertyType(schema)
+									}
+								}
+							} else if in != "" && name != "" {
 								op.Parameters = append(op.Parameters, in+": "+name)
 							}
 						}
@@ -102,7 +116,7 @@ func extractOpenAPIPaths(paths map[string]interface{}) []OpenAPIPath {
 				}
 			}
 
-			// Summarize responses.
+			// Summarize responses and extract response body schema.
 			if responses, ok := mapGet[map[string]interface{}](opObj, "responses"); ok {
 				respKeys := sortedKeys(responses)
 				for _, code := range respKeys {
@@ -112,6 +126,11 @@ func extractOpenAPIPaths(paths map[string]interface{}) []OpenAPIPath {
 							op.Responses = append(op.Responses, code+": "+desc)
 						} else {
 							op.Responses = append(op.Responses, code)
+						}
+
+						// Extract response body from first 2xx response.
+						if op.ResponseBody == "" && len(code) == 3 && code[0] == '2' {
+							op.ResponseBody = extractResponseSchemaRef(respObj)
 						}
 					}
 				}
@@ -216,6 +235,43 @@ func refName(ref string) string {
 		return parts[len(parts)-1]
 	}
 	return ref
+}
+
+// extractContentSchemaRef returns a human-readable type string from an OpenAPI
+// 3.x content map (e.g. the value of requestBody.content or response.content).
+// It looks for application/json first, then falls back to the first media type.
+func extractContentSchemaRef(content map[string]interface{}) string {
+	// Prefer application/json.
+	if mt, ok := mapGet[map[string]interface{}](content, "application/json"); ok {
+		if schema, ok := mapGet[map[string]interface{}](mt, "schema"); ok {
+			return openAPIPropertyType(schema)
+		}
+	}
+	// Fallback: first media type with a schema.
+	for _, key := range sortedKeys(content) {
+		if mt, ok := mapGet[map[string]interface{}](content, key); ok {
+			if schema, ok := mapGet[map[string]interface{}](mt, "schema"); ok {
+				return openAPIPropertyType(schema)
+			}
+		}
+	}
+	return ""
+}
+
+// extractResponseSchemaRef extracts a schema type from a response object.
+// Handles both OpenAPI 3.x (content.application/json.schema) and Swagger 2.0 (schema).
+func extractResponseSchemaRef(respObj map[string]interface{}) string {
+	// OpenAPI 3.x: response.content.application/json.schema
+	if content, ok := mapGet[map[string]interface{}](respObj, "content"); ok {
+		if ref := extractContentSchemaRef(content); ref != "" {
+			return ref
+		}
+	}
+	// Swagger 2.0: response.schema
+	if schema, ok := mapGet[map[string]interface{}](respObj, "schema"); ok {
+		return openAPIPropertyType(schema)
+	}
+	return ""
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────

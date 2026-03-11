@@ -530,6 +530,14 @@
       } else if (format === "parquet" && file.parquet) {
         addParquetChildren(children, file.parquet, api.id, file.filename);
       }
+      // Source file entry
+      if (file.raw_content && file.filename) {
+        children.push({
+          kind: "type", icon: "\u2630", label: file.filename,
+          nodeId: "type:" + api.id + ":source:" + file.filename,
+          typeKind: "source",
+        });
+      }
     }
 
     return children;
@@ -946,12 +954,24 @@
     return "type-" + typeName;
   }
 
-  function typeAnchorHeader(kind, name, apiId) {
-    const hash = apiId + ":" + name;
-    let html = '<div class="type-anchor" id="' + esc(anchorId(name)) + '">';
+  function typeAnchorHeader(kind, name, apiId, opts) {
+    opts = opts || {};
+    const aName = opts.anchorName || name;
+    const hash = apiId + ":" + aName;
+    let html = '<div class="type-anchor" id="' + esc(anchorId(aName)) + '">';
+    html += '<div class="type-anchor-left">';
     html += '<span class="type-anchor-kind">' + esc(kind) + '</span> ';
     html += '<span class="type-anchor-name">' + esc(name) + '</span>';
+    if (opts.nestedIn) {
+      html += ' <span class="type-nested-in">(Nested in ';
+      html += '<a href="#' + esc(apiId + ":" + opts.nestedIn) + '" class="type-link">' + esc(opts.nestedIn) + '</a>';
+      html += ')</span>';
+    }
     html += '<a href="#' + esc(hash) + '" class="type-anchor-link" title="Copy link">#</a>';
+    html += '</div>';
+    if (opts.filename) {
+      html += '<span class="type-source-file">' + esc(opts.filename) + '</span>';
+    }
     html += '</div>';
     return html;
   }
@@ -1060,7 +1080,7 @@
 
     for (const file of api.schema.files) {
       if (api.format === "proto" && file.proto) {
-        html += renderProtoFileInline(file.proto, api, typeIndex);
+        html += renderProtoFileInline(file.proto, api, typeIndex, file.filename);
       } else if (api.format === "openapi" && file.openapi) {
         html += renderOpenAPIFileInline(file.openapi, api, typeIndex);
       } else if (api.format === "avro" && file.avro) {
@@ -1070,6 +1090,10 @@
       } else if (api.format === "parquet" && file.parquet) {
         html += renderParquetFileInline(file.parquet, api, file.filename);
       }
+      // Raw source viewer
+      if (file.raw_content && file.filename) {
+        html += renderRawSource(file.filename, file.raw_content, api.id);
+      }
     }
 
     return html;
@@ -1077,96 +1101,120 @@
 
   // ── Proto inline ──
 
-  function renderProtoFileInline(proto, api, typeIndex) {
+  function renderProtoFileInline(proto, api, typeIndex, filename) {
     let html = '';
+    var hasServices = proto.services && proto.services.length > 0;
+    var hasMessages = (proto.messages && proto.messages.length > 0);
+    var hasEnums = (proto.enums && proto.enums.length > 0);
 
-    // Services
-    for (const svc of (proto.services || [])) {
-      html += typeAnchorHeader("service", svc.name, api.id);
-      if (svc.comment) html += '<div class="type-comment">' + esc(svc.comment) + '</div>';
-      html += renderServiceBlock(svc, typeIndex, api.id);
+    // Services section
+    if (hasServices) {
+      html += '<h3 class="proto-section-heading">Services</h3>';
+      for (const svc of proto.services) {
+        html += typeAnchorHeader("service", svc.name, api.id, { filename: filename });
+        if (svc.comment) html += '<div class="type-comment">' + esc(svc.comment) + '</div>';
+        html += renderServiceBlock(svc, typeIndex, api.id);
+      }
     }
 
-    // Messages (including nested, flattened)
-    html += renderProtoMessagesInline(proto.messages || [], api, typeIndex, "");
+    // Messages section
+    var messagesHtml = renderProtoMessagesInline(proto.messages || [], api, typeIndex, "", filename);
+    if (messagesHtml) {
+      html += '<h3 class="proto-section-heading">Messages</h3>';
+      html += messagesHtml;
+    }
 
-    // Top-level enums
-    for (const en of (proto.enums || [])) {
-      html += typeAnchorHeader("enum", en.name, api.id);
-      if (en.comment) html += '<div class="type-comment">' + esc(en.comment) + '</div>';
-      html += renderEnumBlock(en);
+    // Enums section (top-level only — nested enums are in the messages section)
+    if (hasEnums) {
+      html += '<h3 class="proto-section-heading">Enums</h3>';
+      for (const en of proto.enums) {
+        html += typeAnchorHeader("enum", en.name, api.id, { filename: filename });
+        if (en.comment) html += '<div class="type-comment">' + esc(en.comment) + '</div>';
+        html += renderEnumBlock(en);
+      }
     }
 
     return html;
   }
 
-  function renderProtoMessagesInline(msgs, api, typeIndex, prefix) {
+  function renderProtoMessagesInline(msgs, api, typeIndex, prefix, filename) {
     let html = '';
     for (const m of msgs) {
       const fullName = prefix ? prefix + "." + m.name : m.name;
-      html += typeAnchorHeader("message", fullName, api.id);
+      var opts = { filename: filename };
+      if (prefix) opts.nestedIn = prefix;
+      html += typeAnchorHeader("message", fullName, api.id, opts);
       if (m.comment) html += '<div class="type-comment">' + esc(m.comment) + '</div>';
       html += renderMessageBlock(m, fullName, typeIndex, api.id);
 
       // Nested enums
       for (const en of (m.enums || [])) {
         const enumName = fullName + "." + en.name;
-        html += typeAnchorHeader("enum", enumName, api.id);
+        html += typeAnchorHeader("enum", enumName, api.id, { filename: filename, nestedIn: fullName });
         if (en.comment) html += '<div class="type-comment">' + esc(en.comment) + '</div>';
         html += renderEnumBlock(en);
       }
 
       // Recurse nested messages
-      html += renderProtoMessagesInline(m.nested || [], api, typeIndex, fullName);
+      html += renderProtoMessagesInline(m.nested || [], api, typeIndex, fullName, filename);
     }
     return html;
   }
 
   function renderServiceBlock(svc, typeIndex, apiId) {
-    let html = '<div class="struct-block">';
-    html += '<div class="struct-keyword">service <span class="struct-name">' + esc(svc.name) + '</span> {</div>';
+    let html = '';
     for (const m of (svc.methods || [])) {
-      html += '<div class="struct-field">';
-      html += '<span class="struct-rpc">rpc</span> ';
-      html += '<span class="struct-field-name">' + esc(m.name) + '</span>';
-      html += '(' + (m.client_streaming ? 'stream ' : '') + linkifyType(m.input_type, typeIndex, apiId) + ')';
-      html += ' returns ';
-      html += '(' + (m.server_streaming ? 'stream ' : '') + linkifyType(m.output_type, typeIndex, apiId) + ')';
-      if (m.comment) html += ' <span class="struct-comment">// ' + esc(m.comment) + '</span>';
+      html += '<div class="method-card">';
+      html += '<div class="method-header">';
+      html += '<span class="method-keyword">rpc</span>';
+      html += '<span class="method-name">' + esc(m.name) + '</span>';
+      html += '</div>';
+      html += '<div class="method-sig">';
+      html += '<div><span class="method-sig-label">Request:</span> ';
+      html += (m.client_streaming ? 'stream ' : '') + linkifyType(m.input_type, typeIndex, apiId);
+      html += '</div>';
+      html += '<div><span class="method-sig-label">Response:</span> ';
+      html += (m.server_streaming ? 'stream ' : '') + linkifyType(m.output_type, typeIndex, apiId);
+      html += '</div>';
+      html += '</div>';
+      if (m.comment) {
+        html += '<div class="method-description">' + esc(m.comment) + '</div>';
+      }
       html += '</div>';
     }
-    html += '<div class="struct-close">}</div>';
-    html += '</div>';
     return html;
   }
 
   function renderMessageBlock(msg, fullName, typeIndex, apiId) {
-    let html = '<div class="struct-block">';
-    html += '<div class="struct-keyword">message <span class="struct-name">' + esc(msg.name) + '</span> {</div>';
-    for (const f of (msg.fields || [])) {
-      html += '<div class="struct-field">';
-      html += linkifyType(f.type, typeIndex, apiId);
-      html += ' <span class="struct-field-name">' + esc(f.name) + '</span>';
-      html += ' <span class="struct-field-number">= ' + f.number + ';</span>';
-      if (f.comment) html += ' <span class="struct-comment">// ' + esc(f.comment) + '</span>';
-      html += '</div>';
+    if (!msg.fields || msg.fields.length === 0) return '';
+    let html = '<table class="field-table">';
+    html += '<thead><tr><th></th><th>Field</th><th>Type</th><th>Description</th></tr></thead>';
+    html += '<tbody>';
+    for (const f of msg.fields) {
+      html += '<tr>';
+      html += '<td class="field-number">' + f.number + '</td>';
+      html += '<td class="field-name">' + esc(f.name) + '</td>';
+      html += '<td class="field-type">' + linkifyType(f.type, typeIndex, apiId) + '</td>';
+      html += '<td class="field-desc">' + esc(f.comment || '') + '</td>';
+      html += '</tr>';
     }
-    html += '<div class="struct-close">}</div>';
-    html += '</div>';
+    html += '</tbody></table>';
     return html;
   }
 
   function renderEnumBlock(en) {
-    let html = '<div class="struct-block">';
-    html += '<div class="struct-keyword">enum <span class="struct-name">' + esc(en.name) + '</span> {</div>';
-    for (const v of (en.values || [])) {
-      html += '<div class="struct-field">';
-      html += '<span class="struct-field-name">' + esc(v.name) + '</span>';
-      html += ' <span class="struct-field-number">= ' + v.number + ';</span>';
-      html += '</div>';
+    if (!en.values || en.values.length === 0) return '';
+    let html = '<table class="field-table">';
+    html += '<thead><tr><th>Name</th><th>Number</th><th>Description</th></tr></thead>';
+    html += '<tbody>';
+    for (const v of en.values) {
+      html += '<tr>';
+      html += '<td class="field-name">' + esc(v.name) + '</td>';
+      html += '<td class="field-number">' + v.number + '</td>';
+      html += '<td class="field-desc"></td>';
+      html += '</tr>';
     }
-    html += '<div class="struct-close">}</div>';
-    html += '</div>';
+    html += '</tbody></table>';
     return html;
   }
 
@@ -1178,9 +1226,23 @@
     for (const p of (spec.paths || [])) {
       for (const op of p.operations) {
         const typeName = op.method + ":" + p.path;
-        html += typeAnchorHeader(op.method, p.path, api.id);
+        html += typeAnchorHeader(op.method, p.path, api.id, { anchorName: typeName });
         if (op.summary || op.description) {
           html += '<div class="type-comment">' + esc(op.summary || op.description) + '</div>';
+        }
+        if (op.request_body || op.response_body) {
+          html += '<div class="method-sig">';
+          if (op.request_body) {
+            html += '<div><span class="method-sig-label">Request Body:</span> ';
+            html += linkifyType(op.request_body, typeIndex, api.id);
+            html += '</div>';
+          }
+          if (op.response_body) {
+            html += '<div><span class="method-sig-label">Response Body:</span> ';
+            html += linkifyType(op.response_body, typeIndex, api.id);
+            html += '</div>';
+          }
+          html += '</div>';
         }
         html += '<div class="struct-block">';
         if (op.operation_id) {
@@ -1205,7 +1267,7 @@
     for (const s of (spec.schemas || [])) {
       html += typeAnchorHeader("schema", s.name, api.id);
       html += '<div class="struct-block">';
-      html += '<div class="struct-keyword">schema <span class="struct-name">' + esc(s.name) + '</span>' + (s.type ? ' : ' + esc(s.type) : '') + ' {</div>';
+      html += '<div class="struct-keyword">' + (s.type ? esc(s.type) + ' ' : '') + '{</div>';
       for (const prop of (s.properties || [])) {
         html += '<div class="struct-field">';
         html += linkifyType(prop.type, typeIndex, api.id);
@@ -1229,10 +1291,9 @@
     if (avro.doc) html += '<div class="type-comment">' + esc(avro.doc) + '</div>';
 
     html += '<div class="struct-block">';
-    const keyword = avro.type === "enum" ? "enum" : "record";
-    html += '<div class="struct-keyword">' + keyword + ' <span class="struct-name">' + esc(avro.name) + '</span>';
-    if (avro.namespace) html += ' <span class="struct-comment">// ' + esc(avro.namespace) + '</span>';
-    html += ' {</div>';
+    html += '<div class="struct-keyword">';
+    if (avro.namespace) html += '<span class="struct-comment">// ' + esc(avro.namespace) + '</span> ';
+    html += '{</div>';
 
     if (avro.symbols && avro.symbols.length > 0) {
       for (const s of avro.symbols) {
@@ -1263,7 +1324,7 @@
     if (jsd.description) html += '<div class="type-comment">' + esc(jsd.description) + '</div>';
 
     html += '<div class="struct-block">';
-    html += '<div class="struct-keyword">schema <span class="struct-name">' + esc(name) + '</span>' + (jsd.type ? ' : ' + esc(jsd.type) : '') + ' {</div>';
+    html += '<div class="struct-keyword">' + (jsd.type ? esc(jsd.type) + ' ' : '') + '{</div>';
     for (const p of (jsd.properties || [])) {
       html += '<div class="struct-field">';
       html += esc(p.type || 'any') + ' <span class="struct-field-name">' + esc(p.name) + '</span>';
@@ -1284,7 +1345,7 @@
     html += typeAnchorHeader("message", name, api.id);
 
     html += '<div class="struct-block">';
-    html += '<div class="struct-keyword">message <span class="struct-name">' + esc(name) + '</span> {</div>';
+    html += '<div class="struct-keyword">{</div>';
     for (const c of (pqs.columns || [])) {
       html += '<div class="struct-field">';
       html += esc(c.phys_type);
@@ -1294,6 +1355,26 @@
       html += '</div>';
     }
     html += '<div class="struct-close">}</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // ── Raw source viewer ──
+
+  function renderRawSource(filename, content, apiId) {
+    var anchorName = "source:" + filename;
+    var html = typeAnchorHeader("source", filename, apiId, { anchorName: anchorName });
+    var lines = content.split('\n');
+
+    html += '<div class="source-viewer">';
+    html += '<table class="source-table"><tbody>';
+    for (var i = 0; i < lines.length; i++) {
+      html += '<tr>';
+      html += '<td class="source-line-num">' + (i + 1) + '</td>';
+      html += '<td class="source-line-code">' + esc(lines[i]) + '</td>';
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
     html += '</div>';
     return html;
   }

@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -79,6 +80,12 @@ func ExtractSchema(modulePath, format string) *SchemaDetail {
 		}
 
 		if extracted {
+			// Store raw file content for source viewer (skip binary formats).
+			if format != "parquet" {
+				if raw, err := os.ReadFile(filePath); err == nil {
+					sf.RawContent = string(raw)
+				}
+			}
 			schemaFiles = append(schemaFiles, sf)
 		}
 	}
