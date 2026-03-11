@@ -719,6 +719,7 @@
       case "record": return "Records";
       case "jsonschema": return "Schemas";
       case "parquet": return "Columns";
+      case "source": return "Source";
       default: return "Types";
     }
   }
