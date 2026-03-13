@@ -24,6 +24,7 @@ Discovered orgs and repos are saved to ~/.config/apx/config.yaml so that
 apx catalog search works from any directory without per-repo configuration.`,
 	}
 	cmd.AddCommand(newAuthLoginCmd())
+	cmd.AddCommand(newAuthLogoutCmd())
 	cmd.AddCommand(newAuthStatusCmd())
 	return cmd
 }
@@ -47,6 +48,22 @@ Results are saved to ~/.config/apx/config.yaml for future use.`,
 	return cmd
 }
 
+func newAuthLogoutCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "logout",
+		Short: "Clear cached authentication tokens",
+		Long: `Remove cached GitHub tokens for an organization.
+
+If --org is provided, only that org's token is cleared.
+If --all is set, tokens for all known orgs are cleared.
+Otherwise, the org is auto-detected from the current directory.`,
+		RunE: authLogoutAction,
+	}
+	cmd.Flags().String("org", "", "Organization to log out of")
+	cmd.Flags().Bool("all", false, "Clear tokens for all known orgs")
+	return cmd
+}
+
 func newAuthStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
@@ -58,16 +75,24 @@ func newAuthStatusCmd() *cobra.Command {
 func authLoginAction(cmd *cobra.Command, args []string) error {
 	orgFlag, _ := cmd.Flags().GetString("org")
 
-	// Determine the target org for initial authentication
+	// Determine the target org: flag > git remote/path > global config default
 	org := orgFlag
 	if org == "" {
 		detected, err := githubauth.DetectOrg()
-		if err != nil {
-			ui.Info("Could not detect org from git remote.")
-			return fmt.Errorf("--org is required when not inside a git repository with a GitHub remote")
+		if err == nil {
+			org = detected
+			ui.Info("Detected org: %s", org)
 		}
-		org = detected
-		ui.Info("Detected org from git remote: %s", org)
+	}
+	if org == "" {
+		// Try global config default org
+		if globalCfg, err := config.LoadGlobal(); err == nil && globalCfg.DefaultOrg != "" {
+			org = globalCfg.DefaultOrg
+			ui.Info("Using default org from config: %s", org)
+		}
+	}
+	if org == "" {
+		return fmt.Errorf("--org is required (could not auto-detect from git remote, directory path, or global config)")
 	}
 
 	// Authenticate via device flow
@@ -187,6 +212,49 @@ func discoverCatalogRepos(org string) []string {
 		}
 	}
 	return repos
+}
+
+func authLogoutAction(cmd *cobra.Command, args []string) error {
+	orgFlag, _ := cmd.Flags().GetString("org")
+	all, _ := cmd.Flags().GetBool("all")
+
+	if all {
+		globalCfg, err := config.LoadGlobal()
+		if err != nil || len(globalCfg.Orgs) == 0 {
+			ui.Info("No known organizations.")
+			return nil
+		}
+		for _, org := range globalCfg.Orgs {
+			if err := githubauth.ClearToken(org.Name); err != nil {
+				ui.Warning("Failed to clear token for %s: %v", org.Name, err)
+			} else {
+				ui.Success("Cleared token for %s", org.Name)
+			}
+		}
+		return nil
+	}
+
+	org := orgFlag
+	if org == "" {
+		detected, err := githubauth.DetectOrg()
+		if err == nil {
+			org = detected
+		}
+	}
+	if org == "" {
+		if globalCfg, err := config.LoadGlobal(); err == nil && globalCfg.DefaultOrg != "" {
+			org = globalCfg.DefaultOrg
+		}
+	}
+	if org == "" {
+		return fmt.Errorf("--org is required (could not auto-detect)")
+	}
+
+	if err := githubauth.ClearToken(org); err != nil {
+		return fmt.Errorf("failed to clear token for %s: %w", org, err)
+	}
+	ui.Success("Cleared token for %s", org)
+	return nil
 }
 
 func authStatusAction(cmd *cobra.Command, args []string) error {

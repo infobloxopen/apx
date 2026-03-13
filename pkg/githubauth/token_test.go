@@ -72,7 +72,7 @@ func TestTokenPath(t *testing.T) {
 	p, err := TokenPath("acme")
 	require.NoError(t, err)
 	assert.True(t, filepath.IsAbs(p))
-	assert.Contains(t, p, "acme-github-token.json")
+	assert.Contains(t, p, "apx-acme-user-token.json")
 }
 
 func TestTokenFilePermissions(t *testing.T) {

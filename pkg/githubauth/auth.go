@@ -194,17 +194,41 @@ func IsDeviceFlowDisabled(err error) bool {
 // Handles both HTTPS and SSH forms.
 var gitRemoteRe = regexp.MustCompile(`github\.com[:/]([^/]+)/`)
 
-// DetectOrg attempts to determine the GitHub org from the current git
-// repository's origin remote.
+// DetectOrg attempts to determine the GitHub org using multiple strategies:
+//  1. Git remote origin URL (most reliable)
+//  2. Current working directory path matching github.com/{org}/{repo}
 func DetectOrg() (string, error) {
+	// Strategy 1: git remote origin
 	out, err := exec.Command("git", "remote", "get-url", "origin").CombinedOutput()
+	if err == nil {
+		remote := strings.TrimSpace(string(out))
+		m := gitRemoteRe.FindStringSubmatch(remote)
+		if len(m) >= 2 {
+			return m[1], nil
+		}
+	}
+
+	// Strategy 2: working directory path (e.g. ~/go/src/github.com/{org}/{repo})
+	if org := detectOrgFromPath(); org != "" {
+		return org, nil
+	}
+
+	return "", fmt.Errorf("could not detect GitHub org from git remote or working directory")
+}
+
+// githubPathRe matches github.com/{org} in a filesystem path.
+var githubPathRe = regexp.MustCompile(`github\.com/([^/]+)`)
+
+// detectOrgFromPath tries to extract a GitHub org from the current
+// working directory path (common in GOPATH-style layouts).
+func detectOrgFromPath() string {
+	cwd, err := os.Getwd()
 	if err != nil {
-		return "", fmt.Errorf("failed to get git remote: %w", err)
+		return ""
 	}
-	remote := strings.TrimSpace(string(out))
-	m := gitRemoteRe.FindStringSubmatch(remote)
-	if len(m) < 2 {
-		return "", fmt.Errorf("could not parse GitHub org from remote %q", remote)
+	m := githubPathRe.FindStringSubmatch(cwd)
+	if len(m) >= 2 {
+		return m[1]
 	}
-	return m[1], nil
+	return ""
 }

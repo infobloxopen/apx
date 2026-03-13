@@ -33,12 +33,23 @@ func configDirReal() (string, error) {
 }
 
 // TokenPath returns the file path for the cached token for a given org.
+// The file name matches the GitHub App name convention: apx-{org}-user-token.json
 func TokenPath(org string) (string, error) {
 	dir, err := ConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, org+"-github-token.json"), nil
+	newPath := filepath.Join(dir, fmt.Sprintf("apx-%s-user-token.json", org))
+
+	// Migrate: if old-style token exists and new doesn't, rename it.
+	oldPath := filepath.Join(dir, org+"-github-token.json")
+	if _, err := os.Stat(newPath); os.IsNotExist(err) {
+		if _, err := os.Stat(oldPath); err == nil {
+			_ = os.Rename(oldPath, newPath)
+		}
+	}
+
+	return newPath, nil
 }
 
 // LoadToken reads a cached token from disk. Returns nil, nil if the file
