@@ -107,7 +107,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ steps.app-token.outputs.token }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build catalog image
         run: |
@@ -121,14 +121,18 @@ jobs:
             catalog/
 
       - name: Push catalog image
+        id: push
         run: |
           docker push "$IMAGE:latest"
           docker push "$IMAGE:sha-${GITHUB_SHA::7}"
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE:latest" | cut -d@ -f2)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
           subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
       - name: Generate SBOM
@@ -141,6 +145,7 @@ jobs:
         uses: actions/attest-sbom@v2
         with:
           subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
           sbom-path: sbom.spdx.json
           push-to-registry: true
 ```

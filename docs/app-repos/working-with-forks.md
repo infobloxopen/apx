@@ -150,7 +150,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ steps.app-token.outputs.token }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           docker build \
             --build-arg CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -160,12 +160,16 @@ jobs:
             -t "$IMAGE:latest" \
             -t "$IMAGE:sha-${GITHUB_SHA::7}" \
             catalog/
-      - run: |
+      - id: push
+        run: |
           docker push "$IMAGE:latest"
           docker push "$IMAGE:sha-${GITHUB_SHA::7}"
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE:latest" | cut -d@ -f2)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
       - uses: actions/attest-build-provenance@v2
         with:
           subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
       - uses: anchore/sbom-action@v0
         with:
@@ -174,6 +178,7 @@ jobs:
       - uses: actions/attest-sbom@v2
         with:
           subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
           sbom-path: sbom.spdx.json
           push-to-registry: true
 ```
