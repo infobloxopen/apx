@@ -23,6 +23,12 @@ import (
 // Override in tests to point at httptest.Server.
 var GitHubBaseURL = "https://github.com"
 
+// OpenBrowserFn, if set, is called to open the device verification URL
+// in the user's browser during DeviceFlowLogin. The githubauth package
+// has no dependency on platform-specific browser code, so the main
+// binary wires this up at startup.
+var OpenBrowserFn func(url string) error
+
 // deviceCodeResponse is the first-leg response from the device flow.
 type deviceCodeResponse struct {
 	DeviceCode      string `json:"device_code"`
@@ -49,9 +55,12 @@ func DeviceFlowLogin(clientID string) (*Token, error) {
 		return nil, fmt.Errorf("device code request failed: %w", err)
 	}
 
-	// Step 2: print instructions to stderr (no dependency on internal/ui).
+	// Step 2: print instructions and open browser if possible.
 	fmt.Fprintf(os.Stderr, "\n  To authenticate, open: %s\n", dc.VerificationURI)
 	fmt.Fprintf(os.Stderr, "  and enter code: %s\n\n", dc.UserCode)
+	if OpenBrowserFn != nil {
+		_ = OpenBrowserFn(dc.VerificationURI)
+	}
 
 	// Step 3: poll for access token.
 	interval := time.Duration(dc.Interval) * time.Second

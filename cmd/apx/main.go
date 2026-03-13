@@ -5,8 +5,10 @@ import (
 	"os"
 
 	"github.com/infobloxopen/apx/cmd/apx/commands"
+	gh "github.com/infobloxopen/apx/internal/github"
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/ui"
+	"github.com/infobloxopen/apx/pkg/githubauth"
 	"github.com/spf13/cobra"
 )
 
@@ -18,6 +20,9 @@ var (
 
 func main() {
 	ui.InitializeFromEnv()
+	// Wire the browser opener into the auth package so device flow
+	// can open the verification URL automatically.
+	githubauth.OpenBrowserFn = gh.OpenBrowser
 	root := NewApp()
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
