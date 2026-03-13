@@ -158,6 +158,29 @@ func (c *Client) fullURL(path string) string {
 	return APIBaseURL + path
 }
 
+// ListUserOrgs returns the login names of all GitHub organizations
+// the authenticated user belongs to.
+func (c *Client) ListUserOrgs() ([]string, error) {
+	items, err := c.GetPaginated("/user/orgs")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list user orgs: %w", err)
+	}
+
+	var orgs []string
+	for _, raw := range items {
+		var obj struct {
+			Login string `json:"login"`
+		}
+		if err := json.Unmarshal(raw, &obj); err != nil {
+			continue
+		}
+		if obj.Login != "" {
+			orgs = append(orgs, obj.Login)
+		}
+	}
+	return orgs, nil
+}
+
 // parseNextLink extracts the "next" URL from a GitHub Link header.
 // Returns "" if there is no next page.
 func parseNextLink(header string) string {

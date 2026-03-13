@@ -284,6 +284,22 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 			}
 			userClientID = creds.ClientID
 			ui.Success("User app created! Client ID: %s", userClientID)
+
+			// The GitHub App manifest flow cannot enable device flow.
+			// It must be enabled manually in the App settings UI.
+			settingsURL := fmt.Sprintf("https://github.com/organizations/%s/settings/apps/%s", org, creds.Slug)
+			ui.Info("")
+			ui.Warning("Device flow must be enabled manually on the user app.")
+			ui.Info("  1. Open: %s", settingsURL)
+			ui.Info("  2. Check \"Enable Device Flow\" under \"Identifying and authorizing users\"")
+			ui.Info("  3. Save changes")
+			ui.Info("")
+			if !nonInteractive {
+				ui.Info("Opening browser to App settings...")
+				_ = gh.OpenBrowser(settingsURL)
+				ui.Info("Press Enter after enabling Device Flow...")
+				fmt.Scanln() //nolint:errcheck
+			}
 		} else {
 			ui.Info("User app already configured (client_id cached).")
 		}
@@ -391,6 +407,13 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 		ui.Info("5. Push: git remote add origin <url> && git push -u origin main")
 		ui.Info("")
 		ui.Info("Or re-run with --setup-github to configure automatically.")
+	}
+
+	// Seed global config with this org/repo
+	if globalCfg, loadErr := config.LoadGlobal(); loadErr == nil {
+		globalCfg.AddOrg(org, []string{repo})
+		globalCfg.SetDefaultOrg(org)
+		_ = config.SaveGlobal(globalCfg)
 	}
 
 	ui.Success("\n\u2713 Canonical API repository initialized successfully!")
@@ -529,6 +552,12 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 	ui.Info("2. Run lint checks: apx lint %s", modulePath)
 	ui.Info("3. Commit your changes: git add . && git commit")
 	ui.Info("4. Release to canonical repo: apx release submit --module-path=%s", modulePath)
+
+	// Seed global config with this org/repo
+	if globalCfg, loadErr := config.LoadGlobal(); loadErr == nil {
+		globalCfg.AddOrg(org, []string{repo})
+		_ = config.SaveGlobal(globalCfg)
+	}
 
 	ui.Success("\n\u2713 Application repository initialized successfully!")
 	return nil

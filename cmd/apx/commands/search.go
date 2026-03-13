@@ -18,8 +18,12 @@ func newCatalogSearchCmd() *cobra.Command {
 		Long: `Search the canonical repository catalog for available APIs.
 
 The catalog can be a local file path or a remote URL (http:// or https://).
-When --catalog is not specified, APX checks catalog_url from apx.yaml first,
-then falls back to catalog/catalog.yaml.
+When --catalog is not specified, APX resolves the catalog source in order:
+  1. catalog_registries from apx.yaml
+  2. Auto-discover from org in apx.yaml (queries GHCR packages API)
+  3. Known orgs/repos from ~/.config/apx/config.yaml (seeded by apx auth login)
+  4. catalog_url from apx.yaml
+  5. Local catalog/catalog.yaml
 
 Examples:
   apx catalog search                    # List all APIs
@@ -138,21 +142,30 @@ func searchAction(cmd *cobra.Command, args []string) error {
 
 // resolveCatalogSource returns the best CatalogSource by checking:
 //  1. Explicit --catalog flag (path or URL) → SourceFor
-//  2. catalog_registries / org / catalog_url from apx.yaml → ResolveSource
-//  3. Local catalog/catalog.yaml fallback
+//  2. Local apx.yaml + global config → ResolveSourceWithGlobal
+//  3. Global config alone (when no local apx.yaml) → ResolveSourceWithGlobal
+//  4. Local catalog/catalog.yaml fallback
 func resolveCatalogSource(cmd *cobra.Command, catalogFlag string) catalog.CatalogSource {
 	// 1. Explicit flag always wins
 	if catalogFlag != "" {
 		return catalog.SourceFor(catalogFlag)
 	}
 
-	// 2. Try config-based resolution (registries, auto-discover, catalog_url)
+	// Load global config (always attempted, regardless of local config)
+	globalCfg, _ := config.LoadGlobal()
+
+	// 2. Try config-based resolution (registries, auto-discover, global, catalog_url)
 	configPath, _ := cmd.Root().PersistentFlags().GetString("config")
 	cfg, err := config.LoadRaw(configPath)
 	if err == nil {
-		return catalog.ResolveSource(cfg)
+		return catalog.ResolveSourceWithGlobal(cfg, globalCfg)
 	}
 
-	// 3. Fallback to local file
+	// 3. No local config — still try global config
+	if globalCfg != nil && len(globalCfg.Orgs) > 0 {
+		return catalog.ResolveSourceWithGlobal(&config.Config{}, globalCfg)
+	}
+
+	// 4. Fallback to local file
 	return &catalog.LocalSource{Path: "catalog/catalog.yaml"}
 }

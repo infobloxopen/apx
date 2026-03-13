@@ -464,6 +464,11 @@ func SetupAppRepo(client *githubauth.Client, org, repo string) (*SetupResult, er
 // openBrowserFn opens a URL in the default browser. Variable for testing.
 var openBrowserFn = openBrowserReal
 
+// OpenBrowser opens a URL in the default browser.
+func OpenBrowser(url string) error {
+	return openBrowserFn(url)
+}
+
 func openBrowserReal(url string) error {
 	switch runtime.GOOS {
 	case "darwin":
