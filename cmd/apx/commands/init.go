@@ -258,9 +258,9 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 		appID, _ := cmd.Flags().GetString("app-id")
 		pemFile, _ := cmd.Flags().GetString("app-pem-file")
 
-		// ── Step 1: User App ────────────────────────────────────────
-		// Create the user-facing GitHub App (apx-{org}-user) if not cached.
-		// This app provides device-flow OAuth for human users.
+		// ── Step 1: User App (least-privilege, daily use) ──────────
+		// Creates apx-{org}-user with minimal permissions for device-flow
+		// auth, catalog discovery, releases, and pull requests.
 		userClientID := gh.GetCachedUserAppClientID(org)
 		if userClientID == "" {
 			if nonInteractive {
@@ -284,6 +284,7 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 			}
 			userClientID = creds.ClientID
 			ui.Success("User app created! Client ID: %s", userClientID)
+			ui.Info("  Permissions: contents:write, pull_requests:write, metadata:read, packages:read")
 
 			// The GitHub App manifest flow cannot enable device flow.
 			// It must be enabled manually in the App settings UI.
@@ -304,11 +305,42 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 			ui.Info("User app already configured (client_id cached).")
 		}
 
-		// ── Step 2: Device flow login ───────────────────────────────
-		// Authenticate the user via OAuth device flow to get a token.
+		// ── Step 2: Admin App (elevated, setup-only) ────────────────
+		// Creates apx-{org}-admin with elevated permissions for branch
+		// protection, org secrets, and GitHub Pages. Only used during
+		// --setup-github, not for daily operations.
+		adminClientID := gh.GetCachedAdminAppClientID(org)
+		if adminClientID == "" {
+			if nonInteractive {
+				return fmt.Errorf("admin app not configured for org %q; run interactively first", org)
+			}
+			ui.Info("\nCreating admin app %q via GitHub App manifest flow...", gh.AdminAppName(org))
+			ui.Info("  This app has elevated permissions for one-time repo setup.")
+			creds, createErr := gh.CreateAppViaManifest(org, gh.AdminAppName(org), gh.AdminAppPermissions)
+			if createErr != nil {
+				return fmt.Errorf("failed to create admin app: %w", createErr)
+			}
+			if err := gh.CacheAdminAppClientID(org, creds.ClientID); err != nil {
+				return fmt.Errorf("failed to cache admin app client ID: %w", err)
+			}
+			if err := gh.CacheAdminAppID(org, fmt.Sprintf("%d", creds.ID)); err != nil {
+				return fmt.Errorf("failed to cache admin app ID: %w", err)
+			}
+			if creds.Slug != "" {
+				if err := gh.CacheAdminAppSlug(org, creds.Slug); err != nil {
+					ui.Warning("Failed to cache admin app slug: %v", err)
+				}
+			}
+			adminClientID = creds.ClientID
+			ui.Success("Admin app created! Client ID: %s", adminClientID)
+		} else {
+			ui.Info("Admin app already configured (client_id cached).")
+		}
+
+		// ── Step 3: Device flow login (user app) ────────────────────
+		// Authenticate the user via the user app for daily-use token.
 		token, tokenErr := githubauth.EnsureToken(org)
 		if tokenErr != nil && githubauth.IsDeviceFlowDisabled(tokenErr) && !nonInteractive {
-			// Device flow not enabled — guide the user to fix it and retry.
 			slug := gh.GetCachedUserAppSlug(org)
 			if slug == "" {
 				slug = gh.UserAppName(org)
@@ -324,8 +356,6 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 			_ = gh.OpenBrowser(settingsURL)
 			ui.Info("Press Enter after enabling Device Flow...")
 			fmt.Scanln() //nolint:errcheck
-
-			// Retry after user enables device flow
 			token, tokenErr = githubauth.EnsureToken(org)
 		}
 		if tokenErr != nil {
@@ -333,7 +363,7 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 		}
 		client := githubauth.NewClient(token)
 
-		// ── Step 3: Ensure user app is installed ────────────────────
+		// ── Step 4: Ensure apps are installed ────────────────────────
 		userAppIDStr := gh.GetCachedUserAppID(org)
 		userAppSlug := gh.GetCachedUserAppSlug(org)
 		if userAppIDStr != "" && userAppSlug != "" {
@@ -344,8 +374,18 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}
+		adminAppIDStr := gh.GetCachedAdminAppID(org)
+		adminAppSlug := gh.GetCachedAdminAppSlug(org)
+		if adminAppIDStr != "" && adminAppSlug != "" {
+			adminAppIDInt, _ := strconv.Atoi(adminAppIDStr)
+			if adminAppIDInt > 0 {
+				if err := gh.EnsureAppInstalled(client, org, adminAppIDInt, adminAppSlug); err != nil {
+					ui.Warning("Could not verify admin app installation: %v", err)
+				}
+			}
+		}
 
-		// ── Step 4: CI App ──────────────────────────────────────────
+		// ── Step 5: CI App ──────────────────────────────────────────
 		// Create the CI GitHub App (apx-{repo}-{org}) if not cached.
 		if appID == "" {
 			appID = gh.GetCachedAppID(org)

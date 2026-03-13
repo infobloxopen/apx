@@ -768,8 +768,21 @@ func GetCachedUserAppSlug(org string) string {
 // User app manifest permissions
 // ---------------------------------------------------------------------------
 
-// UserAppPermissions returns the permissions for the user-facing GitHub App.
+// UserAppPermissions are the least-privilege permissions for the
+// user-facing GitHub App used for daily operations: device-flow auth,
+// catalog discovery, releases, and pull requests.
 var UserAppPermissions = map[string]string{
+	"contents":      "write",
+	"pull_requests": "write",
+	"metadata":      "read",
+	"packages":      "read",
+}
+
+// AdminAppPermissions are the elevated permissions needed only during
+// `apx init canonical --setup-github` for one-time repo configuration
+// (branch/tag protection, org secrets, GitHub Pages). This is a
+// separate app so that daily-use tokens don't carry admin scopes.
+var AdminAppPermissions = map[string]string{
 	"contents":                    "write",
 	"pull_requests":               "write",
 	"metadata":                    "read",
@@ -790,6 +803,44 @@ var CIAppPermissions = map[string]string{
 // UserAppName returns the well-known name for the user app: apx-{org}-user.
 func UserAppName(org string) string {
 	return fmt.Sprintf("apx-%s-user", org)
+}
+
+// AdminAppName returns the name for the admin app: apx-{org}-admin.
+func AdminAppName(org string) string {
+	return fmt.Sprintf("apx-%s-admin", org)
+}
+
+// CacheAdminAppClientID writes the admin app's client_id.
+func CacheAdminAppClientID(org, clientID string) error {
+	return githubauth.WriteCache(org, "admin-app-client-id", clientID)
+}
+
+// GetCachedAdminAppClientID returns the cached admin app client_id, or "".
+func GetCachedAdminAppClientID(org string) string {
+	v, _ := githubauth.ReadCache(org, "admin-app-client-id")
+	return v
+}
+
+// CacheAdminAppID writes the admin app's numeric ID.
+func CacheAdminAppID(org, appID string) error {
+	return githubauth.WriteCache(org, "admin-app-id", appID)
+}
+
+// GetCachedAdminAppID returns the cached admin app ID, or "".
+func GetCachedAdminAppID(org string) string {
+	v, _ := githubauth.ReadCache(org, "admin-app-id")
+	return v
+}
+
+// CacheAdminAppSlug writes the admin app's slug.
+func CacheAdminAppSlug(org, slug string) error {
+	return githubauth.WriteCache(org, "admin-app-slug", slug)
+}
+
+// GetCachedAdminAppSlug returns the cached admin app slug, or "".
+func GetCachedAdminAppSlug(org string) string {
+	v, _ := githubauth.ReadCache(org, "admin-app-slug")
+	return v
 }
 
 // CIAppName returns the name for the CI app: apx-{repo}-{org}.
