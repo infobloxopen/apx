@@ -524,10 +524,6 @@ func CreateAppViaManifest(org, appName string, permissions map[string]string) (*
 		"public":              false,
 		"default_permissions": permissions,
 		"default_events":      []string{},
-		// Not in the official manifest schema but GitHub may honor it.
-		// If ignored, the init flow catches device_flow_disabled and
-		// guides the user to enable it manually in the App settings UI.
-		"device_flow_enabled": true,
 	}
 	manifestJSON, _ := json.Marshal(manifest)
 
