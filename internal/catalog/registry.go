@@ -40,17 +40,23 @@ type RegistrySource struct {
 
 // Load pulls the catalog artifact from the registry and returns the catalog.
 func (r *RegistrySource) Load() (*Catalog, error) {
-	token, err := r.ghToken()
-	if err != nil {
-		return nil, fmt.Errorf("registry auth: %w", err)
-	}
+	// Get a GitHub token for auth with private packages.
+	// For public packages, the GHCR token exchange works without a GitHub token,
+	// so we don't fail if auth is unavailable.
+	ghToken, _ := r.ghToken()
 
 	ref := r.imageRef()
 	tag := r.tag()
 	client := r.httpClient()
 
+	// Exchange GitHub token for a GHCR registry token.
+	registryToken, err := r.exchangeGHCRToken(client, ref, ghToken)
+	if err != nil {
+		return nil, fmt.Errorf("registry auth: %w", err)
+	}
+
 	// 1. Pull the manifest
-	manifest, err := r.pullManifest(client, ref, tag, token)
+	manifest, err := r.pullManifest(client, ref, tag, registryToken)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +71,7 @@ func (r *RegistrySource) Load() (*Catalog, error) {
 	layerMediaType := manifest.Layers[0].MediaType
 
 	// 3. Pull the blob
-	data, err := r.pullBlob(client, ref, layerDigest, token)
+	data, err := r.pullBlob(client, ref, layerDigest, registryToken)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +188,47 @@ func ghAuthTokenReal() (string, error) {
 	return token, nil
 }
 
+// exchangeGHCRToken exchanges a GitHub token for a GHCR registry token.
+// GHCR requires this token exchange even for public packages when using
+// the registry API directly (as opposed to docker pull which handles it automatically).
+func (r *RegistrySource) exchangeGHCRToken(client *http.Client, ref, ghToken string) (string, error) {
+	scope := fmt.Sprintf("repository:%s:pull", ref)
+	tokenURL := fmt.Sprintf("https://%s/token?scope=%s&service=%s", r.host(), scope, r.host())
+
+	req, err := http.NewRequest("GET", tokenURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("create token request: %w", err)
+	}
+	// Include the GitHub token as basic auth for private packages
+	if ghToken != "" {
+		req.SetBasicAuth("token", ghToken)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("token exchange: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("token exchange returned HTTP %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("parse token response: %w", err)
+	}
+	if result.Token == "" {
+		return "", fmt.Errorf("empty token from registry")
+	}
+	return result.Token, nil
+}
+
 // pullManifest fetches the OCI manifest for the given image reference and tag.
+// The token parameter should be a GHCR registry token (from exchangeGHCRToken),
+// not a raw GitHub token.
 func (r *RegistrySource) pullManifest(client *http.Client, ref, tag, token string) (*ociManifest, error) {
 	url := fmt.Sprintf("https://%s/v2/%s/manifests/%s", r.host(), ref, tag)
 

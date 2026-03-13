@@ -56,6 +56,9 @@ modules:
 
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case r.URL.Path == "/token":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"token":"test-registry-token"}`))
 		case strings.Contains(r.URL.Path, "/manifests/"):
 			w.Header().Set("Content-Type", "application/vnd.oci.image.manifest.v1+json")
 			w.Write(manifestJSON)
@@ -123,6 +126,9 @@ modules:
 
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case r.URL.Path == "/token":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"token":"test-registry-token"}`))
 		case strings.Contains(r.URL.Path, "/manifests/"):
 			w.Write(manifestJSON)
 		case strings.Contains(r.URL.Path, "/blobs/"+digest):
@@ -152,6 +158,11 @@ modules:
 
 func TestRegistrySource_Load_ManifestNotFound(t *testing.T) {
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"token":"test-registry-token"}`))
+			return
+		}
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer ts.Close()
