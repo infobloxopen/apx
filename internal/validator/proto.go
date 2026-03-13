@@ -22,7 +22,7 @@ func NewProtoValidator(resolver *ToolchainResolver) *ProtoValidator {
 
 // Lint runs buf lint on proto files
 func (v *ProtoValidator) Lint(path string) error {
-	bufPath, err := v.resolver.ResolveTool("buf", "v1.45.0")
+	bufPath, err := v.resolver.ResolveTool("buf", "v1.66.1")
 	if err != nil {
 		return fmt.Errorf("failed to resolve buf: %w", err)
 	}
@@ -44,7 +44,7 @@ func (v *ProtoValidator) Lint(path string) error {
 
 // Breaking runs buf breaking change detection
 func (v *ProtoValidator) Breaking(path, against string) error {
-	bufPath, err := v.resolver.ResolveTool("buf", "v1.45.0")
+	bufPath, err := v.resolver.ResolveTool("buf", "v1.66.1")
 	if err != nil {
 		return fmt.Errorf("failed to resolve buf: %w", err)
 	}

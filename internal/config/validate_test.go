@@ -75,7 +75,7 @@ release:
   ci_only: true
 tools:
   buf:
-    version: v1.45.0
+    version: v1.66.1
   oasdiff:
     version: v1.9.6
   spectral:

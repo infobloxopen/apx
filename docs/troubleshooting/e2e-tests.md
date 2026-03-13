@@ -119,7 +119,7 @@ exec: "buf": executable file not found in $PATH
 brew install bufbuild/buf/buf
 
 # Linux
-curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.45.0/buf-Linux-x86_64" -o /tmp/buf
+curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.66.1/buf-Linux-x86_64" -o /tmp/buf
 chmod +x /tmp/buf
 sudo mv /tmp/buf /usr/local/bin/buf
 ```

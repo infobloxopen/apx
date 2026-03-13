@@ -548,7 +548,7 @@ func DefaultConfig() *Config {
 		Tools: Tools{
 			Buf: struct {
 				Version string `yaml:"version"`
-			}{Version: "v1.45.0"},
+			}{Version: "v1.66.1"},
 			OASDiff: struct {
 				Version string `yaml:"version"`
 			}{Version: "v1.9.6"},

@@ -216,7 +216,7 @@ release:
   ci_only: true
 tools:
   buf:
-    version: v1.45.0
+    version: v1.66.1
 execution:
   mode: "local"
   container_image: ""

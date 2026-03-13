@@ -18,7 +18,7 @@ func TestToolchainResolver(t *testing.T) {
 
 		resolver := NewToolchainResolver()
 
-		path, err := resolver.ResolveTool("buf", "v1.45.0")
+		path, err := resolver.ResolveTool("buf", "v1.66.1")
 		require.NoError(t, err)
 		require.NotEmpty(t, path)
 
@@ -61,7 +61,7 @@ func TestToolchainProfile(t *testing.T) {
 		lockContent := `version: 1
 tools:
   buf:
-    version: v1.45.0
+    version: v1.66.1
     checksum: abc123
   spectral:
     version: v6.15.0
@@ -73,7 +73,7 @@ tools:
 		require.NoError(t, err)
 		require.NotNil(t, profile)
 		require.Len(t, profile.Tools, 2)
-		require.Equal(t, "v1.45.0", profile.Tools["buf"].Version)
+		require.Equal(t, "v1.66.1", profile.Tools["buf"].Version)
 		require.Equal(t, "abc123", profile.Tools["buf"].Checksum)
 	})
 
@@ -86,11 +86,11 @@ tools:
 		profile := &ToolchainProfile{
 			Version: 1,
 			Tools: map[string]ToolRef{
-				"buf": {Version: "v1.45.0", Checksum: "abc"},
+				"buf": {Version: "v1.66.1", Checksum: "abc"},
 			},
 		}
 
-		err := profile.ValidateTool("buf", "v1.45.0")
+		err := profile.ValidateTool("buf", "v1.66.1")
 		require.NoError(t, err)
 
 		err = profile.ValidateTool("buf", "v1.44.0")

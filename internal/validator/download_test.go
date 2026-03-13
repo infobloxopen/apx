@@ -23,14 +23,14 @@ func TestExpandPattern(t *testing.T) {
 	}{
 		{
 			pattern: "buf-{OS}-{ARCH}.tar.gz",
-			version: "v1.45.0",
+			version: "v1.66.1",
 			goos:    "linux",
 			goarch:  "amd64",
 			want:    "buf-Linux-x86_64.tar.gz",
 		},
 		{
 			pattern: "buf-{OS}-{ARCH}.tar.gz",
-			version: "v1.45.0",
+			version: "v1.66.1",
 			goos:    "darwin",
 			goarch:  "arm64",
 			want:    "buf-Darwin-aarch64.tar.gz",
@@ -53,8 +53,8 @@ func TestExpandPattern(t *testing.T) {
 }
 
 func TestCacheDir(t *testing.T) {
-	dir := cacheDir("buf", "v1.45.0")
-	require.Contains(t, dir, filepath.Join(".apx", "tools", "buf", "v1.45.0"))
+	dir := cacheDir("buf", "v1.66.1")
+	require.Contains(t, dir, filepath.Join(".apx", "tools", "buf", "v1.66.1"))
 }
 
 func TestExtractFromTarGz(t *testing.T) {
@@ -139,7 +139,7 @@ func TestResolveToolAutoDownload(t *testing.T) {
 	// This test verifies that ResolveTool falls through to auto-download.
 	// We use offline mode to test that it does NOT try downloading.
 	resolver := NewToolchainResolver(WithOfflineMode(true))
-	_, err := resolver.ResolveTool("buf", "v1.45.0")
+	_, err := resolver.ResolveTool("buf", "v1.66.1")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "tool not found")
 }
