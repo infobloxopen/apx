@@ -75,6 +75,14 @@ func searchAction(cmd *cobra.Command, args []string) error {
 		Tag:       tag,
 	})
 	if err != nil {
+		// If the error is auth-related, suggest running apx auth login.
+		errStr := err.Error()
+		if strings.Contains(errStr, "auth") || strings.Contains(errStr, "403") ||
+			strings.Contains(errStr, "token") || strings.Contains(errStr, "user app") {
+			ui.Error("Catalog search failed due to authentication.")
+			ui.Info("Run `apx auth login` to authenticate and discover catalogs.")
+			return err
+		}
 		ui.Error("Failed to search catalog: %v", err)
 		return err
 	}

@@ -140,15 +140,34 @@ func (r *RegistrySource) httpClient() *http.Client {
 }
 
 // ghToken gets a GitHub token for GHCR authentication.
+// Uses the RegistrySource's Org to look up the correct token, rather
+// than guessing from the current git remote.
 func (r *RegistrySource) ghToken() (string, error) {
 	if r.GHTokenFn != nil {
 		return r.GHTokenFn()
 	}
-	return ghAuthToken()
+
+	// Use the registry's own org for token lookup.
+	org := r.Org
+	if org == "" {
+		// Fallback: detect from git remote.
+		var err error
+		org, err = githubauth.DetectOrg()
+		if err != nil {
+			return "", fmt.Errorf("cannot detect GitHub org: %w", err)
+		}
+	}
+
+	token, err := githubauth.EnsureToken(org)
+	if err != nil {
+		return "", fmt.Errorf("GitHub auth for org %q failed: %w", org, err)
+	}
+	return token, nil
 }
 
-// ghAuthToken returns a GitHub token for GHCR auth.
-// Uses the githubauth package (device flow + token cache) instead of `gh auth token`.
+// ghAuthToken returns a GitHub token for GHCR auth using the current
+// directory's org. Used by DiscoverRegistries which doesn't have an
+// org-specific RegistrySource yet.
 var ghAuthToken = ghAuthTokenReal
 
 func ghAuthTokenReal() (string, error) {
