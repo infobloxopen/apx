@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	"gopkg.in/yaml.v3"
 )
@@ -57,7 +58,8 @@ func NewToolchainResolver(opts ...ToolchainResolverOption) *ToolchainResolver {
 	return r
 }
 
-// ResolveTool finds the path to a tool binary
+// ResolveTool finds the path to a tool binary.
+// Resolution order: offline bundle → local cache → PATH → auto-download.
 func (r *ToolchainResolver) ResolveTool(name, version string) (string, error) {
 	// Try offline bundle first if configured
 	if r.bundlePath != "" {
@@ -67,9 +69,27 @@ func (r *ToolchainResolver) ResolveTool(name, version string) (string, error) {
 		}
 	}
 
+	// Check the local tool cache (~/.apx/tools/<name>/<version>/)
+	binName := name
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	cached := filepath.Join(cacheDir(name, version), binName)
+	if _, err := os.Stat(cached); err == nil {
+		return cached, nil
+	}
+
 	// Fall back to PATH lookup
 	if !r.offlineMode {
 		path, err := exec.LookPath(name)
+		if err == nil {
+			return path, nil
+		}
+	}
+
+	// Auto-download if not in offline mode
+	if !r.offlineMode {
+		path, err := downloadTool(name, version)
 		if err == nil {
 			return path, nil
 		}
