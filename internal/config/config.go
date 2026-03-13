@@ -29,6 +29,7 @@ type Config struct {
 	Releases          *ReleaseInfo              `yaml:"releases,omitempty"`
 	Languages         map[string]LanguageCoords `yaml:"languages,omitempty"`
 	ExternalAPIs      []ExternalRegistration    `yaml:"external_apis,omitempty"`
+	APISources        []APISource               `yaml:"api_sources,omitempty"`
 }
 
 // APIIdentity describes the canonical identity of an API.

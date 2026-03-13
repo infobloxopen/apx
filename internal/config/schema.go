@@ -468,6 +468,21 @@ func buildV1Schema() SchemaVersion {
 				},
 			},
 		},
+		"api_sources": {
+			Name:        "api_sources",
+			Type:        TypeList,
+			Description: "Remote repositories whose git tags are scanned for API releases during catalog generation",
+			ItemDef: &FieldDef{
+				Name:        "api_source",
+				Type:        TypeStruct,
+				Description: "A remote API source repository",
+				Children: map[string]FieldDef{
+					"repo":        {Name: "repo", Type: TypeString, Required: true, Description: "Remote repository (e.g. github.com/org/repo)"},
+					"import_mode": {Name: "import_mode", Type: TypeString, Description: "Import path handling", EnumValues: []string{"preserve", "rewrite"}},
+					"path_map":    {Name: "path_map", Type: TypeMap, Description: "API ID to source path mapping", ItemDef: &FieldDef{Name: "path", Type: TypeString}},
+				},
+			},
+		},
 		"external_apis": {
 			Name:        "external_apis",
 			Type:        TypeList,

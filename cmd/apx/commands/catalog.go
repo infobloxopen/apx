@@ -101,6 +101,36 @@ func catalogGenerateAction(cmd *cobra.Command, args []string) error {
 		cat.ImportRoot = cfg.ImportRoot
 	}
 
+	// Merge modules from release manifests (releases/ directory)
+	releasesDir := filepath.Join(dir, "releases")
+	if info, err := os.Stat(releasesDir); err == nil && info.IsDir() {
+		ui.Info("Scanning release manifests in %s...", releasesDir)
+		releaseCat, err := catalog.GenerateFromReleases(releasesDir, org, repo)
+		if err != nil {
+			return fmt.Errorf("failed to scan release manifests: %w", err)
+		}
+		// Merge release-sourced modules into the catalog
+		existingIDs := make(map[string]bool)
+		for _, m := range cat.Modules {
+			existingIDs[m.ID] = true
+		}
+		for _, m := range releaseCat.Modules {
+			if !existingIDs[m.ID] {
+				cat.Modules = append(cat.Modules, m)
+				existingIDs[m.ID] = true
+			}
+		}
+		ui.Info("  Found %d API(s) from release manifests", len(releaseCat.Modules))
+	}
+
+	// Merge API sources (remote repos with release tags) — fallback for repos not yet using manifests
+	if cfgErr == nil && len(cfg.APISources) > 0 {
+		ui.Info("Fetching tags from %d API source(s)...", len(cfg.APISources))
+		if err := catalog.MergeAPISources(cat, cfg.APISources); err != nil {
+			return fmt.Errorf("failed to merge API sources: %w", err)
+		}
+	}
+
 	// Merge external API registrations from apx.yaml
 	if cfgErr == nil && len(cfg.ExternalAPIs) > 0 {
 		if err := catalog.MergeExternalAPIs(cat, cfg.ExternalAPIs); err != nil {
@@ -129,9 +159,10 @@ func catalogGenerateAction(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	firstParty, external := catalog.ExternalModuleCount(cat)
-	if external > 0 {
-		ui.Success("Catalog generated: %d modules (%d first-party, %d external)", len(cat.Modules), firstParty, external)
+	firstParty, sourced, external := catalog.ModuleCountByOrigin(cat)
+	nonLocal := sourced + external
+	if nonLocal > 0 {
+		ui.Success("Catalog generated: %d modules (%d local, %d sourced, %d external)", len(cat.Modules), firstParty, sourced, external)
 	} else {
 		ui.Success("Catalog generated: %s (%d APIs discovered)", output, len(cat.Modules))
 	}

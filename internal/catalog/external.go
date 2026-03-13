@@ -114,3 +114,18 @@ func ExternalModuleCount(cat *Catalog) (firstParty, external int) {
 	}
 	return
 }
+
+// ModuleCountByOrigin counts modules by origin type.
+func ModuleCountByOrigin(cat *Catalog) (firstParty, sourced, external int) {
+	for _, m := range cat.Modules {
+		switch m.Origin {
+		case "":
+			firstParty++
+		case "sourced":
+			sourced++
+		default:
+			external++
+		}
+	}
+	return
+}

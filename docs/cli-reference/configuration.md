@@ -88,6 +88,10 @@ version: 1
 | `execution` | struct | no |  |  | Execution environment settings |
 | `execution.mode` | string | no | `local` | local, container | Where tools run |
 | `execution.container_image` | string | no |  |  | Container image when mode=container |
+| `api_sources` | list | no |  |  | Remote repositories whose git tags are scanned for API releases during catalog generation |
+| `api_sources[].repo` | string | yes |  |  | Remote repository (e.g. github.com/org/repo) |
+| `api_sources[].import_mode` | string | no | `preserve` | preserve, rewrite | Import path handling |
+| `api_sources[].path_map` | map | no |  |  | API ID to source path mapping |
 | `external_apis` | list | no |  |  | External API registrations |
 | `external_apis[].id` | string | yes |  |  | Canonical API identity (format/domain/name/line) |
 | `external_apis[].managed_repo` | string | yes |  |  | Internal repository hosting curated snapshots |
@@ -299,6 +303,30 @@ execution:
 |------|-------------|
 | `local` | Run tools directly on the host machine |
 | `container` | Run tools inside a container (requires `container_image`) |
+
+### `api_sources`
+
+Declares remote repositories whose git tags are scanned for API releases during catalog generation. This enables first-party APIs that live in separate repositories with non-canonical directory layouts to appear in the catalog without changing their import paths.
+
+```yaml
+api_sources:
+  - repo: github.com/Infoblox-CTO/ngp.authz
+    import_mode: preserve
+    path_map:
+      proto/infoblox/authz/v1: dbapiserver/pkg/pb
+      proto/infoblox/licensing/v1: proto/licensing
+
+  - repo: github.com/infobloxopen/third-party-apis-google
+    import_mode: preserve
+    path_map:
+      proto/google/api/v1: google/api
+```
+
+Each entry requires `repo`. Optional fields include `import_mode` (default: `preserve`) and `path_map` which maps canonical API IDs to actual source paths in the remote repository.
+
+Tags in the remote repository must follow the standard release pattern: `<format>/<domain>/<name>/<line>/v<semver>` (e.g. `proto/infoblox/authz/v1/v1.0.0`).
+
+Modules discovered from API sources have `origin: sourced` in the catalog to distinguish them from local first-party modules and external registrations.
 
 ### `external_apis`
 
