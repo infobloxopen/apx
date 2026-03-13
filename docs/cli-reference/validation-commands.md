@@ -101,12 +101,12 @@ apx breaking --format openapi --against v1.0.0
 
 ---
 
-## `apx semver suggest`
+## `apx semver`
 
 Suggest a semantic version bump based on schema changes.
 
 ```bash
-apx semver suggest [path] --against <ref>
+apx semver [path] --against <ref>
 ```
 
 ### Flags
@@ -142,15 +142,15 @@ apx semver suggest [path] --against <ref>
 
 ```bash
 # Suggest based on changes since last commit
-apx semver suggest --against HEAD^
+apx semver --against HEAD^
 # → minor (new fields added, no breaking changes)
 
 # With explicit API ID and lifecycle
-apx semver suggest --api-id proto/payments/ledger/v1 --lifecycle beta --against HEAD^
+apx semver --api-id proto/payments/ledger/v1 --lifecycle beta --against HEAD^
 # → v1.1.0-beta.1
 
 # JSON output
-apx --json semver suggest --against origin/main
+apx --json semver --against origin/main
 ```
 
 ---

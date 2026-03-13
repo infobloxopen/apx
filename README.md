@@ -454,7 +454,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install APX
-        uses: infobloxopen/apx@v1
+        uses: infobloxopen/apx@main
 
       - name: Lint Schemas
         run: apx lint internal/apis
@@ -473,7 +473,7 @@ jobs:
           token: ${{ secrets.CANONICAL_REPO_TOKEN }}
 
       - name: Install APX
-        uses: infobloxopen/apx@v1
+        uses: infobloxopen/apx@main
 
       - name: Release to Canonical Repo
         run: |

@@ -30,26 +30,26 @@ exec sh -c 'echo "    version: v1.0.0" >> catalog/catalog.yaml'
 exec sh -c 'echo "    path: proto/users/profile/v1" >> catalog/catalog.yaml'
 
 # Step 2: Search all APIs
-exec apx search
+exec apx catalog search
 stdout 'ledger'
 stdout 'profile'
 
 # Step 3: Search by name
-exec apx search ledger
+exec apx catalog search ledger
 stdout 'ledger'
 ! stdout 'profile'
 
-exec apx search profile
+exec apx catalog search profile
 stdout 'profile'
 ! stdout 'ledger'
 
 # Step 4: Search by format
-exec apx search --format=proto
+exec apx catalog search --format=proto
 stdout 'ledger'
 stdout 'profile'
 
 # Step 5: Search with no results
-exec apx search nonexistent
+exec apx catalog search nonexistent
 ! stdout 'ledger'
 ! stdout 'profile'
 

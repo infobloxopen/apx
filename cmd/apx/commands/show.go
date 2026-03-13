@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newShowCmd() *cobra.Command {
+func newCatalogShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show <api-id>",
 		Short: "Show full identity and catalog data for an API",
@@ -29,10 +29,10 @@ then falls back to catalog/catalog.yaml.
 The API ID format is: <format>/<domain>/<name>/<line>
 
 Examples:
-  apx show proto/payments/ledger/v1
-  apx show openapi/billing/invoices/v2
-  apx show --source-repo github.com/acme/apis proto/payments/ledger/v1
-  apx --json show proto/payments/ledger/v1`,
+  apx catalog show proto/payments/ledger/v1
+  apx catalog show openapi/billing/invoices/v2
+  apx catalog show --source-repo github.com/acme/apis proto/payments/ledger/v1
+  apx --json catalog show proto/payments/ledger/v1`,
 		Args: cobra.ExactArgs(1),
 		RunE: showAction,
 	}

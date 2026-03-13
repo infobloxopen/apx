@@ -334,7 +334,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: infobloxopen/apx@v1
+      - uses: infobloxopen/apx@main
       - run: apx lint
       - run: apx breaking --against origin/main
 ```
@@ -368,7 +368,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
-      - uses: infobloxopen/apx@v1
+      - uses: infobloxopen/apx@main
       - run: apx lint
       - run: apx catalog generate --output catalog/catalog.yaml
       - uses: docker/login-action@v3

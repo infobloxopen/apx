@@ -124,42 +124,54 @@ apx gen go && apx sync
 
 ---
 
-## `apx link`
+## `apx sync`
 
-Link generated overlays for local development.
+Activate locally generated overlays in each language's package manager.
 
 ```bash
-apx link <language> [module-path]
+apx sync [language] [module-path]
 ```
 
-### What It Does
+Without a language argument, all supported languages are synced. Use `--clean` to reverse the activation without deleting the generated code.
 
-For **Python**: runs `pip install -e` for each overlay in the active virtualenv, enabling editable imports of locally generated code.
-
-For **Go**: prints a hint to use `apx sync` instead (Go uses `go.work` overlays).
+| Language | Activate (`sync`) | Deactivate (`sync --clean`) |
+|----------|-------------------|-----------------------------|
+| Go | Updates `go.work` with all Go overlay paths | Writes a minimal `go.work` with only the root module |
+| Python | Runs `pip install -e` for each overlay | Runs `pip uninstall` for each overlay |
 
 ### Flags
 
-None.
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--clean` | bool | `false` | Deactivate overlays from package managers |
+| `--dry-run` | bool | `false` | Show what would be done without making changes |
 
 ### Examples
 
 ```bash
-# Link all Python overlays into the active virtualenv
-apx link python
+# Activate all languages
+apx sync
 
-# Link a specific overlay
-apx link python proto/payments/ledger/v1
+# Activate only Go overlays
+apx sync go
 
-# Go redirects to sync
-apx link go
-# → "Go uses go.work overlays — run 'apx sync' instead."
+# Activate only Python overlays (requires active virtualenv)
+apx sync python
+
+# Activate a specific Python overlay
+apx sync python proto/payments/ledger/v1
+
+# Deactivate all languages
+apx sync --clean
+
+# Deactivate only Python
+apx sync --clean python
 ```
 
 ### Prerequisites
 
-- A Python virtualenv must be active (`VIRTUAL_ENV` env var set)
-- Overlays must be scaffolded first (`apx gen python`)
+- For Python: a virtualenv must be active (`VIRTUAL_ENV` env var set) and overlays scaffolded (`apx gen python`)
+- For Go: overlays generated (`apx gen go`); Go's `PostGen` hook calls `apx sync go` automatically after generation
 
 ---
 
@@ -283,8 +295,10 @@ apx show proto/payments/ledger/v1
 # 3. Add as dependency
 apx add proto/payments/ledger/v1@v1.2.3
 
-# 4. Generate client code
-apx gen go && apx sync
+# 4. Generate client code and activate overlays
+apx gen go          # generates Go bindings, updates go.work automatically
+apx gen python      # generates Python package
+apx sync python     # pip install -e (requires active virtualenv)
 
 # 5. Use canonical imports in your code
 # import ledgerv1 "github.com/acme-corp/apis/proto/payments/ledger/v1"

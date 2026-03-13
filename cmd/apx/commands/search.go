@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newSearchCmd() *cobra.Command {
+func newCatalogSearchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search [query]",
 		Short: "Search for APIs in the catalog",
@@ -22,14 +22,14 @@ When --catalog is not specified, APX checks catalog_url from apx.yaml first,
 then falls back to catalog/catalog.yaml.
 
 Examples:
-  apx search                    # List all APIs
-  apx search ledger             # Search for APIs matching "ledger"
-  apx search --format=proto     # Search for proto APIs only
-  apx search --lifecycle=beta   # Search for beta APIs
-  apx search --domain=payments  # Search by domain
-  apx search --tag=public       # Search by tag
-  apx search payment --format=proto --lifecycle=stable
-  apx search --catalog=https://raw.githubusercontent.com/org/apis/main/catalog/catalog.yaml`,
+  apx catalog search                    # List all APIs
+  apx catalog search ledger             # Search for APIs matching "ledger"
+  apx catalog search --format=proto     # Search for proto APIs only
+  apx catalog search --lifecycle=beta   # Search for beta APIs
+  apx catalog search --domain=payments  # Search by domain
+  apx catalog search --tag=public       # Search by tag
+  apx catalog search payment --format=proto --lifecycle=stable
+  apx catalog search --catalog=https://raw.githubusercontent.com/org/apis/main/catalog/catalog.yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: searchAction,
 	}

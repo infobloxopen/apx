@@ -100,7 +100,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install APX
-        uses: infobloxopen/apx@v1
+        uses: infobloxopen/apx@main
 
       - name: Parse tag
         id: tag

@@ -1,0 +1,31 @@
+# Test: apx sync — virtualenv detection and language filtering
+#
+# Verifies sync command behavior for Python (requires VIRTUAL_ENV) and
+# unknown language rejection.
+
+# Setup
+mkdir app
+cd app
+exec git init
+exec apx init app --org=testorg --repo=myapp --non-interactive internal/apis/proto/services/users
+exec apx add proto/payments/ledger/v1@v1.2.3
+
+# sync python without VIRTUAL_ENV should fail
+! exec apx sync python
+stderr 'no active virtualenv'
+
+# sync go should succeed (updates go.work)
+exec apx sync go
+stdout 'go.work updated'
+
+# sync unknown language should fail
+! exec apx sync cobol
+stderr 'unknown language'
+
+# sync --clean go should succeed (clears go.work)
+exec apx sync --clean go
+stdout 'go.work cleared'
+
+# sync --clean python without VIRTUAL_ENV should fail
+! exec apx sync --clean python
+stderr 'no active virtualenv'

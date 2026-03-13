@@ -29,8 +29,8 @@ stdout 'ci.yml'
 stdout 'on-merge.yml'
 
 # Verify the new content has the action reference
-grep 'infobloxopen/apx@v1' .github/workflows/ci.yml
-grep 'infobloxopen/apx@v1' .github/workflows/on-merge.yml
+grep 'infobloxopen/apx@main' .github/workflows/ci.yml
+grep 'infobloxopen/apx@main' .github/workflows/on-merge.yml
 
 # Verify old content is gone
 ! grep 'old-ci-content' .github/workflows/ci.yml
@@ -51,7 +51,7 @@ exec sh -c 'echo "old-publish-content" > .github/workflows/apx-release.yml'
 exec apx workflows sync
 stdout 'Updated'
 stdout 'apx-release.yml'
-grep 'infobloxopen/apx@v1' .github/workflows/apx-release.yml
+grep 'infobloxopen/apx@main' .github/workflows/apx-release.yml
 ! grep 'old-publish-content' .github/workflows/apx-release.yml
 
 # --- No workflows and no structure: should error ---

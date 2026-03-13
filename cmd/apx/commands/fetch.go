@@ -11,9 +11,10 @@ import (
 
 func newFetchCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "fetch",
-		Short: "Download and cache toolchain dependencies for offline use",
-		RunE:  fetchAction,
+		Use:    "fetch",
+		Short:  "Download and cache toolchain dependencies for offline use",
+		Hidden: true,
+		RunE:   fetchAction,
 	}
 	cmd.Flags().StringP("config", "c", "apx.yaml", "Path to configuration file")
 	cmd.Flags().String("output", ".apx-tools", "Output directory for toolchain bundles")

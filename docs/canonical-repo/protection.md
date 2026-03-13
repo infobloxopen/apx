@@ -70,7 +70,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: infobloxopen/apx@v1
+      - uses: infobloxopen/apx@main
       - name: Lint schemas
         run: apx lint
       - name: Check for breaking changes

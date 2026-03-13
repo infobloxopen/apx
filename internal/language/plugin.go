@@ -77,10 +77,16 @@ type PostGenHook interface {
 	PostGen(workDir string) error
 }
 
-// Linker is an optional interface for plugins that support local linking
-// of generated code into the language's package manager (e.g. Python pip install -e).
+// Linker is an optional interface for plugins that support activating local
+// overlays into the language's package manager (e.g. Python pip install -e).
 type Linker interface {
 	Link(workDir, filterPath string) error
+}
+
+// Unlinker is an optional interface for plugins that support deactivating local
+// overlays from the language's package manager (e.g. Python pip uninstall).
+type Unlinker interface {
+	Unlink(workDir, filterPath string) error
 }
 
 // DocContributor is an optional interface for plugins that contribute

@@ -160,23 +160,23 @@ func TestDocParity_ConsumerCommands(t *testing.T) {
 	root := NewRootCmd("test")
 
 	tests := []struct {
-		name        string
-		commandName string
-		section     string
+		name    string
+		args    []string
+		section string
 	}{
-		{"search command", "search", "6 - Discover APIs"},
-		{"add command", "add", "6 - Add Dependencies"},
-		{"gen command", "gen", "6 - Generate Client Code"},
-		{"sync command", "sync", "6 - Generate Client Code"},
-		{"unlink command", "unlink", "6 - Switch to Published Module"},
+		{"search command", []string{"catalog", "search"}, "6 - Discover APIs"},
+		{"add command", []string{"add"}, "6 - Add Dependencies"},
+		{"gen command", []string{"gen"}, "6 - Generate Client Code"},
+		{"sync command", []string{"sync"}, "6 - Generate Client Code"},
+		{"unlink command", []string{"unlink"}, "6 - Switch to Published Module"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd, _, err := root.Find([]string{tt.commandName})
+			cmd, _, err := root.Find(tt.args)
 			if err != nil || cmd.Use == "apx" {
 				t.Fatalf("Doc parity failure: 'apx %s' command not found (documented in quickstart.md section %s)",
-					tt.commandName, tt.section)
+					strings.Join(tt.args, " "), tt.section)
 			}
 		})
 	}
@@ -233,14 +233,14 @@ func TestDocParity_AllCommandsExist(t *testing.T) {
 	commands := [][]string{
 		{"init"}, {"init", "canonical"}, {"init", "app"},
 		{"lint"}, {"breaking"},
-		{"semver"}, {"semver", "suggest"},
+		{"semver"},
 		{"gen"}, {"policy"}, {"policy", "check"},
 		{"catalog"},
-		{"release"}, {"search"}, {"add"},
+		{"release"}, {"add"},
 		{"sync"}, {"unlink"}, {"update"}, {"upgrade"},
 		{"config"}, {"config", "init"}, {"config", "validate"},
 		{"fetch"},
-		{"show"},
+		{"catalog", "search"}, {"catalog", "show"},
 		{"inspect"}, {"inspect", "identity"}, {"inspect", "release"},
 		{"explain"}, {"explain", "go-path"},
 		// Note: "completion" is Cobra's built-in command, added lazily at Execute() time;
@@ -268,9 +268,9 @@ func TestDocParity_AllFlagsExist(t *testing.T) {
 	root := NewRootCmd("test")
 	documentedFlags := []flagSpec{
 		{[]string{"breaking"}, []string{"against", "format"}},
-		{[]string{"semver", "suggest"}, []string{"against"}},
+		{[]string{"semver"}, []string{"against"}},
 		{[]string{"gen"}, []string{"out", "clean", "manifest"}},
-		{[]string{"search"}, []string{"format", "catalog", "lifecycle", "domain", "api-line", "origin", "tag"}},
+		{[]string{"catalog", "search"}, []string{"format", "catalog", "lifecycle", "domain", "api-line", "origin", "tag"}},
 		{[]string{"sync"}, []string{"clean", "dry-run"}},
 		{[]string{"fetch"}, []string{"config", "output", "verify"}},
 		{[]string{"lint"}, []string{"format"}},
@@ -313,14 +313,14 @@ func TestDocParity_RequiredFlags(t *testing.T) {
 		}
 	})
 
-	t.Run("semver suggest requires --against", func(t *testing.T) {
+	t.Run("semver requires --against", func(t *testing.T) {
 		root := NewRootCmd("test")
-		root.SetArgs([]string{"semver", "suggest", "."})
+		root.SetArgs([]string{"semver", "."})
 		var errBuf strings.Builder
 		root.SetErr(&errBuf)
 		err := root.Execute()
 		if err == nil {
-			t.Error("Doc parity failure: 'apx semver suggest .' should fail when --against is not provided")
+			t.Error("Doc parity failure: 'apx semver .' should fail when --against is not provided")
 		}
 	})
 }
@@ -441,7 +441,7 @@ func TestDocParity_CommandExamples(t *testing.T) {
 		{"breaking", []string{"apx", "breaking"}},
 		{"gen go", []string{"apx", "gen", "go"}},
 		{"sync", []string{"apx", "sync"}},
-		{"search", []string{"apx", "search", "payments"}},
+		{"catalog search", []string{"apx", "catalog", "search", "payments"}},
 		{"add", []string{"apx", "add", "proto/payments/ledger/v1@v1.2.3"}},
 		{"unlink", []string{"apx", "unlink", "proto/payments/ledger/v1"}},
 	}

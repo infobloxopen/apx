@@ -198,8 +198,8 @@ func TestConsumerWorkflow(t *testing.T) {
 	}
 }
 
-// TestConsumerWorkflow_LinkGo verifies that apx link go redirects to sync
-func TestConsumerWorkflow_LinkGo(t *testing.T) {
+// TestConsumerWorkflow_SyncGo verifies that apx sync go updates go.work
+func TestConsumerWorkflow_SyncGo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -231,18 +231,21 @@ func TestConsumerWorkflow_LinkGo(t *testing.T) {
 	initCmd.Env = env
 	initCmd.Run()
 
-	// apx link go should print sync hint
-	linkCmd := exec.Command(apxBin, "link", "go")
-	linkCmd.Dir = workDir
-	linkCmd.Env = env
-	output, _ := linkCmd.CombinedOutput()
-	if !strings.Contains(string(output), "apx sync") {
-		t.Errorf("Expected 'apx link go' to mention 'apx sync', got:\n%s", output)
+	// apx sync go should succeed and update go.work
+	syncCmd := exec.Command(apxBin, "sync", "go")
+	syncCmd.Dir = workDir
+	syncCmd.Env = env
+	output, err := syncCmd.CombinedOutput()
+	if err != nil {
+		t.Errorf("Expected 'apx sync go' to succeed, got error: %v\n%s", err, output)
+	}
+	if !strings.Contains(string(output), "go.work updated") {
+		t.Errorf("Expected 'apx sync go' to mention go.work updated, got:\n%s", output)
 	}
 }
 
-// TestConsumerWorkflow_LinkPythonNoVenv verifies apx link python fails without virtualenv
-func TestConsumerWorkflow_LinkPythonNoVenv(t *testing.T) {
+// TestConsumerWorkflow_SyncPythonNoVenv verifies apx sync python fails without virtualenv
+func TestConsumerWorkflow_SyncPythonNoVenv(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -281,13 +284,13 @@ func TestConsumerWorkflow_LinkPythonNoVenv(t *testing.T) {
 	initCmd.Env = env
 	initCmd.Run()
 
-	// apx link python without VIRTUAL_ENV should fail
-	linkCmd := exec.Command(apxBin, "link", "python")
-	linkCmd.Dir = workDir
-	linkCmd.Env = env
-	output, err := linkCmd.CombinedOutput()
+	// apx sync python without VIRTUAL_ENV should fail (explicit language = strict error)
+	syncCmd := exec.Command(apxBin, "sync", "python")
+	syncCmd.Dir = workDir
+	syncCmd.Env = env
+	output, err := syncCmd.CombinedOutput()
 	if err == nil {
-		t.Errorf("Expected 'apx link python' to fail without virtualenv, output:\n%s", output)
+		t.Errorf("Expected 'apx sync python' to fail without virtualenv, output:\n%s", output)
 	}
 	outStr := string(output)
 	if !strings.Contains(outStr, "virtualenv") && !strings.Contains(outStr, "VIRTUAL_ENV") {

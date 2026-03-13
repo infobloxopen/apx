@@ -42,6 +42,6 @@ stdout 'latest_prerelease: v1.1.0-beta.1'
 stdout 'lifecycle: beta'
 
 # Verify the search command shows version info
-exec apx search --origin external
+exec apx catalog search --origin external
 stdout 'pubsub'
 stdout 'api'

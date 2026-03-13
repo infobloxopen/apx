@@ -443,6 +443,18 @@ func (m *Manager) SyncWorkFile() error {
 	return nil
 }
 
+// ClearWorkFile writes a minimal go.work containing only the root module.
+// This deactivates all Go overlays without deleting the generated code,
+// effectively switching Go back to resolving imports from published modules.
+func (m *Manager) ClearWorkFile() error {
+	workFilePath := filepath.Join(m.workspaceRoot, "go.work")
+	content := "go 1.24\n\nuse (\n\t.\n)\n"
+	if err := os.WriteFile(workFilePath, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write go.work: %w", err)
+	}
+	return nil
+}
+
 // ListOverlays lists all active overlays
 func (m *Manager) ListOverlays() ([]string, error) {
 	overlays := []string{}

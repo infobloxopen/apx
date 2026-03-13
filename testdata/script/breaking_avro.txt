@@ -21,7 +21,7 @@ stderr 'type changed'
 
 # Test missing --against flag (should fail with helpful error)
 ! exec apx breaking v1.avsc
-stderr 'required flag.*against.*not set'
+stderr '--against is required'
 
 -- v1.avsc --
 {

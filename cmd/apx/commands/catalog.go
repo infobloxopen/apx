@@ -14,8 +14,10 @@ import (
 func newCatalogCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "catalog",
-		Short: "Catalog operations",
+		Short: "Browse and search the API catalog",
 	}
+	cmd.AddCommand(newCatalogSearchCmd())
+	cmd.AddCommand(newCatalogShowCmd())
 	cmd.AddCommand(newCatalogGenerateCmd())
 	cmd.AddCommand(newCatalogSiteCmd())
 	return cmd

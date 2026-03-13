@@ -25,10 +25,13 @@ var (
 
 // InitializeFromEnv initializes UI settings from environment variables
 func InitializeFromEnv() {
-	// Check if we're in a terminal
-	colorEnabled = isatty.IsTerminal(os.Stdout.Fd()) && os.Getenv("NO_COLOR") == ""
+	isTTY := isatty.IsTerminal(os.Stdout.Fd())
+	noColor := os.Getenv("NO_COLOR") != ""
+	inCI := os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" || os.Getenv("JENKINS_HOME") != ""
 
-	// Check environment variables
+	colorEnabled = isTTY && !noColor && !inCI
+	color.NoColor = !colorEnabled
+
 	if os.Getenv("APX_QUIET") != "" {
 		quiet = true
 	}
@@ -38,9 +41,11 @@ func InitializeFromEnv() {
 	if os.Getenv("APX_JSON") != "" {
 		jsonOutput = true
 	}
-	if os.Getenv("NO_COLOR") != "" {
-		colorEnabled = false
-	}
+}
+
+// IsColorEnabled reports whether colored output is currently active.
+func IsColorEnabled() bool {
+	return colorEnabled
 }
 
 // SetQuiet enables or disables quiet mode

@@ -37,7 +37,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install APX
-        uses: infobloxopen/apx@v1
+        uses: infobloxopen/apx@main
 
       - name: Lint schemas
         run: apx lint
@@ -94,7 +94,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Install APX
-        uses: infobloxopen/apx@v1
+        uses: infobloxopen/apx@main
 
       - name: Validate schemas
         run: apx lint
@@ -201,7 +201,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install APX
-        uses: infobloxopen/apx@v1
+        uses: infobloxopen/apx@main
 
       - name: Parse tag
         id: tag

@@ -25,7 +25,7 @@ exec apx breaking --against=v1.parquet v2_relax.parquet
 
 # Test missing --against flag (should fail with helpful error)
 ! exec apx breaking v1.parquet
-stderr 'required flag.*against.*not set'
+stderr '--against is required'
 
 -- v1.parquet --
 message event {

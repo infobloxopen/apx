@@ -14,16 +14,7 @@ import (
 
 func newSemverCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "semver",
-		Short: "Semantic version operations",
-	}
-	cmd.AddCommand(newSemverSuggestCmd())
-	return cmd
-}
-
-func newSemverSuggestCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "suggest [path]",
+		Use:   "semver [path]",
 		Short: "Suggest semantic version bump based on breaking-change analysis",
 		Long: `Analyze schema changes and suggest the appropriate version bump.
 
@@ -39,22 +30,25 @@ Lifecycle pre-release mapping:
   - deprecated   → allowed with warning
   - sunset       → blocked`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: semverSuggestAction,
+		RunE: semverAction,
 	}
 	cmd.Flags().String("against", "", "Git reference or path to compare against (required)")
-	_ = cmd.MarkFlagRequired("against")
 	cmd.Flags().String("api-id", "", "API ID (e.g. proto/payments/ledger/v1)")
 	cmd.Flags().String("lifecycle", "", "Lifecycle state (experimental, beta, stable, deprecated, sunset)")
 	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet)")
 	return cmd
 }
 
-func semverSuggestAction(cmd *cobra.Command, args []string) error {
+func semverAction(cmd *cobra.Command, args []string) error {
+	against, _ := cmd.Flags().GetString("against")
+	if against == "" {
+		return fmt.Errorf("--against is required\n\nUsage: apx semver [path] --against <git-ref>\n\nExamples:\n  apx semver --against HEAD^\n  apx semver --api-id proto/payments/ledger/v1 --against origin/main")
+	}
+
 	path := "."
 	if len(args) > 0 {
 		path = args[0]
 	}
-	against, _ := cmd.Flags().GetString("against")
 	apiID, _ := cmd.Flags().GetString("api-id")
 	lifecycle, _ := cmd.Flags().GetString("lifecycle")
 	formatStr, _ := cmd.Flags().GetString("format")

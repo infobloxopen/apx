@@ -46,59 +46,59 @@ exec sh -c 'echo "    lifecycle: stable" >> catalog/catalog.yaml'
 exec sh -c 'echo "    path: openapi/customer/accounts/v2" >> catalog/catalog.yaml'
 
 # Search all APIs (uses default catalog/catalog.yaml)
-exec apx search
+exec apx catalog search
 stdout 'ledger'
 stdout 'wallet'
 stdout 'accounts'
 
 # Search by name
-exec apx search ledger
+exec apx catalog search ledger
 stdout 'ledger'
 ! stdout 'wallet'
 ! stdout 'accounts'
 
 # Search by format
-exec apx search --format=proto
+exec apx catalog search --format=proto
 stdout 'ledger'
 stdout 'wallet'
 ! stdout 'accounts'
 
 # Search by lifecycle
-exec apx search --lifecycle=stable
+exec apx catalog search --lifecycle=stable
 stdout 'ledger'
 stdout 'accounts'
 ! stdout 'wallet'
 
-exec apx search --lifecycle=beta
+exec apx catalog search --lifecycle=beta
 stdout 'wallet'
 ! stdout 'ledger'
 ! stdout 'accounts'
 
 # Search by domain
-exec apx search --domain=payments
+exec apx catalog search --domain=payments
 stdout 'ledger'
 stdout 'wallet'
 ! stdout 'accounts'
 
-exec apx search --domain=customer
+exec apx catalog search --domain=customer
 stdout 'accounts'
 ! stdout 'ledger'
 ! stdout 'wallet'
 
 # Search by api-line
-exec apx search --api-line=v2
+exec apx catalog search --api-line=v2
 stdout 'accounts'
 ! stdout 'ledger'
 ! stdout 'wallet'
 
 # Combined filters
-exec apx search --format=proto --domain=payments --lifecycle=stable
+exec apx catalog search --format=proto --domain=payments --lifecycle=stable
 stdout 'ledger'
 ! stdout 'wallet'
 ! stdout 'accounts'
 
 # Search with no matches
-exec apx search nonexistent
+exec apx catalog search nonexistent
 ! stdout 'ledger'
 ! stdout 'wallet'
 ! stdout 'accounts'

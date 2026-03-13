@@ -37,6 +37,7 @@ func NewRootCmd(version string) *cobra.Command {
 	}
 
 	cmd.SetVersionTemplate("{{.Version}}\n")
+	setColorizedHelp(cmd)
 
 	// Global persistent flags
 	cmd.PersistentFlags().BoolP("quiet", "q", false, "suppress output")
@@ -58,11 +59,8 @@ func NewRootCmd(version string) *cobra.Command {
 		newPolicyCmd(),
 		newCatalogCmd(),
 		newReleaseCmd(),
-		newSearchCmd(),
-		newShowCmd(),
 		newAddCmd(),
 		newSyncCmd(),
-		newLinkCmd(),
 		newUnlinkCmd(),
 		newUpdateCmd(),
 		newUpgradeCmd(),

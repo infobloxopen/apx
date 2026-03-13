@@ -18,8 +18,7 @@ func newBreakingCmd() *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE:  breakingAction,
 	}
-	cmd.Flags().String("against", "", "git reference or path to compare against")
-	_ = cmd.MarkFlagRequired("against")
+	cmd.Flags().String("against", "", "git reference or path to compare against (required)")
 	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet)")
 	return cmd
 }
@@ -31,6 +30,9 @@ func breakingAction(cmd *cobra.Command, args []string) error {
 	}
 
 	against, _ := cmd.Flags().GetString("against")
+	if against == "" {
+		return fmt.Errorf("--against is required\n\nUsage: apx breaking [path] --against <git-ref>\n\nExamples:\n  apx breaking --against HEAD^\n  apx breaking --against origin/main")
+	}
 
 	// Try to resolve API ID (e.g. proto/payments/ledger/v1) to a path.
 	// Falls back to treating the argument as a filesystem path.

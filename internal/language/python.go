@@ -116,6 +116,78 @@ func (p *pythonPlugin) Link(workDir, filterPath string) error {
 	return nil
 }
 
+// Unlink implements Unlinker — runs pip uninstall for Python overlays.
+func (p *pythonPlugin) Unlink(workDir, filterPath string) error {
+	venv := os.Getenv("VIRTUAL_ENV")
+	if venv == "" {
+		return fmt.Errorf("no active virtualenv detected (VIRTUAL_ENV is not set)\nActivate a virtualenv first: source .venv/bin/activate")
+	}
+
+	pip := PipPath(venv)
+	if _, err := os.Stat(pip); os.IsNotExist(err) {
+		return fmt.Errorf("pip not found at %s — is the virtualenv valid?", pip)
+	}
+
+	mgr := overlay.NewManager(workDir)
+	overlays, err := mgr.List()
+	if err != nil {
+		return fmt.Errorf("listing overlays: %w", err)
+	}
+
+	unlinked := 0
+	for _, ov := range overlays {
+		if ov.Language != "python" {
+			continue
+		}
+		if filterPath != "" && ov.ModulePath != filterPath {
+			continue
+		}
+
+		pyproject := filepath.Join(ov.Path, "pyproject.toml")
+		distName, err := readPyprojectName(pyproject)
+		if err != nil {
+			ui.Warning("Skipping %s — could not read pyproject.toml: %v", ov.ModulePath, err)
+			continue
+		}
+
+		ui.Info("Unlinking %s ...", ov.ModulePath)
+		uninstallCmd := exec.Command(pip, "uninstall", "-y", distName)
+		uninstallCmd.Env = os.Environ()
+		uninstallCmd.Stdout = os.Stdout
+		uninstallCmd.Stderr = os.Stderr
+		if err := uninstallCmd.Run(); err != nil {
+			return fmt.Errorf("pip uninstall failed for %s: %w", ov.ModulePath, err)
+		}
+		unlinked++
+	}
+
+	if unlinked == 0 {
+		ui.Info("No linked Python overlays found.")
+		return nil
+	}
+
+	ui.Success("Unlinked %d Python overlay(s)", unlinked)
+	return nil
+}
+
+// readPyprojectName extracts the package name from a pyproject.toml file.
+func readPyprojectName(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "name") {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				return strings.Trim(strings.TrimSpace(parts[1]), `"`), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("name field not found in %s", path)
+}
+
 // PipPath returns the platform-appropriate path to pip inside a virtualenv.
 func PipPath(venvDir string) string {
 	if runtime.GOOS == "windows" {

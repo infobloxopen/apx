@@ -14,8 +14,9 @@ import (
 
 func newWorkflowsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "workflows",
-		Short: "Manage GitHub Actions workflow files",
+		Use:    "workflows",
+		Short:  "Manage GitHub Actions workflow files",
+		Hidden: true,
 	}
 	cmd.AddCommand(newWorkflowsSyncCmd())
 	return cmd

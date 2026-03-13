@@ -761,14 +761,14 @@ func GetCachedUserAppSlug(org string) string {
 
 // UserAppPermissions returns the permissions for the user-facing GitHub App.
 var UserAppPermissions = map[string]string{
-	"contents":                  "write",
-	"pull_requests":             "write",
-	"metadata":                  "read",
-	"packages":                  "read",
-	"administration":            "write",
-	"pages":                     "write",
+	"contents":                    "write",
+	"pull_requests":               "write",
+	"metadata":                    "read",
+	"packages":                    "read",
+	"administration":              "write",
+	"pages":                       "write",
 	"organization_administration": "read",
-	"organization_secrets":       "write",
+	"organization_secrets":        "write",
 }
 
 // CIAppPermissions returns the permissions for the CI GitHub App.

@@ -1,6 +1,6 @@
-# Test apx show command
+# Test apx catalog show command
 #
-# This scenario verifies `apx show <api-id>` displays full identity
+# This scenario verifies `apx catalog show <api-id>` displays full identity
 # and catalog data, with graceful degradation when no catalog exists.
 
 # Setup: Create a test canonical repo with an apx.yaml config
@@ -25,7 +25,7 @@ exec sh -c 'rm -f catalog/catalog.yaml'
 # --------------------------------------------------------
 # Test 1: Show without catalog — derived fields only
 # --------------------------------------------------------
-exec apx show proto/payments/ledger/v1
+exec apx catalog show proto/payments/ledger/v1
 stdout 'API:.*proto/payments/ledger/v1'
 stdout 'Format:.*proto'
 stdout 'Domain:.*payments'
@@ -71,7 +71,7 @@ exec sh -c 'echo "    lifecycle: experimental" >> catalog/catalog.yaml'
 exec sh -c 'echo "    path: openapi/iam/roles/v2" >> catalog/catalog.yaml'
 
 # Show stable API with catalog data
-exec apx show proto/payments/ledger/v1
+exec apx catalog show proto/payments/ledger/v1
 stdout 'API:.*proto/payments/ledger/v1'
 stdout 'Lifecycle:.*stable'
 stdout 'Latest stable:.*v1.2.3'
@@ -80,7 +80,7 @@ stdout 'Owners:.*@platform/payments'
 ! stdout 'No catalog data found'
 
 # Show prerelease-only API
-exec apx show openapi/iam/roles/v2
+exec apx catalog show openapi/iam/roles/v2
 stdout 'API:.*openapi/iam/roles/v2'
 stdout 'Lifecycle:.*experimental'
 stdout 'Latest stable:.*none'
@@ -89,14 +89,14 @@ stdout 'Latest prerelease:.*v2.0.0-alpha.3'
 # --------------------------------------------------------
 # Test 3: Show with v2+ API — verify Go module path includes /v2
 # --------------------------------------------------------
-exec apx show openapi/iam/roles/v2
+exec apx catalog show openapi/iam/roles/v2
 stdout 'Go module:.*github.com/testorg/apis/openapi/iam/roles/v2'
 stdout 'Go import:.*github.com/testorg/apis/openapi/iam/roles/v2'
 
 # --------------------------------------------------------
 # Test 4: JSON output
 # --------------------------------------------------------
-exec apx --json show proto/payments/ledger/v1
+exec apx --json catalog show proto/payments/ledger/v1
 stdout '"id": "proto/payments/ledger/v1"'
 stdout '"format": "proto"'
 stdout '"domain": "payments"'
@@ -106,15 +106,15 @@ stdout '"tag_pattern": "proto/payments/ledger/v1/v\*"'
 # --------------------------------------------------------
 # Test 5: Invalid API ID
 # --------------------------------------------------------
-! exec apx show not-an-api-id
+! exec apx catalog show not-an-api-id
 stderr 'invalid API ID'
 
-! exec apx show grpc/payments/ledger/v1
+! exec apx catalog show grpc/payments/ledger/v1
 stderr 'invalid API format'
 
 # --------------------------------------------------------
 # Test 6: Custom source-repo flag
 # --------------------------------------------------------
-exec apx show --source-repo github.com/acme/schemas proto/payments/ledger/v1
+exec apx catalog show --source-repo github.com/acme/schemas proto/payments/ledger/v1
 stdout 'Go module:.*github.com/acme/schemas/proto/payments/ledger'
 stdout 'Source:.*github.com/acme/schemas'

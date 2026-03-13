@@ -58,33 +58,33 @@ exec sh -c 'echo "    upstream_path: google/api" >> catalog/catalog.yaml'
 exec sh -c 'echo "    import_mode: rewrite" >> catalog/catalog.yaml'
 
 # Search: all APIs
-exec apx search
+exec apx catalog search
 stdout 'ledger'
 stdout 'pubsub'
 stdout 'api'
 
 # Search: external APIs show [external] tag
-exec apx search --origin external
+exec apx catalog search --origin external
 stdout 'pubsub'
 stdout '\[external\]'
 ! stdout 'ledger'
 ! stdout '\[forked\]'
 
 # Search: forked APIs show [forked] tag
-exec apx search --origin forked
+exec apx catalog search --origin forked
 stdout 'api'
 stdout '\[forked\]'
 ! stdout 'ledger'
 ! stdout 'pubsub'
 
 # Search: first-party only
-exec apx search --origin first-party
+exec apx catalog search --origin first-party
 stdout 'ledger'
 ! stdout 'pubsub'
 ! stdout 'api'
 
 # Show: external API displays Provenance section
-exec apx show proto/google/pubsub/v1
+exec apx catalog show proto/google/pubsub/v1
 stdout 'Provenance'
 stdout 'Origin:.*external'
 stdout 'Import mode:.*preserve'
@@ -93,7 +93,7 @@ stdout 'Upstream repo:.*github.com/googleapis/googleapis'
 stdout 'Upstream path:.*google/pubsub/v1'
 
 # Show: first-party API does NOT display Provenance
-exec apx show proto/payments/ledger/v1
+exec apx catalog show proto/payments/ledger/v1
 ! stdout 'Provenance'
 ! stdout 'Origin'
 

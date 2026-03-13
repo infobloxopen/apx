@@ -26,10 +26,24 @@ GORELEASER_VERSION := v2.6.1
 
 ## help: Show this help message
 help:
-	@echo "Usage: make [target]"
-	@echo ""
-	@echo "Available targets:"
-	@awk '/^##/ { print "  " $$0 }' $(MAKEFILE_LIST) | sed 's/##//' | sort
+	@if [ -z "$$CI$$GITHUB_ACTIONS$$JENKINS_HOME$$NO_COLOR" ]; then \
+		BOLD="\033[1m"; CYAN="\033[36m"; RESET="\033[0m"; \
+	else \
+		BOLD=""; CYAN=""; RESET=""; \
+	fi; \
+	printf "$${BOLD}Usage:$${RESET} make [target]\n"; \
+	printf "\n"; \
+	printf "$${BOLD}Available targets:$${RESET}\n"; \
+	awk -v cyan="$${CYAN}" -v reset="$${RESET}" \
+		'/^## / { \
+			line = substr($$0, 4); \
+			colon = index(line, ":"); \
+			if (colon > 0) { \
+				target = substr(line, 1, colon-1); \
+				desc = substr(line, colon+2); \
+				printf "  %s%-22s%s %s\n", cyan, target, reset, desc; \
+			} \
+		}' $(MAKEFILE_LIST) | sort
 
 ## build: Build the binary
 build:
