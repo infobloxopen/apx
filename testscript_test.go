@@ -64,6 +64,10 @@ func setupTestScript(env *testscript.Env) error {
 	newPath := absDir + string(os.PathListSeparator) + env.Getenv("PATH")
 	env.Setenv("PATH", newPath)
 
+	// Set HOME to a writable directory so tools like buf can create caches.
+	// testscript defaults HOME to /no-home which is read-only.
+	env.Setenv("HOME", env.WorkDir)
+
 	// Set testing environment variables
 	env.Setenv("APX_DISABLE_TTY", "1")
 	env.Setenv("NO_COLOR", "1")

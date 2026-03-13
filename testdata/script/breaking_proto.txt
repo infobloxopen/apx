@@ -1,39 +1,52 @@
-# Test: apx breaking
-# Verifies breaking change detection command structure
+# Test: apx breaking with actual buf execution
+# Verifies that buf breaking-change detection works end-to-end
 
-# Setup test environment
-mkdir proto-breaking
-cd proto-breaking
+# Setup: create a git repo with a canonical structure
+mkdir breaking-test
+cd breaking-test
 
-# Initialize git repo with two commits for HEAD~1 to exist
 exec git init
 exec git config user.name 'Test User'
 exec git config user.email 'test@example.com'
 
-# Create first commit
-exec apx init app --org=testorg --repo=myapp --non-interactive internal/apis/proto/test/v1
+exec apx init canonical --org=testorg --repo=test-apis --skip-git --non-interactive
+
+# buf.work.yaml must NOT be generated
+! exists buf.work.yaml
+
+# Create a valid proto file and commit
+mkdir -p proto/test/v1
+cp $WORK/valid.proto proto/test/v1/test.proto
 exec git add .
 exec git commit -m 'Initial version'
 
-# Create second commit
+# Create second commit (no schema change)
 exec git commit --allow-empty -m 'Second commit'
 
-# Verify proto file exists
-exists internal/apis/proto/test/v1/test.proto
-
-# Test breaking command invocation (will fail without buf installed, but verifies command works)
-# The actual validation happens in integration tests with proper tooling
-! exec apx breaking --against=HEAD~1 internal/apis/proto/test/v1/test.proto
-stderr 'buf'
-
-# Test format detection
-! exec apx breaking --format=proto --against=HEAD internal/apis/proto/test/v1/test.proto
-stderr 'buf'
+# Breaking detection should succeed — no changes means no breakage
+exec apx breaking --against=HEAD~1 proto
 
 # Test with missing --against flag (should fail with helpful error)
-! exec apx breaking internal/apis/proto/test/v1/test.proto
+! exec apx breaking proto
 stderr '--against is required'
 
 # Cleanup
 cd ..
-rm -rf proto-breaking
+rm -rf breaking-test
+
+-- valid.proto --
+syntax = "proto3";
+
+package test.v1;
+
+message GetTestRequest {
+  string id = 1;
+}
+
+message GetTestResponse {
+  string result = 1;
+}
+
+service TestService {
+  rpc GetTest(GetTestRequest) returns (GetTestResponse);
+}

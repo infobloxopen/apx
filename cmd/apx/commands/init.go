@@ -505,7 +505,6 @@ func initAppAction(cmd *cobra.Command, args []string) error {
 	ui.Success("\u2713 Generated apx.yaml")
 	ui.Success("\u2713 Generated example schema file")
 	ui.Success("\u2713 Generated .gitignore")
-	ui.Success("\u2713 Generated buf.work.yaml")
 	ui.Success("\u2713 Generated .github/workflows/apx-release.yml")
 
 	// --setup-github: configure GitHub repo settings

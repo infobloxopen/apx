@@ -18,7 +18,7 @@ exists catalog/
 
 # Verify key files exist
 exists buf.yaml
-exists buf.work.yaml
+! exists buf.work.yaml
 exists CODEOWNERS
 exists catalog/Dockerfile
 exists catalog/.gitignore

@@ -1,28 +1,45 @@
-# Test: apx lint
-# Verifies lint command basic functionality
+# Test: apx lint with actual buf execution
+# Verifies that buf lint succeeds on valid proto files
 
-# Setup test environment
-mkdir proto-test
-cd proto-test
+# Setup: initialize a canonical repo with a valid proto file
+mkdir lint-test
+cd lint-test
 
-# Initialize app repo with proto
-exec apx init app --org=testorg --repo=myapp --non-interactive internal/apis/proto/test/v1
+exec apx init canonical --org=testorg --repo=test-apis --skip-git --non-interactive
 
-# Verify the proto file exists
-exists internal/apis/proto/test/v1/test.proto
+# buf.work.yaml must NOT be generated (v2 config uses buf.yaml only)
+! exists buf.work.yaml
 
-# Test lint command invocation (will fail without buf installed, but verifies command works)
-# The actual validation happens in integration tests with proper tooling
-! exec apx lint internal/apis/proto/test/v1/test.proto
-stderr 'buf'
+# Create a valid proto file that passes STANDARD lint rules
+mkdir -p proto/test/v1
+cp $WORK/valid.proto proto/test/v1/test.proto
 
-# Test format detection
-! exec apx lint --format=proto internal/apis/proto/test/v1/test.proto
-stderr 'buf'
+# Lint the proto directory — must succeed
+exec apx lint proto
+
+# Lint with explicit --format flag
+exec apx lint --format=proto proto
 
 # Test with non-existent file (should fail)
 ! exec apx lint /tmp/nonexistent_file_12345.proto
 
 # Cleanup
 cd ..
-rm -rf proto-test
+rm -rf lint-test
+
+-- valid.proto --
+syntax = "proto3";
+
+package test.v1;
+
+message GetTestRequest {
+  string id = 1;
+}
+
+message GetTestResponse {
+  string result = 1;
+}
+
+service TestService {
+  rpc GetTest(GetTestRequest) returns (GetTestResponse);
+}

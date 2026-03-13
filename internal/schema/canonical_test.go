@@ -71,7 +71,6 @@ func TestCanonicalScaffold(t *testing.T) {
 				"buf.yaml",
 				"CODEOWNERS",
 				"README.md",
-				"buf.work.yaml",
 			}
 
 			for _, file := range expectedFiles {

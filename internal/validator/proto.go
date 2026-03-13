@@ -55,13 +55,31 @@ func (v *ProtoValidator) Breaking(path, against string) error {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}
 
-	cmd := exec.Command(bufPath, "breaking", absPath, "--against", against)
+	// Convert git refs (e.g. HEAD~1, origin/main) to buf's .git#ref= format.
+	// If against is already a path or buf-style reference, leave it as-is.
+	againstArg := against
+	if !strings.Contains(against, "/") || isGitRef(against) {
+		againstArg = ".git#ref=" + against
+	}
+
+	cmd := exec.Command(bufPath, "breaking", absPath, "--against", againstArg)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("buf breaking failed: %w\nOutput: %s", err, string(output))
 	}
 
 	return nil
+}
+
+// isGitRef returns true if the string looks like a git ref (e.g. origin/main, HEAD~1).
+func isGitRef(s string) bool {
+	if strings.HasPrefix(s, "HEAD") {
+		return true
+	}
+	if strings.HasPrefix(s, "origin/") || strings.HasPrefix(s, "upstream/") {
+		return true
+	}
+	return false
 }
 
 // goPackageRe matches: option go_package = "path;alias"; or option go_package = "path";

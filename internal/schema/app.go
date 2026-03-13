@@ -67,14 +67,6 @@ func (s *AppScaffolder) Generate(baseDir string) error {
 		}
 	}
 
-	// Generate buf.work.yaml for workspace configuration
-	bufWorkPath := filepath.Join(baseDir, "buf.work.yaml")
-	if _, err := os.Stat(bufWorkPath); os.IsNotExist(err) {
-		if err := s.generateBufWorkYaml(bufWorkPath, s.modulePath); err != nil {
-			return fmt.Errorf("failed to generate buf.work.yaml: %w", err)
-		}
-	}
-
 	// Generate release workflow
 	workflowDir := filepath.Join(baseDir, ".github", "workflows")
 	if err := os.MkdirAll(workflowDir, 0755); err != nil {
@@ -356,30 +348,6 @@ coverage.out
 # APX lock file (commit this)
 # apx.lock
 `
-	return os.WriteFile(path, []byte(content), 0644)
-}
-
-func (s *AppScaffolder) generateBufWorkYaml(path, modulePath string) error {
-	// Extract the base path for buf workspace (up to the format directory)
-	// Example: internal/apis/proto/payments/ledger/v1 -> internal/apis/proto/payments/ledger
-	// Normalize to forward slashes for consistent parsing
-	modulePath = filepath.ToSlash(modulePath)
-	parts := strings.Split(modulePath, "/")
-	var baseParts []string
-	for _, part := range parts {
-		if strings.HasPrefix(part, "v") && len(part) > 1 {
-			// Skip version directory
-			break
-		}
-		baseParts = append(baseParts, part)
-	}
-	// Use forward slashes for YAML (cross-platform compatible)
-	workspacePath := strings.Join(baseParts, "/")
-
-	content := fmt.Sprintf(`version: v2
-directories:
-  - %s
-`, workspacePath)
 	return os.WriteFile(path, []byte(content), 0644)
 }
 

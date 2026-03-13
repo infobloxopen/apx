@@ -62,7 +62,7 @@ func TestDocParity_InitCanonical(t *testing.T) {
 		}
 	}
 
-	expectedFiles := []string{"buf.yaml", "buf.work.yaml", "CODEOWNERS", "catalog/Dockerfile", "catalog/.gitignore"}
+	expectedFiles := []string{"buf.yaml", "CODEOWNERS", "catalog/Dockerfile", "catalog/.gitignore"}
 	for _, file := range expectedFiles {
 		if _, err := os.Stat(filepath.Join(tmpDir, file)); os.IsNotExist(err) {
 			t.Errorf("Doc parity failure: expected file %s (as shown in quickstart.md)", file)
@@ -102,7 +102,6 @@ func TestDocParity_InitApp(t *testing.T) {
 		"Initializing application repository",
 		"Created module directory structure",
 		"Generated apx.yaml",
-		"Generated buf.work.yaml",
 	}
 
 	for _, pattern := range expectedPatterns {
@@ -116,7 +115,7 @@ func TestDocParity_InitApp(t *testing.T) {
 		t.Errorf("Doc parity failure: expected path %s (as shown in quickstart.md)", expectedPath)
 	}
 
-	expectedFiles := []string{"apx.yaml", "buf.work.yaml", ".gitignore"}
+	expectedFiles := []string{"apx.yaml", ".gitignore"}
 	for _, file := range expectedFiles {
 		if _, err := os.Stat(filepath.Join(tmpDir, file)); os.IsNotExist(err) {
 			t.Errorf("Doc parity failure: expected file %s (as shown in quickstart.md)", file)

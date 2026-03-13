@@ -62,7 +62,7 @@ func TestInitCanonical_CLIOutput(t *testing.T) {
 		}
 	}
 
-	expectedFiles := []string{"buf.yaml", "CODEOWNERS", "README.md", "buf.work.yaml"}
+	expectedFiles := []string{"buf.yaml", "CODEOWNERS", "README.md"}
 	for _, file := range expectedFiles {
 		filePath := filepath.Join(tmpDir, file)
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {

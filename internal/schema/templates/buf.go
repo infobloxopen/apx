@@ -13,15 +13,3 @@ lint:
     - STANDARD
 `
 }
-
-// GenerateBufWorkYaml generates a buf.work.yaml workspace configuration for canonical repo
-func GenerateBufWorkYaml() string {
-	return `version: v2
-directories:
-  - proto
-  - openapi
-  - avro
-  - jsonschema
-  - parquet
-`
-}

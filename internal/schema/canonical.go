@@ -89,13 +89,6 @@ func (s *CanonicalScaffolder) Generate(targetDir string) error {
 		return fmt.Errorf("failed to write catalog/Dockerfile: %w", err)
 	}
 
-	// Generate buf.work.yaml
-	bufWorkContent := templates.GenerateBufWorkYaml()
-	bufWorkPath := filepath.Join(targetDir, "buf.work.yaml")
-	if err := os.WriteFile(bufWorkPath, []byte(bufWorkContent), 0644); err != nil {
-		return fmt.Errorf("failed to write buf.work.yaml: %w", err)
-	}
-
 	// Generate README.md
 	readmeContent := templates.GenerateReadme(s.org, s.repo)
 	readmePath := filepath.Join(targetDir, "README.md")
