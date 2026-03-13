@@ -3,12 +3,14 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/fatih/color"
 	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/ui"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
 
@@ -103,6 +105,8 @@ func searchAction(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	isTTY := isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
+
 	bold := color.New(color.Bold).SprintFunc()
 	dim := color.New(color.Faint).SprintFunc()
 	green := color.New(color.FgGreen).SprintFunc()
@@ -122,13 +126,15 @@ func searchAction(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Found %d API(s):\n\n", len(modules))
+	if isTTY {
+		fmt.Fprintf(cmd.OutOrStdout(), "Found %d API(s):\n\n", len(modules))
 
-	// Table header
-	fmt.Fprintf(cmd.OutOrStdout(), "%-40s  %-8s  %-14s  %-13s  %-10s  %s\n",
-		bold("API"), bold("FORMAT"), bold("VERSION"), bold("LIFECYCLE"), bold("ORIGIN"), bold("SOURCE"))
-	fmt.Fprintf(cmd.OutOrStdout(), "%s\n",
-		dim("────────────────────────────────────────  ────────  ──────────────  ─────────────  ──────────  ──────────────────────────────"))
+		// Table header
+		fmt.Fprintf(cmd.OutOrStdout(), "%-40s  %-8s  %-14s  %-13s  %-10s  %s\n",
+			bold("API"), bold("FORMAT"), bold("VERSION"), bold("LIFECYCLE"), bold("ORIGIN"), bold("SOURCE"))
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\n",
+			dim("────────────────────────────────────────  ────────  ──────────────  ─────────────  ──────────  ──────────────────────────────"))
+	}
 
 	for _, m := range modules {
 		version := m.Version
