@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/config"
 	"github.com/infobloxopen/apx/internal/ui"
@@ -102,47 +103,65 @@ func searchAction(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	ui.Info("Found %d API(s):", len(modules))
-	fmt.Println()
-	for _, module := range modules {
-		if module.Origin != "" {
-			fmt.Printf("  %-40s [%s]\n", module.DisplayName(), module.Origin)
+	bold := color.New(color.Bold).SprintFunc()
+	dim := color.New(color.Faint).SprintFunc()
+	green := color.New(color.FgGreen).SprintFunc()
+	yellow := color.New(color.FgYellow).SprintFunc()
+	cyan := color.New(color.FgCyan).SprintFunc()
+
+	lifecycleColor := func(lc string) string {
+		switch lc {
+		case "stable":
+			return green(lc)
+		case "beta", "preview":
+			return yellow(lc)
+		case "deprecated", "sunset":
+			return color.New(color.FgRed).Sprint(lc)
+		default:
+			return dim(lc)
+		}
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Found %d API(s):\n\n", len(modules))
+
+	// Table header
+	fmt.Fprintf(cmd.OutOrStdout(), "%-40s  %-8s  %-14s  %-13s  %-10s  %s\n",
+		bold("API"), bold("FORMAT"), bold("VERSION"), bold("LIFECYCLE"), bold("ORIGIN"), bold("SOURCE"))
+	fmt.Fprintf(cmd.OutOrStdout(), "%s\n",
+		dim("────────────────────────────────────────  ────────  ──────────────  ─────────────  ──────────  ──────────────────────────────"))
+
+	for _, m := range modules {
+		version := m.Version
+		if version == "" {
+			version = dim("(none)")
+		}
+
+		lifecycle := m.Lifecycle
+		if lifecycle != "" {
+			lifecycle = lifecycleColor(lifecycle)
 		} else {
-			fmt.Printf("  %s\n", module.DisplayName())
+			lifecycle = dim("—")
 		}
-		if module.Description != "" {
-			fmt.Printf("    Description: %s\n", module.Description)
+
+		origin := ""
+		if m.Origin != "" {
+			origin = dim(m.Origin)
+		} else {
+			origin = dim("local")
 		}
-		fmt.Printf("    Format: %s\n", module.Format)
-		if module.Domain != "" {
-			fmt.Printf("    Domain: %s\n", module.Domain)
+
+		source := ""
+		if m.ManagedRepo != "" {
+			// Show just org/repo, not the full github.com/ prefix
+			source = m.ManagedRepo
+			if strings.HasPrefix(source, "github.com/") {
+				source = strings.TrimPrefix(source, "github.com/")
+			}
+			source = dim(source)
 		}
-		if module.APILine != "" {
-			fmt.Printf("    Line: %s\n", module.APILine)
-		}
-		if module.Lifecycle != "" {
-			fmt.Printf("    Lifecycle: %s\n", module.Lifecycle)
-		}
-		if module.Version != "" {
-			fmt.Printf("    Version: %s\n", module.Version)
-		}
-		if module.LatestStable != "" {
-			fmt.Printf("    Latest stable: %s\n", module.LatestStable)
-		}
-		if module.LatestPrerelease != "" {
-			fmt.Printf("    Latest prerelease: %s\n", module.LatestPrerelease)
-		}
-		if len(module.Tags) > 0 {
-			fmt.Printf("    Tags: %s\n", strings.Join(module.Tags, ", "))
-		}
-		if module.Origin != "" && module.ManagedRepo != "" {
-			fmt.Printf("    Managed: %s\n", module.ManagedRepo)
-			fmt.Printf("    Import: %s\n", module.ImportMode)
-		}
-		if len(module.Owners) > 0 {
-			fmt.Printf("    Owners: %v\n", module.Owners)
-		}
-		fmt.Println()
+
+		fmt.Fprintf(cmd.OutOrStdout(), "%-40s  %-8s  %-14s  %-13s  %-10s  %s\n",
+			cyan(m.DisplayName()), m.Format, version, lifecycle, origin, source)
 	}
 
 	return nil
