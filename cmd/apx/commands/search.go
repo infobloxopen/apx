@@ -191,12 +191,12 @@ func searchAction(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%s  %-*s  %-*s  %s  %-*s  %s\n",
+		fmt.Fprintf(cmd.OutOrStdout(), "%s  %-*s  %-*s  %s  %s  %s\n",
 			pad(m.DisplayName(), colAPI, cyan),
 			colFormat, m.Format,
 			colVersion, version,
 			pad(lifecycle, colLifecycle, lifecycleColor),
-			colOrigin, dim(origin),
+			pad(origin, colOrigin, dim),
 			dim(source))
 	}
 
