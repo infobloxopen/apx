@@ -33,6 +33,14 @@ jobs:
 
       - name: Check for breaking changes
         run: apx breaking --against origin/main
+
+      - name: Check third-party protos are in sync
+        run: |
+          ./scripts/sync-third-party.sh --check-only 2>&1 | tee /tmp/sync-check.txt
+          if grep -qE '^\s+[+~-] ' /tmp/sync-check.txt; then
+            echo "::error::Third-party protos are out of sync. Run ./scripts/sync-third-party.sh and commit the results."
+            exit 1
+          fi
 `
 }
 
