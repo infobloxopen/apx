@@ -113,61 +113,91 @@ func searchAction(cmd *cobra.Command, args []string) error {
 	yellow := color.New(color.FgYellow).SprintFunc()
 	cyan := color.New(color.FgCyan).SprintFunc()
 
-	lifecycleColor := func(lc string) string {
-		switch lc {
+	red := color.New(color.FgRed).SprintFunc()
+	lifecycleColor := func(a ...interface{}) string {
+		s := fmt.Sprint(a...)
+		trimmed := strings.TrimSpace(s)
+		switch trimmed {
 		case "stable":
-			return green(lc)
+			return green(s)
 		case "beta", "preview":
-			return yellow(lc)
+			return yellow(s)
 		case "deprecated", "sunset":
-			return color.New(color.FgRed).Sprint(lc)
+			return red(s)
 		default:
-			return dim(lc)
+			return dim(s)
 		}
+	}
+
+	// Column widths (visible characters, not bytes).
+	const (
+		colAPI       = 40
+		colFormat    = 8
+		colVersion   = 14
+		colLifecycle = 13
+		colOrigin    = 10
+	)
+
+	// pad returns s padded to width with spaces, then applies colorFn.
+	// This ensures ANSI codes don't affect alignment.
+	pad := func(s string, width int, colorFn func(...interface{}) string) string {
+		padded := fmt.Sprintf("%-*s", width, s)
+		if colorFn != nil {
+			return colorFn(padded)
+		}
+		return padded
 	}
 
 	if isTTY {
 		fmt.Fprintf(cmd.OutOrStdout(), "Found %d API(s):\n\n", len(modules))
 
-		// Table header
-		fmt.Fprintf(cmd.OutOrStdout(), "%-40s  %-8s  %-14s  %-13s  %-10s  %s\n",
-			bold("API"), bold("FORMAT"), bold("VERSION"), bold("LIFECYCLE"), bold("ORIGIN"), bold("SOURCE"))
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n",
-			dim("────────────────────────────────────────  ────────  ──────────────  ─────────────  ──────────  ──────────────────────────────"))
+		fmt.Fprintf(cmd.OutOrStdout(), "%s  %s  %s  %s  %s  %s\n",
+			pad("API", colAPI, bold),
+			pad("FORMAT", colFormat, bold),
+			pad("VERSION", colVersion, bold),
+			pad("LIFECYCLE", colLifecycle, bold),
+			pad("ORIGIN", colOrigin, bold),
+			bold("SOURCE"))
+		fmt.Fprintf(cmd.OutOrStdout(), "%s  %s  %s  %s  %s  %s\n",
+			dim(strings.Repeat("─", colAPI)),
+			dim(strings.Repeat("─", colFormat)),
+			dim(strings.Repeat("─", colVersion)),
+			dim(strings.Repeat("─", colLifecycle)),
+			dim(strings.Repeat("─", colOrigin)),
+			dim(strings.Repeat("─", 30)))
 	}
 
 	for _, m := range modules {
 		version := m.Version
 		if version == "" {
-			version = dim("(none)")
+			version = "(none)"
 		}
 
 		lifecycle := m.Lifecycle
-		if lifecycle != "" {
-			lifecycle = lifecycleColor(lifecycle)
-		} else {
-			lifecycle = dim("—")
+		if lifecycle == "" {
+			lifecycle = "—"
 		}
 
-		origin := ""
-		if m.Origin != "" {
-			origin = dim(m.Origin)
-		} else {
-			origin = dim("local")
+		origin := m.Origin
+		if origin == "" {
+			origin = "local"
 		}
 
 		source := ""
 		if m.ManagedRepo != "" {
-			// Show just org/repo, not the full github.com/ prefix
 			source = m.ManagedRepo
 			if strings.HasPrefix(source, "github.com/") {
 				source = strings.TrimPrefix(source, "github.com/")
 			}
-			source = dim(source)
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "%-40s  %-8s  %-14s  %-13s  %-10s  %s\n",
-			cyan(m.DisplayName()), m.Format, version, lifecycle, origin, source)
+		fmt.Fprintf(cmd.OutOrStdout(), "%s  %-*s  %-*s  %s  %-*s  %s\n",
+			pad(m.DisplayName(), colAPI, cyan),
+			colFormat, m.Format,
+			colVersion, version,
+			pad(lifecycle, colLifecycle, lifecycleColor),
+			colOrigin, dim(origin),
+			dim(source))
 	}
 
 	return nil
