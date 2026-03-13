@@ -73,6 +73,25 @@ func authLoginAction(cmd *cobra.Command, args []string) error {
 	// Authenticate via device flow
 	ui.Info("Authenticating with GitHub for org %q...", org)
 	token, err := githubauth.EnsureToken(org)
+	if err != nil && githubauth.IsDeviceFlowDisabled(err) {
+		// Guide the user to enable device flow and retry
+		slug, _ := githubauth.ReadCache(org, "user-app-slug")
+		if slug == "" {
+			slug = fmt.Sprintf("apx-%s-user", org)
+		}
+		settingsURL := fmt.Sprintf("https://github.com/organizations/%s/settings/apps/%s", org, slug)
+		ui.Warning("Device flow is not enabled on the %q GitHub App.", slug)
+		ui.Info("")
+		ui.Info("  1. Open: %s", settingsURL)
+		ui.Info("  2. Check \"Enable Device Flow\" under \"Identifying and authorizing users\"")
+		ui.Info("  3. Save changes")
+		ui.Info("")
+
+		// Retry after user fixes it
+		ui.Info("Press Enter after enabling Device Flow...")
+		fmt.Scanln() //nolint:errcheck
+		token, err = githubauth.EnsureToken(org)
+	}
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}

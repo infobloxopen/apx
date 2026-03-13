@@ -171,6 +171,16 @@ func pollAccessToken(clientID, deviceCode string) (*Token, bool, error) {
 	}
 }
 
+// ErrDeviceFlowDisabled is returned when the GitHub App does not have
+// device flow enabled. Callers can check for this with errors.Is().
+var ErrDeviceFlowDisabled = fmt.Errorf("device flow is not enabled on the GitHub App")
+
+// IsDeviceFlowDisabled returns true if the error is due to device flow
+// not being enabled on the GitHub App.
+func IsDeviceFlowDisabled(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "device_flow_disabled")
+}
+
 // gitRemoteRe matches GitHub org from a remote URL.
 // Handles both HTTPS and SSH forms.
 var gitRemoteRe = regexp.MustCompile(`github\.com[:/]([^/]+)/`)

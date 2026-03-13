@@ -307,6 +307,27 @@ func initCanonicalAction(cmd *cobra.Command, args []string) error {
 		// ── Step 2: Device flow login ───────────────────────────────
 		// Authenticate the user via OAuth device flow to get a token.
 		token, tokenErr := githubauth.EnsureToken(org)
+		if tokenErr != nil && githubauth.IsDeviceFlowDisabled(tokenErr) && !nonInteractive {
+			// Device flow not enabled — guide the user to fix it and retry.
+			slug := gh.GetCachedUserAppSlug(org)
+			if slug == "" {
+				slug = gh.UserAppName(org)
+			}
+			settingsURL := fmt.Sprintf("https://github.com/organizations/%s/settings/apps/%s", org, slug)
+			ui.Warning("Device flow is not enabled on the %q GitHub App.", slug)
+			ui.Info("")
+			ui.Info("  1. Open: %s", settingsURL)
+			ui.Info("  2. Check \"Enable Device Flow\" under \"Identifying and authorizing users\"")
+			ui.Info("  3. Save changes")
+			ui.Info("")
+			ui.Info("Opening browser to App settings...")
+			_ = gh.OpenBrowser(settingsURL)
+			ui.Info("Press Enter after enabling Device Flow...")
+			fmt.Scanln() //nolint:errcheck
+
+			// Retry after user enables device flow
+			token, tokenErr = githubauth.EnsureToken(org)
+		}
 		if tokenErr != nil {
 			return fmt.Errorf("GitHub authentication failed: %w", tokenErr)
 		}

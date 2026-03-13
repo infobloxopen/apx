@@ -224,6 +224,18 @@ func EnsureToken(org string) (string, error) {
 
 	tok, err = DeviceFlowLogin(clientID)
 	if err != nil {
+		if IsDeviceFlowDisabled(err) {
+			slug, _ := ReadCache(org, "user-app-slug")
+			if slug == "" {
+				slug = fmt.Sprintf("apx-%s-user", org)
+			}
+			return "", fmt.Errorf("device flow is not enabled on the %q GitHub App\n\n"+
+				"  To fix this:\n"+
+				"  1. Open https://github.com/organizations/%s/settings/apps/%s\n"+
+				"  2. Check \"Enable Device Flow\" under \"Identifying and authorizing users\"\n"+
+				"  3. Save changes, then re-run this command",
+				slug, org, slug)
+		}
 		return "", fmt.Errorf("device flow login failed: %w", err)
 	}
 
