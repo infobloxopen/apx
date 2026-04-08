@@ -197,17 +197,17 @@ func TestRegistrySource_Load_AuthFailure(t *testing.T) {
 
 func TestRegistrySource_Name(t *testing.T) {
 	src := &RegistrySource{Org: "acme", Repo: "apis"}
-	assert.Equal(t, "ghcr.io/acme/apis-catalog:latest", src.Name())
+	assert.Equal(t, "ghcr.io/acme/apis/catalog:latest", src.Name())
 }
 
 func TestRegistrySource_Name_Custom(t *testing.T) {
 	src := &RegistrySource{Org: "acme", Repo: "apis", Host: "registry.example.com", Tag: "v2"}
-	assert.Equal(t, "registry.example.com/acme/apis-catalog:v2", src.Name())
+	assert.Equal(t, "registry.example.com/acme/apis/catalog:v2", src.Name())
 }
 
 func TestRegistrySource_Name_MixedCase(t *testing.T) {
 	src := &RegistrySource{Org: "Infoblox-CTO", Repo: "APIs"}
-	assert.Equal(t, "ghcr.io/infoblox-cto/apis-catalog:latest", src.Name())
+	assert.Equal(t, "ghcr.io/infoblox-cto/apis/catalog:latest", src.Name())
 }
 
 // ---------------------------------------------------------------------------

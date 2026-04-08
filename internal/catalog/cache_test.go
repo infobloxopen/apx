@@ -143,9 +143,9 @@ func TestCachedSource_NoCache_FetchFailure(t *testing.T) {
 }
 
 func TestCachedSource_Name(t *testing.T) {
-	inner := &stubSource{name: "ghcr.io/acme/apis-catalog:latest"}
+	inner := &stubSource{name: "ghcr.io/acme/apis/catalog:latest"}
 	cached := &CachedSource{Inner: inner}
-	assert.Equal(t, "ghcr.io/acme/apis-catalog:latest (cached)", cached.Name())
+	assert.Equal(t, "ghcr.io/acme/apis/catalog:latest (cached)", cached.Name())
 }
 
 func TestDefaultCacheDir(t *testing.T) {

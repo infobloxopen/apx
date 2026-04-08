@@ -12,8 +12,8 @@ func TestDiscoverRegistries_FindsCatalogs(t *testing.T) {
 	runner := func(org string) ([]byte, error) {
 		assert.Equal(t, "acme", org)
 		packages := []ghPackage{
-			{Name: "apis-catalog"},
-			{Name: "shared-schemas-catalog"},
+			{Name: "apis/catalog"},
+			{Name: "shared-schemas/catalog"},
 			{Name: "some-other-image"},
 			{Name: "apx"}, // the CLI itself — should be skipped
 		}
@@ -22,8 +22,8 @@ func TestDiscoverRegistries_FindsCatalogs(t *testing.T) {
 
 	sources := discoverRegistries("acme", runner)
 	require.Len(t, sources, 2)
-	assert.Contains(t, sources[0].Name(), "apis-catalog")
-	assert.Contains(t, sources[1].Name(), "shared-schemas-catalog")
+	assert.Contains(t, sources[0].Name(), "apis/catalog")
+	assert.Contains(t, sources[1].Name(), "shared-schemas/catalog")
 }
 
 func TestDiscoverRegistries_NoCatalogs(t *testing.T) {

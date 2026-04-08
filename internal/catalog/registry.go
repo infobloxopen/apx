@@ -19,8 +19,8 @@ import (
 const ghcrHost = "ghcr.io"
 
 // CatalogImageSuffix is appended to the repo name to form the GHCR package name.
-// For canonical repo "apis" → GHCR package "apis-catalog".
-const CatalogImageSuffix = "-catalog"
+// For canonical repo "apis" → GHCR package "apis/catalog" (repo-scoped).
+const CatalogImageSuffix = "/catalog"
 
 // RegistrySource pulls catalog.yaml from an OCI artifact on GHCR.
 type RegistrySource struct {

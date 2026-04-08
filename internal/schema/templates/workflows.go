@@ -66,7 +66,7 @@ jobs:
   catalog:
     runs-on: ubuntu-latest
     env:
-      IMAGE: ghcr.io/%s/${{ github.event.repository.name }}-catalog
+      IMAGE: ghcr.io/%s/${{ github.event.repository.name }}/catalog
     steps:
       - name: Generate App Token
         id: app-token
