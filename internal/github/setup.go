@@ -306,7 +306,14 @@ func SetupCanonicalRepo(client *githubauth.Client, org, repo, appID, pemPath, si
 		return nil, err
 	}
 
-	// 5. GitHub Pages
+	// 5. GHCR catalog package — seed + link to repo
+	if err := EnsureCatalogPackage(client, org, repo, res); err != nil {
+		// Non-fatal: the on-merge workflow will create the package on first
+		// successful push. Log warning and continue.
+		ui.Warning("GHCR catalog package setup: %v", err)
+	}
+
+	// 6. GitHub Pages
 	if err := EnsureGitHubPages(client, org, repo, res); err != nil {
 		return nil, err
 	}
@@ -314,7 +321,7 @@ func SetupCanonicalRepo(client *githubauth.Client, org, repo, appID, pemPath, si
 		return nil, err
 	}
 
-	// 6. Custom domain (when configured)
+	// 7. Custom domain (when configured)
 	if siteURL != "" {
 		if dnsErr := CheckDNSForPages(org, siteURL); dnsErr != nil {
 			ui.Warning("DNS: %v", dnsErr)
@@ -325,6 +332,90 @@ func SetupCanonicalRepo(client *githubauth.Client, org, repo, appID, pemPath, si
 	}
 
 	return res, nil
+}
+
+// ---------------------------------------------------------------------------
+// GHCR catalog package
+// ---------------------------------------------------------------------------
+
+// EnsureCatalogPackage ensures the GHCR container package for the catalog
+// exists and is linked to the canonical repo. The on-merge workflow pushes
+// catalog images to ghcr.io/<org>/<repo>-catalog; if the package doesn't
+// exist, the first push fails with "installation not allowed to Create
+// organization package". This function seeds an empty image to create the
+// package, then links it to the repo so workflow tokens can push.
+func EnsureCatalogPackage(client *githubauth.Client, org, repo string, res *SetupResult) error {
+	pkgName := repo + "-catalog"
+
+	// Check if package already exists.
+	endpoint := fmt.Sprintf("/orgs/%s/packages/container/%s", org, pkgName)
+	_, status, err := client.Get(endpoint)
+	if err == nil && status < 300 {
+		res.Add("skipped", fmt.Sprintf("GHCR package %s (already exists)", pkgName))
+		return linkPackageToRepo(client, org, repo, pkgName, res)
+	}
+
+	// Package doesn't exist — create it by pushing a minimal OCI image
+	// via docker CLI. The client token may not work for GHCR registry
+	// pushes (requires docker login), so we shell out.
+	ui.Info("Creating GHCR package %s/%s...", org, pkgName)
+
+	image := fmt.Sprintf("ghcr.io/%s/%s:init", strings.ToLower(org), pkgName)
+
+	// Build minimal scratch image
+	tmpDir, mkErr := os.MkdirTemp("", "apx-ghcr-seed-*")
+	if mkErr != nil {
+		return fmt.Errorf("creating temp dir: %w", mkErr)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	dockerfile := filepath.Join(tmpDir, "Dockerfile")
+	if wErr := os.WriteFile(dockerfile, []byte("FROM scratch\n"), 0o644); wErr != nil {
+		return fmt.Errorf("writing Dockerfile: %w", wErr)
+	}
+
+	buildCmd := exec.Command("docker", "build", "-t", image, tmpDir)
+	if out, buildErr := buildCmd.CombinedOutput(); buildErr != nil {
+		return fmt.Errorf("docker build: %s", strings.TrimSpace(string(out)))
+	}
+
+	pushCmd := exec.Command("docker", "push", image)
+	if out, pushErr := pushCmd.CombinedOutput(); pushErr != nil {
+		return fmt.Errorf("docker push: %s (hint: run 'docker login ghcr.io' first)", strings.TrimSpace(string(out)))
+	}
+
+	res.Add("created", fmt.Sprintf("GHCR package %s", pkgName))
+	return linkPackageToRepo(client, org, repo, pkgName, res)
+}
+
+// linkPackageToRepo links a GHCR package to a repository so that
+// workflow tokens scoped to the repo can push to the package.
+func linkPackageToRepo(client *githubauth.Client, org, repo, pkgName string, res *SetupResult) error {
+	// Get repo ID
+	repoEndpoint := fmt.Sprintf("/repos/%s/%s", org, repo)
+	body, status, err := client.Get(repoEndpoint)
+	if err != nil || status >= 300 {
+		return fmt.Errorf("looking up repo %s/%s: HTTP %d", org, repo, status)
+	}
+	var repoInfo struct {
+		ID int `json:"id"`
+	}
+	if jErr := json.Unmarshal(body, &repoInfo); jErr != nil {
+		return fmt.Errorf("parsing repo response: %w", jErr)
+	}
+
+	// Link package to repo
+	linkEndpoint := fmt.Sprintf("/orgs/%s/packages/container/%s/repository/%d", org, pkgName, repoInfo.ID)
+	_, status, err = client.Put(linkEndpoint, nil)
+	if err != nil {
+		return fmt.Errorf("linking package to repo: %w", err)
+	}
+	if status >= 300 && status != 409 { // 409 = already linked
+		return fmt.Errorf("linking package to repo: HTTP %d", status)
+	}
+
+	res.Add("linked", fmt.Sprintf("GHCR package %s → %s/%s", pkgName, org, repo))
+	return nil
 }
 
 // ---------------------------------------------------------------------------
