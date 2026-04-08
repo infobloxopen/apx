@@ -74,6 +74,7 @@ jobs:
         with:
           app-id: ${{ secrets.APX_APP_ID }}
           private-key: ${{ secrets.APX_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
 
       - uses: actions/checkout@v4
         with:
@@ -94,7 +95,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ steps.app-token.outputs.token }}
 
       - name: Build catalog image
         run: |

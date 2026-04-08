@@ -793,6 +793,7 @@ var AdminAppPermissions = map[string]string{
 var CIAppPermissions = map[string]string{
 	"contents":      "write",
 	"pull_requests": "write",
+	"packages":      "write",
 	"metadata":      "read",
 }
 
