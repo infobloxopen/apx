@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // JSONSchemaValidator handles JSON Schema validation
@@ -167,27 +167,131 @@ func validateJSONSchemaType(raw json.RawMessage) error {
 	return nil
 }
 
-// Breaking runs jsonschema-diff to detect breaking changes.
-// path is the new schema; against is the old/baseline schema.
-// If jsonschema-diff is not installed, the check is skipped with a warning
-// printed to stderr (rather than failing the build).
+// Breaking detects backward-incompatible changes between two JSON Schema
+// files using native Go comparison. No external tools required.
+//
+// A change is breaking if a payload valid under the old schema could be
+// rejected by the new schema. Detected breaking changes:
+//   - Property removed from "properties"
+//   - Property type changed (e.g., string → integer)
+//   - New field added to "required"
+//   - Type of the root schema changed
 func (v *JSONSchemaValidator) Breaking(path, against string) error {
-	jsDiffPath, err := v.resolver.ResolveTool("jsonschema-diff", "0.3.0")
+	oldSchema, err := loadJSONSchemaFile(against)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: jsonschema-diff not available, skipping breaking-change check (%v)\n", err)
-		return nil
+		// Baseline doesn't exist — new schema, nothing to compare.
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("reading baseline schema: %w", err)
 	}
 
+	newSchema, err := loadJSONSchemaFile(path)
+	if err != nil {
+		return fmt.Errorf("reading new schema: %w", err)
+	}
+
+	var breaking []string
+
+	// Check root type change.
+	if oldType, newType := jsonSchemaType(oldSchema), jsonSchemaType(newSchema); oldType != "" && newType != "" && oldType != newType {
+		breaking = append(breaking, fmt.Sprintf("root type changed from %q to %q", oldType, newType))
+	}
+
+	// Check properties.
+	oldProps := jsonSchemaProperties(oldSchema)
+	newProps := jsonSchemaProperties(newSchema)
+	for name := range oldProps {
+		if _, exists := newProps[name]; !exists {
+			breaking = append(breaking, fmt.Sprintf("property %q removed", name))
+			continue
+		}
+		oldPropType := jsonSchemaType(oldProps[name])
+		newPropType := jsonSchemaType(newProps[name])
+		if oldPropType != "" && newPropType != "" && oldPropType != newPropType {
+			breaking = append(breaking, fmt.Sprintf("property %q type changed from %q to %q", name, oldPropType, newPropType))
+		}
+	}
+
+	// Check required fields added.
+	oldRequired := jsonSchemaRequired(oldSchema)
+	newRequired := jsonSchemaRequired(newSchema)
+	for field := range newRequired {
+		if !oldRequired[field] {
+			breaking = append(breaking, fmt.Sprintf("field %q added to required", field))
+		}
+	}
+
+	if len(breaking) > 0 {
+		return fmt.Errorf("breaking changes detected:\n  - %s", strings.Join(breaking, "\n  - "))
+	}
+	return nil
+}
+
+// loadJSONSchemaFile reads and parses a JSON Schema file.
+func loadJSONSchemaFile(path string) (map[string]json.RawMessage, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return fmt.Errorf("failed to resolve path: %w", err)
+		return nil, err
 	}
-
-	cmd := exec.Command(jsDiffPath, against, absPath)
-	output, err := cmd.CombinedOutput()
+	data, err := os.ReadFile(absPath)
 	if err != nil {
-		return fmt.Errorf("jsonschema-diff failed: %w\nOutput: %s", err, string(output))
+		return nil, err
 	}
+	var schema map[string]json.RawMessage
+	if err := json.Unmarshal(data, &schema); err != nil {
+		return nil, fmt.Errorf("invalid JSON in %s: %w", path, err)
+	}
+	return schema, nil
+}
 
-	return nil
+// jsonSchemaType extracts the "type" string from a schema object.
+// Returns empty string if not present or not a simple string type.
+func jsonSchemaType(schema map[string]json.RawMessage) string {
+	raw, ok := schema["type"]
+	if !ok {
+		return ""
+	}
+	var t string
+	if err := json.Unmarshal(raw, &t); err != nil {
+		return ""
+	}
+	return t
+}
+
+// jsonSchemaProperties extracts the "properties" map from a schema object.
+func jsonSchemaProperties(schema map[string]json.RawMessage) map[string]map[string]json.RawMessage {
+	raw, ok := schema["properties"]
+	if !ok {
+		return nil
+	}
+	var props map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &props); err != nil {
+		return nil
+	}
+	result := make(map[string]map[string]json.RawMessage, len(props))
+	for name, propRaw := range props {
+		var prop map[string]json.RawMessage
+		if err := json.Unmarshal(propRaw, &prop); err == nil {
+			result[name] = prop
+		}
+	}
+	return result
+}
+
+// jsonSchemaRequired extracts the "required" array as a set.
+func jsonSchemaRequired(schema map[string]json.RawMessage) map[string]bool {
+	raw, ok := schema["required"]
+	if !ok {
+		return nil
+	}
+	var req []string
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return nil
+	}
+	set := make(map[string]bool, len(req))
+	for _, r := range req {
+		set[r] = true
+	}
+	return set
 }

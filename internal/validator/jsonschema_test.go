@@ -43,6 +43,16 @@ func TestJSONSchemaValidator_Lint_MissingFile(t *testing.T) {
 	}
 }
 
+func TestJSONSchemaValidator_Lint_Directory(t *testing.T) {
+	resolver := &ToolchainResolver{}
+	v := NewJSONSchemaValidator(resolver)
+	// The testdata/jsonschema/ dir has both valid and invalid files.
+	// Lint should fail because invalid.json is present.
+	if err := v.Lint("testdata/jsonschema"); err == nil {
+		t.Error("expected error when directory contains invalid schema")
+	}
+}
+
 func TestJSONSchemaValidator_Breaking(t *testing.T) {
 	resolver := &ToolchainResolver{}
 	v := NewJSONSchemaValidator(resolver)
@@ -54,10 +64,22 @@ func TestJSONSchemaValidator_Breaking(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "breaking — jsonschema-diff not installed skips gracefully",
+			name:    "compatible — additive field",
 			path:    "testdata/jsonschema/v2_compatible.json",
 			against: "testdata/jsonschema/v1.json",
-			wantErr: false, // when jsonschema-diff is not available, skip with warning
+			wantErr: false,
+		},
+		{
+			name:    "breaking — type changed and required added",
+			path:    "testdata/jsonschema/v2_breaking.json",
+			against: "testdata/jsonschema/v1.json",
+			wantErr: true,
+		},
+		{
+			name:    "baseline missing — new schema, no comparison",
+			path:    "testdata/jsonschema/v1.json",
+			against: "testdata/jsonschema/nonexistent.json",
+			wantErr: false,
 		},
 	}
 
