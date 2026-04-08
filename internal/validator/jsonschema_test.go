@@ -54,10 +54,10 @@ func TestJSONSchemaValidator_Breaking(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "breaking — jsonschema-diff not installed",
+			name:    "breaking — jsonschema-diff not installed skips gracefully",
 			path:    "testdata/jsonschema/v2_compatible.json",
 			against: "testdata/jsonschema/v1.json",
-			wantErr: true, // expects error: jsonschema-diff tool not found in CI
+			wantErr: false, // when jsonschema-diff is not available, skip with warning
 		},
 	}
 

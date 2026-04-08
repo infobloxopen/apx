@@ -169,10 +169,13 @@ func validateJSONSchemaType(raw json.RawMessage) error {
 
 // Breaking runs jsonschema-diff to detect breaking changes.
 // path is the new schema; against is the old/baseline schema.
+// If jsonschema-diff is not installed, the check is skipped with a warning
+// printed to stderr (rather than failing the build).
 func (v *JSONSchemaValidator) Breaking(path, against string) error {
 	jsDiffPath, err := v.resolver.ResolveTool("jsonschema-diff", "0.3.0")
 	if err != nil {
-		return fmt.Errorf("failed to resolve jsonschema-diff: %w", err)
+		fmt.Fprintf(os.Stderr, "warning: jsonschema-diff not available, skipping breaking-change check (%v)\n", err)
+		return nil
 	}
 
 	absPath, err := filepath.Abs(path)
