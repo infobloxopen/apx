@@ -76,7 +76,7 @@ func TestCreatePR_Success(t *testing.T) {
 		assert.Equal(t, "main", body["base"])
 
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"number":42,"url":"https://github.com/acme/apis/pull/42","state":"open"}`)
+		fmt.Fprint(w, `{"number":42,"html_url":"https://github.com/acme/apis/pull/42","state":"open"}`)
 	})
 
 	resp, err := CreatePR(client, "acme/apis", "apx/release/test", "main", "title", "body")
@@ -132,9 +132,11 @@ func TestFindExistingPR_Found(t *testing.T) {
 		assert.Equal(t, "GET", r.Method)
 		assert.Contains(t, r.URL.Path, "/repos/acme/apis/pulls")
 		assert.Contains(t, r.URL.RawQuery, "state=open")
+		// head must be qualified as owner:branch for GitHub API
+		assert.Contains(t, r.URL.RawQuery, "head=acme:")
 
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `[{"number":42,"url":"https://github.com/acme/apis/pull/42","state":"open"}]`)
+		fmt.Fprint(w, `[{"number":42,"html_url":"https://github.com/acme/apis/pull/42","state":"open"}]`)
 	})
 
 	resp, err := FindExistingPR(client, "acme/apis", "apx/release/proto-payments-ledger-v1/v1.2.0")
@@ -228,7 +230,7 @@ func TestSubmitReleaseWithPR_BranchAndCommit(t *testing.T) {
 			var body map[string]string
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			assert.Contains(t, body["title"], "release:")
-			fmt.Fprint(w, `{"number":99,"url":"https://github.com/acme/apis/pull/99","state":"open"}`)
+			fmt.Fprint(w, `{"number":99,"html_url":"https://github.com/acme/apis/pull/99","state":"open"}`)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -289,7 +291,7 @@ func TestSubmitReleaseWithPR_ExistingPR(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case r.Method == "GET" && r.URL.Path == "/repos/acme/apis/pulls":
-			fmt.Fprint(w, `[{"number":55,"url":"https://github.com/acme/apis/pull/55","state":"open"}]`)
+			fmt.Fprint(w, `[{"number":55,"html_url":"https://github.com/acme/apis/pull/55","state":"open"}]`)
 		default:
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
@@ -328,7 +330,7 @@ func TestSubmitReleaseWithPR_WithCIProvenance(t *testing.T) {
 			fmt.Fprint(w, `[]`)
 		case r.Method == "POST" && r.URL.Path == "/repos/acme/apis/pulls":
 			_ = json.NewDecoder(r.Body).Decode(&capturedBody)
-			fmt.Fprint(w, `{"number":77,"url":"https://github.com/acme/apis/pull/77","state":"open"}`)
+			fmt.Fprint(w, `{"number":77,"html_url":"https://github.com/acme/apis/pull/77","state":"open"}`)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}

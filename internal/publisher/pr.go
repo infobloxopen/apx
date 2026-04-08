@@ -39,7 +39,7 @@ func ParseCanonicalNWO(canonicalRepo string) (string, error) {
 // PRResponse represents the result of creating a pull request.
 type PRResponse struct {
 	Number  int    `json:"number"`
-	HTMLURL string `json:"url"`
+	HTMLURL string `json:"html_url"`
 	State   string `json:"state"`
 }
 
@@ -75,7 +75,12 @@ func CreatePR(client *githubauth.Client, canonicalNWO, head, base, title, body s
 // FindExistingPR checks whether an open PR already exists for the given
 // branch on the canonical repo. Returns nil if no PR is found.
 func FindExistingPR(client *githubauth.Client, canonicalNWO, branch string) (*PRResponse, error) {
-	endpoint := fmt.Sprintf("/repos/%s/pulls?head=%s&state=open", canonicalNWO, branch)
+	// GitHub requires "owner:branch" format for the head parameter when
+	// querying PRs, otherwise the filter is ignored and unrelated PRs may
+	// be returned.
+	owner := strings.SplitN(canonicalNWO, "/", 2)[0]
+	qualifiedHead := owner + ":" + branch
+	endpoint := fmt.Sprintf("/repos/%s/pulls?head=%s&state=open", canonicalNWO, qualifiedHead)
 	respBody, status, err := client.Get(endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("PR list failed: %w", err)

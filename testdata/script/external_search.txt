@@ -63,17 +63,17 @@ stdout 'ledger'
 stdout 'pubsub'
 stdout 'api'
 
-# Search: external APIs show [external] tag
+# Search: external APIs show external origin
 exec apx catalog search --origin external
 stdout 'pubsub'
-stdout '\[external\]'
+stdout 'external'
 ! stdout 'ledger'
-! stdout '\[forked\]'
+! stdout 'forked'
 
-# Search: forked APIs show [forked] tag
+# Search: forked APIs show forked origin
 exec apx catalog search --origin forked
 stdout 'api'
-stdout '\[forked\]'
+stdout 'forked'
 ! stdout 'ledger'
 ! stdout 'pubsub'
 
