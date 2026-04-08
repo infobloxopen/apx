@@ -1,8 +1,16 @@
 package catalog
 
 import (
+	"os"
+
 	"github.com/infobloxopen/apx/internal/config"
 )
+
+// localFileExists reports whether path exists and is a regular file.
+func localFileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
 
 // ResolveSource builds a CatalogSource from configuration.
 // Resolution order:
@@ -16,12 +24,20 @@ func ResolveSource(cfg *config.Config) CatalogSource {
 
 // ResolveSourceWithGlobal builds a CatalogSource from local and global config.
 // Resolution order:
+//  0. Local catalog/catalog.yaml (if it exists on disk — canonical repo)
 //  1. catalog_registries in local config → AggregateSource of CachedSources
 //  2. Auto-discover from local config org → query GHCR packages API
 //  3. Global config known orgs/repos → RegistrySources (no API call needed)
 //  4. catalog_url in local config → HTTPSource
-//  5. Local catalog/catalog.yaml → LocalSource
+//  5. Local catalog/catalog.yaml → LocalSource (fallback even if not on disk)
 func ResolveSourceWithGlobal(cfg *config.Config, globalCfg *config.GlobalConfig) CatalogSource {
+	// 0. If a local catalog file exists on disk, use it directly.
+	// This is the common case inside a canonical repo where
+	// `apx catalog generate` has already been run.
+	if localFileExists("catalog/catalog.yaml") {
+		return &LocalSource{Path: "catalog/catalog.yaml"}
+	}
+
 	// 1. Explicit catalog_registries
 	if cfg != nil && len(cfg.CatalogRegistries) > 0 {
 		var sources []CatalogSource

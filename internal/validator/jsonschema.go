@@ -36,16 +36,55 @@ var validJSONSchemaTypes = map[string]bool{
 	"string": true, "array": true, "object": true,
 }
 
-// Lint validates JSON Schema syntax using native Go parsing.
+// Lint validates JSON Schema syntax using native Go parsing. If path is a
+// directory, all *.json files under it are linted recursively.
 func (v *JSONSchemaValidator) Lint(path string) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}
 
-	data, err := os.ReadFile(absPath)
+	info, err := os.Stat(absPath)
 	if err != nil {
 		return fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	if info.IsDir() {
+		return v.lintDir(absPath)
+	}
+	return v.lintFile(absPath)
+}
+
+// lintDir walks a directory and lints every *.json file.
+func (v *JSONSchemaValidator) lintDir(dir string) error {
+	found := false
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir() || filepath.Ext(path) != ".json" {
+			return nil
+		}
+		found = true
+		if lintErr := v.lintFile(path); lintErr != nil {
+			return fmt.Errorf("%s: %w", path, lintErr)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("no .json files found in %s", dir)
+	}
+	return nil
+}
+
+// lintFile validates a single JSON Schema file.
+func (v *JSONSchemaValidator) lintFile(absPath string) error {
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", absPath, err)
 	}
 
 	// Must be valid JSON

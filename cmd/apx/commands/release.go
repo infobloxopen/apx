@@ -524,7 +524,21 @@ func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
 	// Build CI provenance extra for PR body
 	prBodyExtra := buildCIProvenance()
 
-	resp, err := publisher.SubmitReleaseWithPR(ghClient, manifest, manifest.SourcePath, prBodyExtra)
+	// Resolve the source path through module_roots and common fallbacks,
+	// the same way releasePrepareAction does. manifest.SourcePath is the
+	// bare API ID (e.g. "jsonschema/statexfer/canary-heartbeat/v1"), which
+	// may not exist on disk when the app repo uses module_roots like
+	// "internal/apis/jsonschema".
+	cfg, _ := loadConfig(cmd)
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	snapshotDir, resolveErr := config.ResolveAPIPath(manifest.SourcePath, cfg)
+	if resolveErr != nil {
+		snapshotDir = manifest.SourcePath // fall back to bare path
+	}
+
+	resp, err := publisher.SubmitReleaseWithPR(ghClient, manifest, snapshotDir, prBodyExtra)
 	if err != nil {
 		manifest.Fail(string(publisher.ErrCodePRCreationFailed), err.Error(), "submit")
 		_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
