@@ -83,8 +83,6 @@ version: 1
 | `tools.spectral.version` | string | no |  |  | Spectral version |
 | `tools.avrotool` | struct | no |  |  | Avro tools settings |
 | `tools.avrotool.version` | string | no |  |  | Avro tools version |
-| `tools.jsonschemadiff` | struct | no |  |  | JSON Schema diff settings |
-| `tools.jsonschemadiff.version` | string | no |  |  | JSON Schema diff version |
 | `execution` | struct | no |  |  | Execution environment settings |
 | `execution.mode` | string | no | `local` | local, container | Where tools run |
 | `execution.container_image` | string | no |  |  | Container image when mode=container |
@@ -285,8 +283,6 @@ tools:
     version: v6.11.0
   avrotool:
     version: "1.11.3"
-  jsonschemadiff:
-    version: "0.3.0"
 ```
 
 ### `execution`
@@ -488,8 +484,6 @@ tools:
     version: v6.11.0
   avrotool:
     version: "1.11.3"
-  jsonschemadiff:
-    version: "0.3.0"
 
 execution:
   mode: "local"

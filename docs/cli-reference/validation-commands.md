@@ -88,7 +88,7 @@ apx breaking --against abc1234
 | Protocol Buffers | `buf breaking` | Field removal/renumbering, type changes, service/method removal |
 | OpenAPI | `oasdiff breaking` | Endpoint removal, required field additions, response type changes |
 | Avro | Native Go | New fields without defaults, type changes (BACKWARD/FORWARD/FULL/NONE modes) |
-| JSON Schema | `jsonschema-diff` | Property removal, type restriction, required additions |
+| JSON Schema | Native Go | Property removal, type change, required field additions |
 | Parquet | Native Go | New required columns, removed columns, type/annotation changes, optional→required promotion |
 
 ### Examples

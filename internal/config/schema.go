@@ -346,14 +346,6 @@ func buildV1Schema() SchemaVersion {
 						"version": {Name: "version", Type: TypeString, Description: "Avro tools version"},
 					},
 				},
-				"jsonschemadiff": {
-					Name:        "jsonschemadiff",
-					Type:        TypeStruct,
-					Description: "JSON Schema diff settings",
-					Children: map[string]FieldDef{
-						"version": {Name: "version", Type: TypeString, Description: "JSON Schema diff version"},
-					},
-				},
 			},
 		},
 		"execution": {
@@ -573,9 +565,6 @@ func DefaultConfig() *Config {
 			AvroTool: struct {
 				Version string `yaml:"version"`
 			}{Version: "1.11.3"},
-			JSONSchemaDiff: struct {
-				Version string `yaml:"version"`
-			}{Version: "0.3.0"},
 		},
 		Execution: Execution{
 			Mode:           "local",

@@ -105,9 +105,6 @@ type Tools struct {
 	AvroTool struct {
 		Version string `yaml:"version"`
 	} `yaml:"avrotool"`
-	JSONSchemaDiff struct {
-		Version string `yaml:"version"`
-	} `yaml:"jsonschemadiff"`
 }
 
 // Execution represents execution configuration

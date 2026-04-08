@@ -73,8 +73,6 @@ tools:
     version: v6.11.0
   avrotool:
     version: "1.11.3"
-  jsonschemadiff:
-    version: "0.3.0"
 execution:
   mode: "local"
   container_image: ""

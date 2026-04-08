@@ -38,7 +38,7 @@ Detects backward-incompatible changes:
 | Protocol Buffers | `buf breaking` | Field removal/renumbering, type changes, service removal |
 | OpenAPI | `oasdiff breaking` | Endpoint removal, required field additions |
 | Avro | Native Go | New fields without defaults, type changes (configurable compatibility mode) |
-| JSON Schema | `jsonschema-diff` | Property removal, type restrictions, required additions |
+| JSON Schema | Native Go | Property removal, type change, required field additions |
 | Parquet | Native Go | New required columns, removed columns, type/annotation changes |
 
 ---

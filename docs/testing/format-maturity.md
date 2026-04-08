@@ -67,15 +67,15 @@ external tools required.
 - Field type change: **breaking**
 - Removed field: safe (reader ignores unknown writer fields)
 
-### JSON Schema — Tier 3 (mostly supported)
+### JSON Schema — Tier 2 (fully supported)
 
-Linting is implemented natively in Go. Breaking-change detection delegates to
-`jsonschema-diff` (must be installed separately).
+Linting and breaking-change detection are both implemented natively in Go.
+No external tools required.
 
 | Feature | Implementation |
 |---------|----------------|
-| Lint | Native Go: validates JSON syntax, `$schema` URI, `type`, `properties`, `required` |
-| Breaking | Delegates to `jsonschema-diff` (requires external tool) |
+| Lint | Native Go: validates JSON syntax, `$schema` URI, `type`, `properties`, `required`. Walks directories recursively. |
+| Breaking | Native Go: detects property removal, type changes, new required fields, root type changes |
 | Release | Format-agnostic pipeline |
 | Codegen | Overlay system (format-agnostic) |
 | Catalog | Tag-based discovery |
@@ -124,7 +124,7 @@ and **policy enforcement**:
 | Proto | `buf lint` | `buf breaking` | Yes (`buf`) |
 | OpenAPI | Spectral | oasdiff | Yes (`spectral`, `oasdiff`) |
 | Avro | Native Go | Native Go | No |
-| JSON Schema | Native Go | `jsonschema-diff` | Breaking only (`jsonschema-diff`) |
+| JSON Schema | Native Go | Native Go | No |
 | Parquet | Native Go | Native Go | No |
 
 ## See Also
