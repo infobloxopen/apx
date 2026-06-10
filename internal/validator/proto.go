@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // ProtoValidator handles Protocol Buffer schema validation
@@ -33,7 +35,12 @@ func (v *ProtoValidator) Lint(path string) error {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}
 
-	cmd := exec.Command(bufPath, "lint", absPath)
+	dir, targetArgs, err := bufTargetArgs(absPath)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command(bufPath, append([]string{"lint"}, targetArgs...)...)
+	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("buf lint failed: %w\nOutput: %s", err, string(output))
@@ -62,13 +69,131 @@ func (v *ProtoValidator) Breaking(path, against string) error {
 		againstArg = ".git#ref=" + against
 	}
 
-	cmd := exec.Command(bufPath, "breaking", absPath, "--against", againstArg)
+	dir, targetArgs, err := bufTargetArgs(absPath)
+	if err != nil {
+		return err
+	}
+	args := append([]string{"breaking", "--against", againstArg}, targetArgs...)
+	cmd := exec.Command(bufPath, args...)
+	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("buf breaking failed: %w\nOutput: %s", err, string(output))
 	}
 
 	return nil
+}
+
+// bufTargetArgs computes the buf working directory and input/selector args for
+// validating the proto schema at absPath. buf v2 wants a workspace or module as
+// the build input, with sub-targets selected via --path:
+//   - absPath is the workspace root -> run in root, no selector
+//   - absPath is a declared module  -> run in root, positional <module> input
+//   - absPath is inside a module    -> run in root, --path <rel> selector
+func bufTargetArgs(absPath string) (dir string, args []string, err error) {
+	root, rel, err := bufRootAndPath(absPath)
+	if err != nil {
+		return "", nil, err
+	}
+	if rel == "." {
+		return root, nil, nil
+	}
+	for _, m := range bufModulePaths(root) {
+		if rel == m {
+			return root, []string{rel}, nil
+		}
+	}
+	return root, []string{"--path", rel}, nil
+}
+
+// bufModulePaths returns module directory paths (slash-separated, relative to
+// root) declared by the buf workspace config: buf.work.yaml "directories" or
+// buf.yaml v2 "modules[].path". Returns nil when none are declared (e.g. a v1
+// single-module buf.yaml whose module is the workspace root itself).
+func bufModulePaths(root string) []string {
+	for _, name := range []string{"buf.work.yaml", "buf.work.yml"} {
+		if dirs := bufWorkDirectories(filepath.Join(root, name)); dirs != nil {
+			return dirs
+		}
+	}
+	for _, name := range []string{"buf.yaml", "buf.yml"} {
+		if mods := bufYAMLModulePaths(filepath.Join(root, name)); mods != nil {
+			return mods
+		}
+	}
+	return nil
+}
+
+func bufYAMLModulePaths(path string) []string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var cfg struct {
+		Modules []struct {
+			Path string `yaml:"path"`
+		} `yaml:"modules"`
+	}
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil
+	}
+	var out []string
+	for _, m := range cfg.Modules {
+		if m.Path != "" {
+			out = append(out, filepath.ToSlash(filepath.Clean(m.Path)))
+		}
+	}
+	return out
+}
+
+func bufWorkDirectories(path string) []string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var cfg struct {
+		Directories []string `yaml:"directories"`
+	}
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil
+	}
+	var out []string
+	for _, d := range cfg.Directories {
+		if d != "" {
+			out = append(out, filepath.ToSlash(filepath.Clean(d)))
+		}
+	}
+	return out
+}
+
+// bufRootAndPath locates the buf workspace/module root at or above absPath
+// (the nearest ancestor directory containing buf.work.yaml or buf.yaml) and
+// returns that root together with absPath expressed relative to it (slash-
+// separated). buf v2 requires the workspace/module as the build input and
+// selects targets via --path, so a schema subdirectory contained by a module
+// cannot be passed as a positional input directly. When the schema dir is
+// itself the root, rel is "." and callers omit --path.
+func bufRootAndPath(absPath string) (root, rel string, err error) {
+	dir := absPath
+	if info, statErr := os.Stat(absPath); statErr != nil || !info.IsDir() {
+		dir = filepath.Dir(absPath)
+	}
+	for {
+		for _, name := range []string{"buf.work.yaml", "buf.work.yml", "buf.yaml", "buf.yml"} {
+			if _, statErr := os.Stat(filepath.Join(dir, name)); statErr == nil {
+				r, relErr := filepath.Rel(dir, absPath)
+				if relErr != nil {
+					return "", "", fmt.Errorf("computing path relative to buf root: %w", relErr)
+				}
+				return dir, filepath.ToSlash(r), nil
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", "", fmt.Errorf("no buf workspace/module config (buf.yaml or buf.work.yaml) found at or above %s", absPath)
+		}
+		dir = parent
+	}
 }
 
 // isGitRef returns true if the string looks like a git ref (e.g. origin/main, HEAD~1).
