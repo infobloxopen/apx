@@ -3,6 +3,7 @@ package validator
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -301,4 +302,41 @@ func TestBufRootAndPath(t *testing.T) {
 			t.Error("expected error when no buf workspace/module config is found")
 		}
 	})
+}
+
+func TestBufTargetArgs(t *testing.T) {
+	// buf.yaml v2 declares a single module rooted at "proto".
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "buf.yaml"),
+		[]byte("version: v2\nmodules:\n  - path: proto\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	schemaDir := filepath.Join(root, "proto", "infoblox", "authz", "v1")
+	if err := os.MkdirAll(schemaDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name     string
+		target   string
+		wantArgs []string
+	}{
+		{"workspace root -> no selector", root, nil},
+		{"module root -> positional input", filepath.Join(root, "proto"), []string{"proto"}},
+		{"inside module -> --path selector", schemaDir, []string{"--path", "proto/infoblox/authz/v1"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotDir, gotArgs, err := bufTargetArgs(tt.target)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if gotDir != root {
+				t.Errorf("dir: got %q, want %q", gotDir, root)
+			}
+			if !reflect.DeepEqual(gotArgs, tt.wantArgs) {
+				t.Errorf("args: got %v, want %v", gotArgs, tt.wantArgs)
+			}
+		})
+	}
 }
