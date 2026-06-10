@@ -45,7 +45,7 @@ func TestNewReleaseRecord(t *testing.T) {
 	assert.Equal(t, "github.com/acme/apis", record.SourceRepo)
 	assert.Equal(t, "abc123", record.SourceCommit)
 	assert.Equal(t, "v1.2.0-beta.1", record.Version)
-	assert.Equal(t, "proto/payments/ledger/v1/v1.2.0-beta.1", record.Tag)
+	assert.Equal(t, "proto/payments/ledger/v1.2.0-beta.1", record.Tag)
 	require.NotNil(t, record.Languages["go"])
 	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", record.Languages["go"].Module)
 	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", record.Languages["go"].Import)

@@ -111,18 +111,32 @@ func EffectiveGoRoot(sourceRepo, importRoot string) string {
 	return sourceRepo
 }
 
+// DeriveTagPrefix computes the git-tag prefix for an API: its Go-module
+// subdirectory, which is version-suffix-normalized. Go disallows a /v1 module
+// path suffix (only /v2+ are allowed), so for v0/v1 the prefix drops the line
+// segment and for v2+ it keeps /vN — identical to DeriveGoModDir. This keeps a
+// release tag resolvable as a version of the published Go module. Falls back to
+// the raw api-id if it cannot be parsed.
+func DeriveTagPrefix(apiID string) string {
+	api, err := ParseAPIID(apiID)
+	if err != nil {
+		return apiID
+	}
+	return DeriveGoModDir(api)
+}
+
 // DeriveTag computes the git tag for a release of an API.
 //
-// Format: <api-id>/v<semver>
-// Example: "proto/payments/ledger/v1" + "1.0.0-beta.1"
-//
-//	→ "proto/payments/ledger/v1/v1.0.0-beta.1"
+// Format: <module-subdir>/v<semver>, where <module-subdir> is the normalized
+// Go-module directory (see DeriveTagPrefix). Examples:
+//   - "proto/payments/ledger/v1" + "1.0.0-beta.1" → "proto/payments/ledger/v1.0.0-beta.1"
+//   - "proto/payments/ledger/v2" + "2.0.0"        → "proto/payments/ledger/v2/v2.0.0"
 func DeriveTag(apiID, version string) string {
 	v := version
 	if !strings.HasPrefix(v, "v") {
 		v = "v" + v
 	}
-	return apiID + "/" + v
+	return DeriveTagPrefix(apiID) + "/" + v
 }
 
 // BuildIdentityBlock creates a full identity section from an API ID string

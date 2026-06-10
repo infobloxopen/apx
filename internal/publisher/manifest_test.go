@@ -41,7 +41,8 @@ func TestNewManifest(t *testing.T) {
 	require.NotNil(t, m.Languages["go"])
 	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger", m.Languages["go"].Module)
 	assert.Equal(t, "github.com/acme/apis/proto/payments/ledger/v1", m.Languages["go"].Import)
-	assert.Equal(t, "proto/payments/ledger/v1/v1.2.0-beta.1", m.Tag)
+	// Tag prefix is the Go-module subdir (no /v1 suffix), matching m.Tag's module.
+	assert.Equal(t, "proto/payments/ledger/v1.2.0-beta.1", m.Tag)
 }
 
 func TestManifest_SetState(t *testing.T) {

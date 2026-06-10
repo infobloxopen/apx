@@ -29,17 +29,17 @@ stdout '"module": "github.com/acme/apis/proto/payments/ledger"'
 exec apx inspect release proto/payments/ledger/v1@v1.0.0-beta.1 --source-repo github.com/acme/apis
 stdout 'API:        proto/payments/ledger/v1'
 stdout 'Release:    v1.0.0-beta.1'
-stdout 'Tag:        proto/payments/ledger/v1/v1.0.0-beta.1'
+stdout 'Tag:        proto/payments/ledger/v1.0.0-beta.1'
 stdout 'Lifecycle:  beta'
 
 # --- inspect release GA (no lifecycle inferred) ---
 exec apx inspect release proto/payments/ledger/v1@v1.0.0 --source-repo github.com/acme/apis
 stdout 'Release:    v1.0.0'
-stdout 'Tag:        proto/payments/ledger/v1/v1.0.0'
+stdout 'Tag:        proto/payments/ledger/v1.0.0'
 
 # --- inspect release JSON ---
 exec apx --json inspect release proto/payments/ledger/v1@v1.0.0-beta.1 --source-repo github.com/acme/apis
-stdout '"tag": "proto/payments/ledger/v1/v1.0.0-beta.1"'
+stdout '"tag": "proto/payments/ledger/v1.0.0-beta.1"'
 
 # --- inspect release bad format ---
 ! exec apx inspect release proto/payments/ledger/v1

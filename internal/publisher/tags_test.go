@@ -39,10 +39,12 @@ func initBareGitRepo(t *testing.T) string {
 	run("commit", "-m", "init")
 
 	// Create some tags
-	run("tag", "proto/payments/ledger/v1/v1.0.0", "-m", "v1.0.0")
-	run("tag", "proto/payments/ledger/v1/v1.1.0", "-m", "v1.1.0")
-	run("tag", "proto/payments/ledger/v1/v1.0.1", "-m", "v1.0.1")
-	run("tag", "proto/billing/invoices/v1/v1.0.0", "-m", "v1.0.0")
+	// v1 line: module has no /v1 suffix, so tags drop the line segment.
+	run("tag", "proto/payments/ledger/v1.0.0", "-m", "v1.0.0")
+	run("tag", "proto/payments/ledger/v1.1.0", "-m", "v1.1.0")
+	run("tag", "proto/payments/ledger/v1.0.1", "-m", "v1.0.1")
+	run("tag", "proto/billing/invoices/v1.0.0", "-m", "v1.0.0")
+	// v2 line: module path keeps /v2, so tags retain it (shares the v1 prefix).
 	run("tag", "proto/payments/ledger/v2/v2.0.0-alpha.1", "-m", "v2 alpha")
 
 	return dir
@@ -57,8 +59,8 @@ func TestListTags(t *testing.T) {
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(tags), 5)
 
-	// List with a pattern
-	tags, err = tm.ListTags("proto/payments/ledger/v1/*")
+	// List with a pattern (the three v1-line tags; v2 tag has a /v2/ segment)
+	tags, err = tm.ListTags("proto/payments/ledger/v1*")
 	require.NoError(t, err)
 	assert.Len(t, tags, 3)
 }

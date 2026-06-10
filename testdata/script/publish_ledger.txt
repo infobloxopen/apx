@@ -19,8 +19,8 @@ exists apx.yaml
 exec git add .
 exec git commit -m 'Add ledger API v1.0.0'
 
-# Create a tag for the module version
-exec git tag proto/payments/ledger/v1/v1.0.0
+# Create a tag for the module version (v1 module has no /v1 suffix)
+exec git tag proto/payments/ledger/v1.0.0
 
 # Test dry-run release prepare (should succeed without actual git operations)
 exec apx release prepare proto/payments/ledger/v1 --version=v1.0.0 --canonical-repo=github.com/myorg/apis --dry-run
@@ -73,7 +73,7 @@ exec apx release prepare proto/payments/ledger/v1 --version v1.0.0-beta.1 --life
 stdout 'Dry-run mode'
 stdout 'proto/payments/ledger/v1'
 stdout 'v1.0.0-beta.1'
-stdout 'proto/payments/ledger/v1/v1.0.0-beta.1'
+stdout 'proto/payments/ledger/v1.0.0-beta.1'
 stdout 'github.com/myorg/apis/proto/payments/ledger'
 stdout 'github.com/myorg/apis/proto/payments/ledger/v1'
 

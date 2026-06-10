@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"github.com/infobloxopen/apx/internal/config"
 )
 
 // TagManager handles tag creation and validation
@@ -117,23 +119,29 @@ func (m *TagManager) ListTags(pattern string) ([]string, error) {
 	return result, nil
 }
 
-// ListVersionsForAPI lists all tags that match an API ID prefix and extracts
-// the version part. For example, given prefix "proto/payments/ledger/v1",
-// a tag "proto/payments/ledger/v1/v1.2.3" yields "v1.2.3".
+// ListVersionsForAPI lists all release tags for an API and extracts the version
+// part. Tags are prefixed by the API's normalized Go-module subdirectory (see
+// config.DeriveTagPrefix), so for example the v1 line of
+// "proto/payments/ledger/v1" uses prefix "proto/payments/ledger" and a tag
+// "proto/payments/ledger/v1.2.3" yields "v1.2.3". Tags belonging to a deeper
+// module that shares the prefix (e.g. a v2 line tagged under ".../v2/") are
+// skipped here and surface under their own prefix.
 func (m *TagManager) ListVersionsForAPI(apiID string) ([]string, error) {
-	pattern := apiID + "/v*"
-	tags, err := m.ListTags(pattern)
+	prefix := config.DeriveTagPrefix(apiID) + "/"
+	tags, err := m.ListTags(prefix + "v*")
 	if err != nil {
 		return nil, err
 	}
 
-	prefix := apiID + "/"
 	var versions []string
 	for _, tag := range tags {
 		if !strings.HasPrefix(tag, prefix) {
 			continue
 		}
 		ver := strings.TrimPrefix(tag, prefix)
+		if strings.Contains(ver, "/") {
+			continue // belongs to a deeper module sharing this prefix
+		}
 		versions = append(versions, ver)
 	}
 	return versions, nil
