@@ -752,17 +752,83 @@ configure outside APX.
 
 The manifest must be in 'submitted' or 'canonical-pr-open' state.
 
+When run by canonical CI (where the producer's local manifest is not
+available), pass --api and --version to reconstruct the release manifest
+from the canonical repo's config — e.g. after merging a release PR.
+
 Examples:
   apx release finalize
   apx release finalize --catalog catalog.yaml
-  apx release finalize --skip-packages`,
+  apx release finalize --skip-packages
+  apx release finalize --api proto/payments/ledger/v1 --version v1.0.0-beta.1`,
 		RunE: releaseFinalizeAction,
 	}
 	cmd.Flags().String("catalog", "catalog.yaml", "Path to catalog.yaml")
 	cmd.Flags().Bool("skip-packages", false, "Skip recording Go module artifact metadata")
 	cmd.Flags().Bool("skip-catalog", false, "Skip catalog update")
 	cmd.Flags().String("record-path", ".apx-release-record.yaml", "Path to write the release record")
+	cmd.Flags().String("api", "", "API ID to finalize without a local manifest (CI mode; requires --version)")
+	cmd.Flags().String("version", "", "Version to finalize without a local manifest (CI mode; requires --api)")
+	cmd.Flags().String("lifecycle", "", "Lifecycle for CI mode (default: inferred from the version's prerelease)")
+	cmd.Flags().String("commit", "", "Commit to tag in CI mode (default: HEAD)")
 	return cmd
+}
+
+// buildFinalizeManifest reconstructs a release manifest for CI-mode finalize,
+// where the producer's local .apx-release.yaml is not available (canonical CI
+// runs on the merge commit of a release PR). It derives identity and language
+// coordinates exactly like 'apx release prepare' and starts in 'submitted'
+// state, which is what finalize expects after a release PR has landed.
+func buildFinalizeManifest(cmd *cobra.Command, apiID, version string) (*publisher.ReleaseManifest, error) {
+	if _, err := config.ParseAPIID(apiID); err != nil {
+		return nil, err
+	}
+
+	line := config.ParseLineFromID(apiID)
+	if err := config.ValidateVersionLine(version, line); err != nil {
+		return nil, &publisher.ReleaseError{
+			Code:    publisher.ErrCodeVersionLineMismatch,
+			Message: err.Error(),
+			Hint:    "Ensure version major matches the API line (e.g. v1.x.x for /v1)",
+		}
+	}
+
+	lifecycle, _ := cmd.Flags().GetString("lifecycle")
+	if lifecycle == "" {
+		lifecycle = inferLifecycleFromVersion(version)
+	}
+	if err := config.ValidateLifecycle(lifecycle); err != nil {
+		return nil, err
+	}
+
+	sourceRepo := resolveSourceRepo(cmd)
+	if sourceRepo == "github.com/<org>/<repo>" {
+		return nil, publisher.NewReleaseError(
+			publisher.ErrCodeMissingConfig,
+			"cannot determine canonical repo; configure org/repo in apx.yaml",
+		)
+	}
+
+	api, source, _, err := config.BuildIdentityBlock(apiID, sourceRepo, lifecycle, version)
+	if err != nil {
+		return nil, err
+	}
+	langs, err := language.DeriveAllCoords(language.DerivationContext{
+		SourceRepo: sourceRepo,
+		ImportRoot: resolveImportRoot(cmd),
+		Org:        resolveOrg(cmd),
+		API:        api,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	manifest := publisher.NewManifest(api, source, langs, version, sourceRepo)
+	manifest.State = publisher.StateSubmitted
+	if commit, _ := cmd.Flags().GetString("commit"); commit != "" {
+		manifest.SourceCommit = commit
+	}
+	return manifest, nil
 }
 
 func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
@@ -770,6 +836,8 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 	skipPackages, _ := cmd.Flags().GetBool("skip-packages")
 	skipCatalog, _ := cmd.Flags().GetBool("skip-catalog")
 	recordPath, _ := cmd.Flags().GetString("record-path")
+	apiFlag, _ := cmd.Flags().GetString("api")
+	versionFlag, _ := cmd.Flags().GetString("version")
 
 	cfg, err := loadConfig(cmd)
 	if err != nil {
@@ -777,13 +845,22 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 		cfg = &config.Config{}
 	}
 
-	// Read manifest
-	manifest, err := publisher.ReadManifest(".apx-release.yaml")
-	if err != nil {
+	// CI mode: reconstruct the manifest from --api/--version instead of
+	// requiring the producer's local .apx-release.yaml.
+	var manifest *publisher.ReleaseManifest
+	if apiFlag != "" || versionFlag != "" {
+		if apiFlag == "" || versionFlag == "" {
+			return fmt.Errorf("--api and --version must be used together")
+		}
+		manifest, err = buildFinalizeManifest(cmd, apiFlag, versionFlag)
+		if err != nil {
+			return err
+		}
+	} else if manifest, err = publisher.ReadManifest(".apx-release.yaml"); err != nil {
 		return publisher.NewReleaseError(
 			publisher.ErrCodeMissingConfig,
 			"no release manifest found — run 'apx release prepare' and 'apx release submit' first",
-		)
+		).WithHint("In canonical CI, use 'apx release finalize --api <api-id> --version <version>'")
 	}
 
 	// Verify state: must be submitted or canonical-pr-open

@@ -125,5 +125,12 @@ func (s *CanonicalScaffolder) Generate(targetDir string) error {
 		return fmt.Errorf("failed to write on-merge.yml: %w", err)
 	}
 
+	// Generate release-finalize workflow — cuts the canonical tag when a
+	// release PR merges; without it no versioned release is ever published.
+	finalizePath := filepath.Join(targetDir, ".github", "workflows", "release-finalize.yml")
+	if err := os.WriteFile(finalizePath, []byte(templates.GenerateCanonicalReleaseFinalize()), 0644); err != nil {
+		return fmt.Errorf("failed to write release-finalize.yml: %w", err)
+	}
+
 	return nil
 }
