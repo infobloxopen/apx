@@ -283,12 +283,21 @@ func authStatusAction(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println()
 
+	if githubauth.TokenFromEnv() != "" {
+		ui.Info("Environment token detected (APX_GITHUB_TOKEN/GH_TOKEN/GITHUB_TOKEN) — it overrides cached tokens.")
+		fmt.Println()
+	}
+
 	for _, org := range globalCfg.Orgs {
 		// Check token status
 		tok, _ := githubauth.LoadToken(org.Name)
 		status := "not authenticated"
 		if tok != nil {
-			status = fmt.Sprintf("authenticated (since %s)", tok.CreatedAt.Format("2006-01-02"))
+			if tok.Expired() {
+				status = fmt.Sprintf("token expired (issued %s) — run `apx auth login`", tok.CreatedAt.Format("2006-01-02"))
+			} else {
+				status = fmt.Sprintf("authenticated (since %s)", tok.CreatedAt.Format("2006-01-02"))
+			}
 		}
 
 		ui.Info("  %s  [%s]", org.Name, status)

@@ -116,6 +116,10 @@ func workflowsSyncAction(cmd *cobra.Command, args []string) error {
 				path:    filepath.Join(workflowDir, "on-merge.yml"),
 				content: templates.GenerateCanonicalOnMerge(org),
 			},
+			workflowFile{
+				path:    filepath.Join(workflowDir, "release-finalize.yml"),
+				content: templates.GenerateCanonicalReleaseFinalize(),
+			},
 		)
 	}
 	if isApp {

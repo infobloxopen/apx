@@ -96,18 +96,23 @@ func httpGetReal(url string) ([]byte, error) {
 // cached, it silently fails so callers can fall through to the next
 // resolution method.
 func ghAPIReal(endpoint string) ([]byte, error) {
-	// Try to detect the org from git remote for token lookup.
-	org, err := githubauth.DetectOrg()
-	if err != nil {
-		return nil, fmt.Errorf("no org detected: %w", err)
+	// Environment tokens (CI) take precedence and need no org lookup.
+	token := githubauth.TokenFromEnv()
+	if token == "" {
+		// Try to detect the org from git remote for token lookup.
+		org, err := githubauth.DetectOrg()
+		if err != nil {
+			return nil, fmt.Errorf("no org detected: %w", err)
+		}
+
+		tok, err := githubauth.LoadToken(org)
+		if err != nil || tok == nil {
+			return nil, fmt.Errorf("no cached token for org %q", org)
+		}
+		token = tok.AccessToken
 	}
 
-	tok, err := githubauth.LoadToken(org)
-	if err != nil || tok == nil {
-		return nil, fmt.Errorf("no cached token for org %q", org)
-	}
-
-	client := githubauth.NewClient(tok.AccessToken)
+	client := githubauth.NewClient(token)
 	body, status, err := client.Get("/" + endpoint)
 	if err != nil {
 		return nil, err

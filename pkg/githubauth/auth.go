@@ -146,12 +146,7 @@ func pollAccessToken(clientID, deviceCode string) (*Token, bool, error) {
 
 	body, _ := io.ReadAll(resp.Body)
 
-	var result struct {
-		AccessToken string `json:"access_token"`
-		TokenType   string `json:"token_type"`
-		Scope       string `json:"scope"`
-		Error       string `json:"error"`
-	}
+	var result tokenResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, false, fmt.Errorf("failed to parse token response: %w", err)
 	}
@@ -162,11 +157,7 @@ func pollAccessToken(clientID, deviceCode string) (*Token, bool, error) {
 		if result.AccessToken == "" {
 			return nil, false, fmt.Errorf("GitHub returned empty access token")
 		}
-		return &Token{
-			AccessToken: result.AccessToken,
-			TokenType:   result.TokenType,
-			Scope:       result.Scope,
-		}, false, nil
+		return result.token(), false, nil
 	case "authorization_pending":
 		return nil, true, nil // keep polling
 	case "slow_down":
@@ -178,6 +169,74 @@ func pollAccessToken(clientID, deviceCode string) (*Token, bool, error) {
 	default:
 		return nil, false, fmt.Errorf("unexpected OAuth error: %s", result.Error)
 	}
+}
+
+// tokenResponse is the JSON shape of GitHub's /login/oauth/access_token
+// responses (device-code grant and refresh-token grant alike).
+type tokenResponse struct {
+	AccessToken           string `json:"access_token"`
+	TokenType             string `json:"token_type"`
+	Scope                 string `json:"scope"`
+	ExpiresIn             int64  `json:"expires_in"`
+	RefreshToken          string `json:"refresh_token"`
+	RefreshTokenExpiresIn int64  `json:"refresh_token_expires_in"`
+	Error                 string `json:"error"`
+}
+
+func (r *tokenResponse) token() *Token {
+	return &Token{
+		AccessToken:           r.AccessToken,
+		TokenType:             r.TokenType,
+		Scope:                 r.Scope,
+		ExpiresIn:             r.ExpiresIn,
+		RefreshToken:          r.RefreshToken,
+		RefreshTokenExpiresIn: r.RefreshTokenExpiresIn,
+	}
+}
+
+// RefreshAccessToken exchanges a refresh token for a new access token
+// (GitHub Apps with token expiration enabled). The returned Token has
+// CreatedAt set and can be persisted with SaveToken.
+func RefreshAccessToken(clientID, refreshToken string) (*Token, error) {
+	if clientID == "" || refreshToken == "" {
+		return nil, fmt.Errorf("client_id and refresh_token are required")
+	}
+
+	data := url.Values{
+		"client_id":     {clientID},
+		"grant_type":    {"refresh_token"},
+		"refresh_token": {refreshToken},
+	}
+
+	req, err := http.NewRequest("POST", GitHubBaseURL+"/login/oauth/access_token", strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	var result tokenResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse refresh response: %w", err)
+	}
+	if result.Error != "" {
+		return nil, fmt.Errorf("token refresh failed: %s", result.Error)
+	}
+	if result.AccessToken == "" {
+		return nil, fmt.Errorf("GitHub returned empty access token on refresh")
+	}
+
+	tok := result.token()
+	tok.CreatedAt = time.Now().UTC()
+	return tok, nil
 }
 
 // ErrDeviceFlowDisabled is returned when the GitHub App does not have

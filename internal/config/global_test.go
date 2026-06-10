@@ -3,17 +3,30 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// setTempHome points os.UserHomeDir at a temp dir for the test. Windows
+// resolves the home directory from USERPROFILE, not HOME — overriding the
+// wrong one silently leaks the real home into the test.
+func setTempHome(t *testing.T) string {
+	t.Helper()
+	tmp := t.TempDir()
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", tmp)
+	} else {
+		t.Setenv("HOME", tmp)
+	}
+	return tmp
+}
+
 func TestLoadGlobal_MissingFile(t *testing.T) {
 	// Override home so GlobalConfigPath points to a temp dir
-	origHome := os.Getenv("HOME")
-	t.Cleanup(func() { os.Setenv("HOME", origHome) })
-	os.Setenv("HOME", t.TempDir())
+	setTempHome(t)
 
 	cfg, err := LoadGlobal()
 	require.NoError(t, err)
@@ -22,9 +35,7 @@ func TestLoadGlobal_MissingFile(t *testing.T) {
 }
 
 func TestSaveAndLoadGlobal(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	t.Cleanup(func() { os.Setenv("HOME", origHome) })
-	os.Setenv("HOME", t.TempDir())
+	setTempHome(t)
 
 	cfg := &GlobalConfig{
 		Version:    1,
@@ -114,10 +125,7 @@ func TestFindOrg(t *testing.T) {
 }
 
 func TestGlobalConfigPath(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	t.Cleanup(func() { os.Setenv("HOME", origHome) })
-	tmp := t.TempDir()
-	os.Setenv("HOME", tmp)
+	tmp := setTempHome(t)
 
 	p, err := GlobalConfigPath()
 	require.NoError(t, err)

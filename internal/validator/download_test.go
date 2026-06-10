@@ -13,41 +13,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestExpandPattern(t *testing.T) {
+// Asset names below are verified against the projects' actual GitHub
+// releases (buf v1.66.1, oasdiff v1.9.6) — each tool spells OS/arch its own
+// way, and getting one wrong means a 404 → "tool not found" at runtime.
+func TestBufAssetName(t *testing.T) {
 	tests := []struct {
-		pattern string
-		version string
-		goos    string
-		goarch  string
-		want    string
+		goos   string
+		goarch string
+		want   string
 	}{
-		{
-			pattern: "buf-{OS}-{ARCH}.tar.gz",
-			version: "v1.66.1",
-			goos:    "linux",
-			goarch:  "amd64",
-			want:    "buf-Linux-x86_64.tar.gz",
-		},
-		{
-			pattern: "buf-{OS}-{ARCH}.tar.gz",
-			version: "v1.66.1",
-			goos:    "darwin",
-			goarch:  "arm64",
-			want:    "buf-Darwin-aarch64.tar.gz",
-		},
-		{
-			pattern: "oasdiff_{VERSION}_{os}_{arch}.tar.gz",
-			version: "v1.9.6",
-			goos:    "linux",
-			goarch:  "amd64",
-			want:    "oasdiff_1.9.6_linux_x86_64.tar.gz",
-		},
+		{"linux", "amd64", "buf-Linux-x86_64.tar.gz"},
+		{"linux", "arm64", "buf-Linux-aarch64.tar.gz"},
+		{"darwin", "amd64", "buf-Darwin-x86_64.tar.gz"},
+		{"darwin", "arm64", "buf-Darwin-arm64.tar.gz"},
+		{"windows", "amd64", "buf-Windows-x86_64.exe"},
+		{"windows", "arm64", "buf-Windows-arm64.exe"},
+		{"plan9", "amd64", ""},
+		{"linux", "mips", ""},
 	}
-
 	for _, tt := range tests {
-		t.Run(tt.want, func(t *testing.T) {
-			got := expandPattern(tt.pattern, tt.version, tt.goos, tt.goarch)
-			require.Equal(t, tt.want, got)
+		t.Run(tt.goos+"/"+tt.goarch, func(t *testing.T) {
+			require.Equal(t, tt.want, bufAssetName("v1.66.1", tt.goos, tt.goarch))
+		})
+	}
+}
+
+func TestOasdiffAssetName(t *testing.T) {
+	tests := []struct {
+		goos   string
+		goarch string
+		want   string
+	}{
+		{"linux", "amd64", "oasdiff_1.9.6_linux_amd64.tar.gz"},
+		{"linux", "arm64", "oasdiff_1.9.6_linux_arm64.tar.gz"},
+		{"darwin", "amd64", "oasdiff_1.9.6_darwin_all.tar.gz"},
+		{"darwin", "arm64", "oasdiff_1.9.6_darwin_all.tar.gz"},
+		{"windows", "amd64", "oasdiff_1.9.6_windows_amd64.tar.gz"},
+		{"windows", "arm64", "oasdiff_1.9.6_windows_arm64.tar.gz"},
+		{"linux", "mips", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.goos+"/"+tt.goarch, func(t *testing.T) {
+			require.Equal(t, tt.want, oasdiffAssetName("v1.9.6", tt.goos, tt.goarch))
 		})
 	}
 }

@@ -9,11 +9,44 @@ import (
 )
 
 // Token represents a cached GitHub OAuth token.
+//
+// GitHub Apps with token expiration enabled return expiring user tokens
+// (expires_in) plus a refresh token; the expiry/refresh fields are zero for
+// non-expiring tokens and for files written by older apx versions.
 type Token struct {
-	AccessToken string    `json:"access_token"`
-	TokenType   string    `json:"token_type,omitempty"`
-	Scope       string    `json:"scope,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
+	AccessToken           string    `json:"access_token"`
+	TokenType             string    `json:"token_type,omitempty"`
+	Scope                 string    `json:"scope,omitempty"`
+	CreatedAt             time.Time `json:"created_at"`
+	ExpiresIn             int64     `json:"expires_in,omitempty"`
+	RefreshToken          string    `json:"refresh_token,omitempty"`
+	RefreshTokenExpiresIn int64     `json:"refresh_token_expires_in,omitempty"`
+}
+
+// expirySkew re-authenticates slightly before the real deadline so a token
+// does not expire mid-command.
+const expirySkew = 60 * time.Second
+
+// Expired reports whether the access token is past its known lifetime.
+// Tokens without expiry metadata (non-expiring tokens, legacy cache files)
+// return false — callers should live-validate those instead.
+func (t *Token) Expired() bool {
+	if t.ExpiresIn <= 0 || t.CreatedAt.IsZero() {
+		return false
+	}
+	return time.Now().After(t.CreatedAt.Add(time.Duration(t.ExpiresIn)*time.Second - expirySkew))
+}
+
+// RefreshUsable reports whether the token carries a refresh token that is
+// still within its own lifetime.
+func (t *Token) RefreshUsable() bool {
+	if t.RefreshToken == "" {
+		return false
+	}
+	if t.RefreshTokenExpiresIn <= 0 || t.CreatedAt.IsZero() {
+		return true
+	}
+	return time.Now().Before(t.CreatedAt.Add(time.Duration(t.RefreshTokenExpiresIn)*time.Second - expirySkew))
 }
 
 // ConfigDir is the directory where apx stores cached credentials.

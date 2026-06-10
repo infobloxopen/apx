@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -202,18 +203,77 @@ func parseNextLink(header string) string {
 
 // --- EnsureToken: high-level helper ---
 
-// EnsureToken returns a valid access token for the given org, loading from
-// cache or triggering the device flow if needed.
+// TokenFromEnv returns a GitHub token from the environment, if set.
+// Checked in order: APX_GITHUB_TOKEN, GH_TOKEN, GITHUB_TOKEN. This is the
+// CI-friendly escape hatch — env tokens bypass the cache and device flow.
+func TokenFromEnv() string {
+	for _, name := range []string{"APX_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"} {
+		if v := os.Getenv(name); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// ValidateToken checks a token against the GitHub API. Returns false only
+// when GitHub definitively rejects it (401); network or other errors return
+// true so offline use is not blocked by the liveness check.
+func ValidateToken(token string) bool {
+	req, err := http.NewRequest("GET", APIBaseURL+"/user", nil)
+	if err != nil {
+		return true
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return true
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	return resp.StatusCode != http.StatusUnauthorized
+}
+
+// EnsureToken returns a valid access token for the given org: an environment
+// token if set, else the cached token (refreshed or re-acquired via device
+// flow when expired or rejected by GitHub).
 func EnsureToken(org string) (string, error) {
+	if t := TokenFromEnv(); t != "" {
+		return t, nil
+	}
+
 	tok, err := LoadToken(org)
 	if err != nil {
 		return "", fmt.Errorf("failed to load cached token: %w", err)
 	}
 	if tok != nil {
-		return tok.AccessToken, nil
+		valid := !tok.Expired()
+		if valid && tok.ExpiresIn <= 0 {
+			// No expiry metadata (non-expiring or legacy token) — ask GitHub.
+			valid = ValidateToken(tok.AccessToken)
+		}
+		if valid {
+			return tok.AccessToken, nil
+		}
+
+		// Expired or rejected: try the refresh grant before re-prompting.
+		if tok.RefreshUsable() {
+			if clientID, _ := ReadCache(org, "user-app-client-id"); clientID != "" {
+				if fresh, rerr := RefreshAccessToken(clientID, tok.RefreshToken); rerr == nil {
+					if err := SaveToken(org, fresh); err != nil {
+						return "", fmt.Errorf("failed to save refreshed token: %w", err)
+					}
+					return fresh.AccessToken, nil
+				}
+			}
+		}
+		// Stale beyond recovery — drop it so the device flow runs.
+		_ = ClearToken(org)
 	}
 
-	// No cached token — need to do device flow.
+	// No usable token — need to do device flow.
 	clientID, err := ReadCache(org, "user-app-client-id")
 	if err != nil {
 		return "", fmt.Errorf("failed to read client ID: %w", err)

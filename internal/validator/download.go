@@ -16,10 +16,11 @@ import (
 type toolSpec struct {
 	// Org/Repo on GitHub (e.g. "bufbuild/buf").
 	repo string
-	// archivePattern is a Go template-style pattern for the archive filename.
-	// Supported placeholders: {version}, {os}, {arch}.
-	// If empty, the tool is not downloadable.
-	archivePattern string
+	// assetName returns the release asset filename for a version/os/arch
+	// combination, or "" when that platform is not published. Asset naming
+	// is tool-specific (each project's release pipeline picks its own OS and
+	// arch spellings), so it cannot be derived from a shared pattern.
+	assetName func(version, goos, goarch string) string
 	// binaryName inside the archive. If empty, defaults to the tool name.
 	binaryName string
 }
@@ -27,57 +28,68 @@ type toolSpec struct {
 // toolRegistry maps tool names to their download specs.
 var toolRegistry = map[string]toolSpec{
 	"buf": {
-		repo:           "bufbuild/buf",
-		archivePattern: "buf-{OS}-{ARCH}.tar.gz",
-		binaryName:     "buf",
+		repo:       "bufbuild/buf",
+		assetName:  bufAssetName,
+		binaryName: "buf",
 	},
 	"oasdiff": {
-		repo:           "Tufin/oasdiff",
-		archivePattern: "oasdiff_{VERSION}_{os}_{arch}.tar.gz",
-		binaryName:     "oasdiff",
+		repo:       "Tufin/oasdiff",
+		assetName:  oasdiffAssetName,
+		binaryName: "oasdiff",
 	},
 }
 
-// normalizeOS returns the OS string used in release asset names.
-func normalizeOS(tool, goos string) string {
+// bufAssetName maps to buf's release assets: buf-{OS}-{arch}[.tar.gz|.exe].
+// buf spells arm64 as "aarch64" on Linux but "arm64" on Darwin/Windows, and
+// ships Windows binaries as bare .exe files rather than archives.
+func bufAssetName(_, goos, goarch string) string {
+	var osName string
 	switch goos {
 	case "darwin":
-		return "Darwin"
+		osName = "Darwin"
 	case "linux":
-		return "Linux"
+		osName = "Linux"
 	case "windows":
-		return "Windows"
+		osName = "Windows"
 	default:
-		return goos
+		return ""
 	}
-}
 
-// normalizeArch returns the architecture string used in release asset names.
-func normalizeArch(tool, goarch string) string {
+	var arch string
 	switch goarch {
 	case "amd64":
-		return "x86_64"
+		arch = "x86_64"
 	case "arm64":
-		return "aarch64"
+		arch = "arm64"
+		if goos == "linux" {
+			arch = "aarch64"
+		}
 	default:
-		return goarch
+		return ""
 	}
+
+	if goos == "windows" {
+		return fmt.Sprintf("buf-%s-%s.exe", osName, arch)
+	}
+	return fmt.Sprintf("buf-%s-%s.tar.gz", osName, arch)
 }
 
-// expandPattern replaces placeholders in an archive pattern.
-func expandPattern(pattern, version, goos, goarch string) string {
-	osTitle := normalizeOS("", goos)
-	archTitle := normalizeArch("", goarch)
-
-	r := strings.NewReplacer(
-		"{version}", strings.TrimPrefix(version, "v"),
-		"{VERSION}", strings.TrimPrefix(version, "v"),
-		"{os}", strings.ToLower(osTitle),
-		"{OS}", osTitle,
-		"{arch}", strings.ToLower(archTitle),
-		"{ARCH}", archTitle,
-	)
-	return r.Replace(pattern)
+// oasdiffAssetName maps to oasdiff's release assets:
+// oasdiff_{version}_{os}_{arch}.tar.gz with Go-style arch names, except
+// macOS which ships a single universal "darwin_all" binary.
+func oasdiffAssetName(version, goos, goarch string) string {
+	v := strings.TrimPrefix(version, "v")
+	switch goos {
+	case "darwin":
+		return fmt.Sprintf("oasdiff_%s_darwin_all.tar.gz", v)
+	case "linux", "windows":
+		if goarch != "amd64" && goarch != "arm64" {
+			return ""
+		}
+		return fmt.Sprintf("oasdiff_%s_%s_%s.tar.gz", v, goos, goarch)
+	default:
+		return ""
+	}
 }
 
 // cacheDir returns the directory where downloaded tools are cached.
@@ -114,7 +126,10 @@ func downloadTool(name, version string) (string, error) {
 
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
-	archive := expandPattern(spec.archivePattern, version, goos, goarch)
+	archive := spec.assetName(version, goos, goarch)
+	if archive == "" {
+		return "", fmt.Errorf("%s has no published release asset for %s/%s", name, goos, goarch)
+	}
 	url := fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", spec.repo, version, archive)
 
 	resp, err := http.Get(url)

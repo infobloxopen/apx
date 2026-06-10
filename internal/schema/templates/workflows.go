@@ -139,6 +139,80 @@ jobs:
 `, imageOrg)
 }
 
+// GenerateCanonicalReleaseFinalize generates
+// .github/workflows/release-finalize.yml for canonical repos. When a release
+// PR (branch apx/release/*) merges to main, it runs `apx release finalize`
+// in CI mode to re-validate the schema, cut the canonical release tag, and
+// emit the release record. The tag is what actually publishes the version
+// (Go modules resolve via the subdirectory tag); the catalog image is
+// rebuilt separately by the on-merge workflow.
+func GenerateCanonicalReleaseFinalize() string {
+	return `name: APX Release Finalize
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'apx/release/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APX_APP_ID }}
+          private-key: ${{ secrets.APX_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Install APX
+        uses: infobloxopen/apx@main
+
+      - name: Parse release coordinates
+        id: rel
+        env:
+          # Release PR titles are "release: <api-id>@<version>" (set by
+          # apx release submit). Parsed via env to avoid script injection.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          REST="${PR_TITLE#release: }"
+          echo "api=${REST%@*}" >> "$GITHUB_OUTPUT"
+          echo "version=${REST##*@}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure git identity
+        run: |
+          git config user.name "apx-release[bot]"
+          git config user.email "apx-release[bot]@users.noreply.github.com"
+
+      - name: Finalize release (tag + record)
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          apx release finalize \
+            --api "${{ steps.rel.outputs.api }}" \
+            --version "${{ steps.rel.outputs.version }}" \
+            --commit "${{ github.event.pull_request.merge_commit_sha }}" \
+            --skip-catalog
+
+      - name: Upload release record
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-record-${{ steps.rel.outputs.version }}
+          path: .apx-release-record.yaml
+`
+}
+
 // GenerateAppRelease generates .github/workflows/apx-release.yml for app
 // repos. On tag push matching the APX tag pattern it releases to canonical.
 func GenerateAppRelease(org, canonicalRepo string) string {

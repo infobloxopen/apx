@@ -153,6 +153,18 @@ func TestParseNextLink(t *testing.T) {
 func TestEnsureToken_CachedToken(t *testing.T) {
 	restore := withTempConfigDir(t)
 	defer restore()
+	t.Setenv("APX_GITHUB_TOKEN", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
+
+	// Tokens without expiry metadata are live-validated; stub GitHub accepting it.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	origAPI := APIBaseURL
+	APIBaseURL = srv.URL
+	defer func() { APIBaseURL = origAPI }()
 
 	// Pre-cache a token.
 	require.NoError(t, SaveToken("myorg", &Token{AccessToken: "cached-token"}))
@@ -165,6 +177,9 @@ func TestEnsureToken_CachedToken(t *testing.T) {
 func TestEnsureToken_NoClientID(t *testing.T) {
 	restore := withTempConfigDir(t)
 	defer restore()
+	t.Setenv("APX_GITHUB_TOKEN", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
 
 	_, err := EnsureToken("noorg")
 	assert.Error(t, err)
