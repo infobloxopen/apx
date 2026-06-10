@@ -131,9 +131,10 @@ func TestDeriveTag(t *testing.T) {
 		version string
 		want    string
 	}{
-		{"proto/payments/ledger/v1", "v1.0.0-alpha.1", "proto/payments/ledger/v1/v1.0.0-alpha.1"},
-		{"proto/payments/ledger/v1", "1.0.0-beta.1", "proto/payments/ledger/v1/v1.0.0-beta.1"},
+		{"proto/payments/ledger/v1", "v1.0.0-alpha.1", "proto/payments/ledger/v1.0.0-alpha.1"},
+		{"proto/payments/ledger/v1", "1.0.0-beta.1", "proto/payments/ledger/v1.0.0-beta.1"},
 		{"proto/payments/ledger/v2", "v2.0.0", "proto/payments/ledger/v2/v2.0.0"},
+		{"proto/iam/role/v0", "0.3.0", "proto/iam/role/v0.3.0"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.apiID+"@"+tt.version, func(t *testing.T) {

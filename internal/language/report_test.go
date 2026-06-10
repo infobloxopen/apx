@@ -28,7 +28,7 @@ func TestFormatIdentityReport_AllLanguages(t *testing.T) {
 	assert.Contains(t, report, "Format:     proto")
 	assert.Contains(t, report, "Source:     github.com/acme/apis/proto/payments/ledger/v1")
 	assert.Contains(t, report, "Release:    v1.0.0")
-	assert.Contains(t, report, "Tag:        proto/payments/ledger/v1/v1.0.0")
+	assert.Contains(t, report, "Tag:        proto/payments/ledger/v1.0.0")
 
 	// Language section — all 4 languages
 	assert.Contains(t, report, "Go module:  github.com/acme/apis/proto/payments/ledger")
