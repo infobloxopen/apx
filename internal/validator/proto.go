@@ -62,10 +62,19 @@ func (v *ProtoValidator) Breaking(path, against string) error {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}
 
-	// Convert git refs (e.g. HEAD~1, origin/main) to buf's .git#ref= format.
-	// If against is already a path or buf-style reference, leave it as-is.
+	// Convert git refs (HEAD~1, origin/main, release tags) to buf's
+	// .git#ref= form. Release tags routinely contain slashes
+	// (proto/payments/ledger/v1.0.0), so "contains a slash" cannot mean
+	// "is a path" — treat against as a path only when it exists on disk,
+	// and pin it to an absolute path since buf runs from the module root.
 	againstArg := against
-	if !strings.Contains(against, "/") || isGitRef(against) {
+	if strings.HasPrefix(against, ".git#") {
+		// already a buf-style reference — leave as-is
+	} else if _, statErr := os.Stat(against); statErr == nil {
+		if abs, absErr := filepath.Abs(against); absErr == nil {
+			againstArg = abs
+		}
+	} else {
 		againstArg = ".git#ref=" + against
 	}
 
@@ -194,17 +203,6 @@ func bufRootAndPath(absPath string) (root, rel string, err error) {
 		}
 		dir = parent
 	}
-}
-
-// isGitRef returns true if the string looks like a git ref (e.g. origin/main, HEAD~1).
-func isGitRef(s string) bool {
-	if strings.HasPrefix(s, "HEAD") {
-		return true
-	}
-	if strings.HasPrefix(s, "origin/") || strings.HasPrefix(s, "upstream/") {
-		return true
-	}
-	return false
 }
 
 // goPackageRe matches: option go_package = "path;alias"; or option go_package = "path";
