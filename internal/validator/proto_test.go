@@ -2,6 +2,7 @@ package validator
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -302,6 +303,67 @@ func TestBufRootAndPath(t *testing.T) {
 			t.Error("expected error when no buf workspace/module config is found")
 		}
 	})
+}
+
+// TestProtoValidator_Breaking_AgainstTagWithSlashes is the regression test
+// for release-tag refs: tags like proto/payments/ledger/v1.0.0 contain
+// slashes, and the old heuristic treated any slash-containing against as a
+// filesystem path, so buf targeted nothing and the check failed spuriously.
+func TestProtoValidator_Breaking_AgainstTagWithSlashes(t *testing.T) {
+	resolver := NewToolchainResolver()
+	if _, err := resolver.ResolveTool("buf", "v1.66.1"); err != nil {
+		t.Skipf("buf not resolvable: %v", err)
+	}
+
+	dir := t.TempDir()
+	run := func(args ...string) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "buf.yaml"),
+		[]byte("version: v2\nmodules:\n  - path: proto\nbreaking:\n  use:\n    - FILE\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	schemaDir := filepath.Join(dir, "proto", "payments", "ledger", "v1")
+	if err := os.MkdirAll(schemaDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	proto := `syntax = "proto3";
+
+package payments.ledger.v1;
+
+message Entry {
+  string id = 1;
+}
+`
+	if err := os.WriteFile(filepath.Join(schemaDir, "ledger.proto"), []byte(proto), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	run("init", "-q")
+	run("config", "user.name", "t")
+	run("config", "user.email", "t@t")
+	run("add", ".")
+	run("commit", "-qm", "v1")
+	run("tag", "proto/payments/ledger/v1.0.0") // release tag: contains slashes
+
+	v := NewProtoValidator(resolver)
+
+	// No changes since the tag — breaking must pass, which requires the
+	// slash-containing tag to be resolved as a git ref, not a path.
+	cwd, _ := os.Getwd()
+	defer os.Chdir(cwd) //nolint:errcheck
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := v.Breaking("proto/payments/ledger/v1", "proto/payments/ledger/v1.0.0"); err != nil {
+		t.Fatalf("Breaking against slash-containing tag failed: %v", err)
+	}
 }
 
 func TestBufTargetArgs(t *testing.T) {
