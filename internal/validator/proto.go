@@ -33,7 +33,21 @@ func (v *ProtoValidator) Lint(path string) error {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}
 
-	cmd := exec.Command(bufPath, "lint", absPath)
+	// buf v2 rejects a path contained by a module as a positional build input
+	// ("you must provide the workspace or module as the input, and filter to
+	// this path using --path"). Run buf from the workspace/module root and
+	// select the target schema dir with --path.
+	root, rel, err := bufRootAndPath(absPath)
+	if err != nil {
+		return err
+	}
+
+	args := []string{"lint"}
+	if rel != "." {
+		args = append(args, "--path", rel)
+	}
+	cmd := exec.Command(bufPath, args...)
+	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("buf lint failed: %w\nOutput: %s", err, string(output))
@@ -62,7 +76,19 @@ func (v *ProtoValidator) Breaking(path, against string) error {
 		againstArg = ".git#ref=" + against
 	}
 
-	cmd := exec.Command(bufPath, "breaking", absPath, "--against", againstArg)
+	// As with Lint, buf v2 needs the workspace/module as the input and the
+	// target selected via --path rather than a positional subdir input.
+	root, rel, err := bufRootAndPath(absPath)
+	if err != nil {
+		return err
+	}
+
+	args := []string{"breaking", "--against", againstArg}
+	if rel != "." {
+		args = append(args, "--path", rel)
+	}
+	cmd := exec.Command(bufPath, args...)
+	cmd.Dir = root
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("buf breaking failed: %w\nOutput: %s", err, string(output))
@@ -72,6 +98,36 @@ func (v *ProtoValidator) Breaking(path, against string) error {
 }
 
 // isGitRef returns true if the string looks like a git ref (e.g. origin/main, HEAD~1).
+// bufRootAndPath locates the buf workspace/module root at or above absPath
+// (the nearest ancestor directory containing buf.work.yaml or buf.yaml) and
+// returns that root together with absPath expressed relative to it (slash-
+// separated). buf v2 requires the workspace/module as the build input and
+// selects targets via --path, so a schema subdirectory contained by a module
+// cannot be passed as a positional input directly. When the schema dir is
+// itself the root, rel is "." and callers omit --path.
+func bufRootAndPath(absPath string) (root, rel string, err error) {
+	dir := absPath
+	if info, statErr := os.Stat(absPath); statErr != nil || !info.IsDir() {
+		dir = filepath.Dir(absPath)
+	}
+	for {
+		for _, name := range []string{"buf.work.yaml", "buf.work.yml", "buf.yaml", "buf.yml"} {
+			if _, statErr := os.Stat(filepath.Join(dir, name)); statErr == nil {
+				r, relErr := filepath.Rel(dir, absPath)
+				if relErr != nil {
+					return "", "", fmt.Errorf("computing path relative to buf root: %w", relErr)
+				}
+				return dir, filepath.ToSlash(r), nil
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", "", fmt.Errorf("no buf workspace/module config (buf.yaml or buf.work.yaml) found at or above %s", absPath)
+		}
+		dir = parent
+	}
+}
+
 func isGitRef(s string) bool {
 	if strings.HasPrefix(s, "HEAD") {
 		return true

@@ -238,3 +238,67 @@ func TestGlobProtoFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestBufRootAndPath(t *testing.T) {
+	// Workspace root holds buf.yaml; the schema lives in a nested module dir.
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "buf.yaml"), []byte("version: v2\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	schemaDir := filepath.Join(root, "proto", "infoblox", "authz", "v1")
+	if err := os.MkdirAll(schemaDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("subdir contained by module", func(t *testing.T) {
+		gotRoot, gotRel, err := bufRootAndPath(schemaDir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if gotRoot != root {
+			t.Errorf("root: got %q, want %q", gotRoot, root)
+		}
+		if want := "proto/infoblox/authz/v1"; gotRel != want {
+			t.Errorf("rel: got %q, want %q", gotRel, want)
+		}
+	})
+
+	t.Run("buf.work.yaml is also recognized", func(t *testing.T) {
+		wsRoot := t.TempDir()
+		if err := os.WriteFile(filepath.Join(wsRoot, "buf.work.yaml"), []byte("version: v1\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		sub := filepath.Join(wsRoot, "proto")
+		if err := os.MkdirAll(sub, 0755); err != nil {
+			t.Fatal(err)
+		}
+		gotRoot, gotRel, err := bufRootAndPath(sub)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if gotRoot != wsRoot || gotRel != "proto" {
+			t.Errorf("got (%q,%q), want (%q,%q)", gotRoot, gotRel, wsRoot, "proto")
+		}
+	})
+
+	t.Run("schema dir is itself the root", func(t *testing.T) {
+		_, gotRel, err := bufRootAndPath(root)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if gotRel != "." {
+			t.Errorf("rel: got %q, want %q", gotRel, ".")
+		}
+	})
+
+	t.Run("no buf config above path", func(t *testing.T) {
+		// A temp dir with no buf.yaml in it or (typically) any ancestor.
+		orphan := filepath.Join(t.TempDir(), "proto", "x", "v1")
+		if err := os.MkdirAll(orphan, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := bufRootAndPath(orphan); err == nil {
+			t.Error("expected error when no buf workspace/module config is found")
+		}
+	})
+}
