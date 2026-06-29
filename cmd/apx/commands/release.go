@@ -1076,6 +1076,15 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	// --- OpenAPI spec artifact ---
+	// Record the published OpenAPI spec so it appears in the release record and
+	// catalog, mirroring the go-module artifact above. The artifact name is the
+	// canonical path of the spec within the canonical repo (e.g.
+	// "openapi/payments/ledger/v1").
+	if manifest.Format == "openapi" {
+		record.AddArtifact("openapi-spec", manifest.CanonicalPath, manifest.RequestedVersion, "published")
+	}
+
 	// Transition to package-published (terminal success)
 	if err := manifest.SetState(publisher.StatePackagePublished); err != nil {
 		return err
