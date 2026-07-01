@@ -90,6 +90,14 @@ version: 1
 | `api_sources[].repo` | string | yes |  |  | Remote repository (e.g. github.com/org/repo) |
 | `api_sources[].import_mode` | string | no | `preserve` | preserve, rewrite | Import path handling |
 | `api_sources[].path_map` | map | no |  |  | API ID to source path mapping |
+| `clients` | list | no |  |  | Generated API client targets consumed by `apx client generate` |
+| `clients[].name` | string | no |  |  | Target id (e.g. web) |
+| `clients[].generator` | string | no | `typescript-angular` |  | Client generator name |
+| `clients[].scope` | string | no |  |  | npm scope (e.g. @example) |
+| `clients[].package` | string | no |  |  | Generated package name |
+| `clients[].spec` | string | no |  |  | OpenAPI spec path override |
+| `clients[].from` | string | no |  |  | api-id of an apx.lock dependency to source the spec from (unreleased override) |
+| `clients[].output` | string | no |  |  | Output directory |
 | `external_apis` | list | no |  |  | External API registrations |
 | `external_apis[].id` | string | yes |  |  | Canonical API identity (format/domain/name/line) |
 | `external_apis[].managed_repo` | string | yes |  |  | Internal repository hosting curated snapshots |
@@ -323,6 +331,24 @@ Each entry requires `repo`. Optional fields include `import_mode` (default: `pre
 Tags in the remote repository must follow the standard release pattern: `<format>/<domain>/<name>/<line>/v<semver>` (e.g. `proto/infoblox/authz/v1/v1.0.0`).
 
 Modules discovered from API sources have `origin: sourced` in the catalog to distinguish them from local first-party modules and external registrations.
+
+### `clients`
+
+Declares generated API client targets consumed by `apx client generate`. Each target names a generator, an npm scope, a package name, and (optionally) a spec source and output directory. The command turns an OpenAPI v3 spec into a packaged, buildable client by orchestrating an external generator (e.g. `ng-openapi-gen` for the `typescript-angular` generator) and emitting the npm package scaffolding around the generated sources.
+
+The spec source is either a local `spec` path or `from` — the api-id of an `apx.lock` dependency carrying an unreleased local/git override — which lets a client be generated from an in-development API before it is released.
+
+```yaml
+clients:
+  - name: web
+    generator: typescript-angular
+    scope: "@example"
+    package: notesd-client
+    spec: openapi/notesd.openapi.yaml
+    output: clients/web
+```
+
+All fields are optional. When `spec` is omitted the command falls back to the `--input` flag or auto-detects `openapi/*.openapi.yaml` in the repository. When `output` is omitted it defaults to the package name. Flags on `apx client generate` (`--input`, `--output`, `--scope`, `--package`, `--generator`, `--version`) override the target's values.
 
 ### `external_apis`
 

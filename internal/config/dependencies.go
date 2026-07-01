@@ -98,6 +98,53 @@ func (dm *DependencyManager) AddWithProvenance(modulePath, version string, prove
 	return nil
 }
 
+// AddWithOverride adds a dependency pinned to an unreleased override (a local
+// path or a git ref) rather than a released catalog version. The override
+// fields (Path/Git/GitRef) from ov are persisted into apx.lock; Repo/Modules
+// are populated as for a normal add, and Ref is set to "override" when the
+// caller left it empty so the lock entry reads clearly.
+//
+// This is additive: a caller that does not need an override should use Add /
+// AddWithProvenance, which are unchanged.
+func (dm *DependencyManager) AddWithOverride(modulePath string, ov DependencyLock) error {
+	if !ov.IsOverride() {
+		return fmt.Errorf("AddWithOverride called without an override (path or git) set")
+	}
+
+	if err := dm.addToConfig(modulePath); err != nil {
+		return fmt.Errorf("failed to update apx.yaml: %w", err)
+	}
+
+	lockFile, err := dm.loadLock()
+	if err != nil {
+		return fmt.Errorf("failed to load lock file: %w", err)
+	}
+
+	repo := dm.sourceRepo
+	if repo == "" {
+		repo = "github.com/<org>/<repo>"
+	}
+	ref := ov.Ref
+	if ref == "" {
+		ref = "override"
+	}
+	lock := DependencyLock{
+		Repo:    repo,
+		Ref:     ref,
+		Modules: []string{modulePath},
+		Path:    ov.Path,
+		Git:     ov.Git,
+		GitRef:  ov.GitRef,
+	}
+
+	lockFile.Dependencies[modulePath] = lock
+
+	if err := dm.saveLock(lockFile); err != nil {
+		return fmt.Errorf("failed to save lock file: %w", err)
+	}
+	return nil
+}
+
 // Remove removes a dependency
 func (dm *DependencyManager) Remove(modulePath string) error {
 	lockFile, err := dm.loadLock()

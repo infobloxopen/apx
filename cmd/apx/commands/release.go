@@ -18,6 +18,7 @@ import (
 	"github.com/infobloxopen/apx/internal/validator"
 	"github.com/infobloxopen/apx/pkg/githubauth"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 func newReleaseCmd() *cobra.Command {
@@ -78,7 +79,61 @@ Examples:
 	return cmd
 }
 
+// assertNoUnreleasedOverrides is the fail-closed CI drift gate. It loads
+// apx.lock and blocks the release if any dependency is pinned to an unreleased
+// override (a local --path or a --git ref). There is no bypass flag: the gate
+// is the guardrail that prevents an unreleased dependency from leaking into a
+// release. A missing apx.lock is not an override and does not trip the gate.
+func assertNoUnreleasedOverrides() error {
+	const lockPath = "apx.lock"
+	data, err := os.ReadFile(lockPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // No lock file → no dependencies → no override.
+		}
+		return fmt.Errorf("reading %s for release drift check: %w", lockPath, err)
+	}
+
+	var lockFile config.LockFile
+	if err := yaml.Unmarshal(data, &lockFile); err != nil {
+		return fmt.Errorf("parsing %s for release drift check: %w", lockPath, err)
+	}
+
+	var offenders []string
+	// Deterministic ordering for a stable, testable message.
+	ids := make([]string, 0, len(lockFile.Dependencies))
+	for id := range lockFile.Dependencies {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		dep := lockFile.Dependencies[id]
+		if !dep.IsOverride() {
+			continue
+		}
+		switch {
+		case dep.Path != "":
+			offenders = append(offenders, fmt.Sprintf("%s@path:%s", id, dep.Path))
+		default:
+			offenders = append(offenders, fmt.Sprintf("%s@git:%s#%s", id, dep.Git, dep.GitRef))
+		}
+	}
+
+	if len(offenders) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"release blocked: %d unreleased dependency override(s) present: %s. "+
+			"Replace with a released version (apx update / apx unlink) before releasing",
+		len(offenders), strings.Join(offenders, ", "))
+}
+
 func releasePrepareAction(cmd *cobra.Command, args []string) error {
+	if err := assertNoUnreleasedOverrides(); err != nil {
+		return err
+	}
+
 	apiID := args[0]
 	version, _ := cmd.Flags().GetString("version")
 	lifecycle, _ := cmd.Flags().GetString("lifecycle")
@@ -425,6 +480,10 @@ Examples:
 }
 
 func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
+	if err := assertNoUnreleasedOverrides(); err != nil {
+		return err
+	}
+
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	// Read manifest
@@ -832,6 +891,10 @@ func buildFinalizeManifest(cmd *cobra.Command, apiID, version string) (*publishe
 }
 
 func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
+	if err := assertNoUnreleasedOverrides(); err != nil {
+		return err
+	}
+
 	catalogPath, _ := cmd.Flags().GetString("catalog")
 	skipPackages, _ := cmd.Flags().GetBool("skip-packages")
 	skipCatalog, _ := cmd.Flags().GetBool("skip-catalog")
@@ -1295,6 +1358,13 @@ Examples:
 }
 
 func releasePromoteAction(cmd *cobra.Command, args []string) error {
+	// Fail fast: promote leads to submit/finalize, which are gated. Reject an
+	// active unreleased override here too so the user isn't sent on to a submit
+	// that will refuse.
+	if err := assertNoUnreleasedOverrides(); err != nil {
+		return err
+	}
+
 	apiID := args[0]
 	targetLifecycle, _ := cmd.Flags().GetString("to")
 	version, _ := cmd.Flags().GetString("version")

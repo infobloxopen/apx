@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -113,6 +114,66 @@ func TestAddDependency_SourceRepoInLock(t *testing.T) {
 	dep2 := lockFile2.Dependencies["proto/orders/v1"]
 	if dep2.Repo != "github.com/<org>/<repo>" {
 		t.Errorf("expected placeholder repo, got %s", dep2.Repo)
+	}
+}
+
+func TestAddWithOverride_PathAndGit(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "apx.yaml")
+	lockPath := filepath.Join(tmpDir, "apx.lock")
+	os.WriteFile(configPath, []byte("dependencies: []\n"), 0644)
+	os.WriteFile(lockPath, []byte("dependencies: {}\n"), 0644)
+
+	mgr := NewDependencyManager(configPath, lockPath, "github.com/acme/apis")
+
+	// Path override: empty Ref is recorded as "override".
+	if err := mgr.AddWithOverride("openapi/billing/invoices/v2", DependencyLock{Path: "../billing-api"}); err != nil {
+		t.Fatalf("path override add failed: %v", err)
+	}
+	lf, _ := mgr.loadLock()
+	dep := lf.Dependencies["openapi/billing/invoices/v2"]
+	if dep.Path != "../billing-api" {
+		t.Errorf("expected path ../billing-api, got %q", dep.Path)
+	}
+	if !dep.IsOverride() {
+		t.Error("expected IsOverride true for path override")
+	}
+	if dep.Ref != "override" {
+		t.Errorf("expected Ref 'override', got %q", dep.Ref)
+	}
+
+	// Git override.
+	if err := mgr.AddWithOverride("openapi/orders/v1", DependencyLock{Git: "github.com/acme/apis", GitRef: "feature-x"}); err != nil {
+		t.Fatalf("git override add failed: %v", err)
+	}
+	lf2, _ := mgr.loadLock()
+	dep2 := lf2.Dependencies["openapi/orders/v1"]
+	if dep2.Git != "github.com/acme/apis" || dep2.GitRef != "feature-x" {
+		t.Errorf("git override not persisted: %+v", dep2)
+	}
+	if !dep2.IsOverride() {
+		t.Error("expected IsOverride true for git override")
+	}
+
+	// apx.yaml records the bare dependency name for both.
+	cfgData, _ := os.ReadFile(configPath)
+	for _, want := range []string{"openapi/billing/invoices/v2", "openapi/orders/v1"} {
+		if !strings.Contains(string(cfgData), want) {
+			t.Errorf("apx.yaml missing dependency %q; got:\n%s", want, string(cfgData))
+		}
+	}
+}
+
+func TestAddWithOverride_RejectsNonOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "apx.yaml")
+	lockPath := filepath.Join(tmpDir, "apx.lock")
+	os.WriteFile(configPath, []byte("dependencies: []\n"), 0644)
+	os.WriteFile(lockPath, []byte("dependencies: {}\n"), 0644)
+
+	mgr := NewDependencyManager(configPath, lockPath, "github.com/acme/apis")
+	if err := mgr.AddWithOverride("openapi/x/v1", DependencyLock{Ref: "v1.0.0"}); err == nil {
+		t.Fatal("expected error when no override set")
 	}
 }
 
