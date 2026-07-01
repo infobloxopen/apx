@@ -4,12 +4,25 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
+
+// skipGitCloneOnWindows skips tests that clone from a local `file://` bare repo.
+// That URL form (backslashes / drive letters) is not portable to Windows, and
+// git's loose-object paths under a deep temp dir hit MAX_PATH there. Production
+// resolves real git URLs (exercised on linux/macOS); only this offline harness
+// is Windows-incompatible.
+func skipGitCloneOnWindows(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("local file:// bare-repo clone is not portable on Windows; production git URLs are covered on linux/macOS")
+	}
+}
 
 // --- DependencyLock YAML round-trip + IsOverride truth table ---------------
 
@@ -158,6 +171,7 @@ func gitCmd(t *testing.T, dir string, args ...string) {
 }
 
 func TestMaterializeSpec_Git_LocalBareRepo(t *testing.T) {
+	skipGitCloneOnWindows(t)
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
 	}
@@ -201,6 +215,7 @@ func TestMaterializeSpec_Git_LocalBareRepo(t *testing.T) {
 }
 
 func TestMaterializeSpec_Git_CommitSHAFallback(t *testing.T) {
+	skipGitCloneOnWindows(t)
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
 	}
