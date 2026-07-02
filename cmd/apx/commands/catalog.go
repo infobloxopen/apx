@@ -19,6 +19,7 @@ func newCatalogCmd() *cobra.Command {
 	cmd.AddCommand(newCatalogSearchCmd())
 	cmd.AddCommand(newCatalogShowCmd())
 	cmd.AddCommand(newCatalogGenerateCmd())
+	cmd.AddCommand(newCatalogResolveCmd())
 	cmd.AddCommand(newCatalogSiteCmd())
 	return cmd
 }
@@ -138,6 +139,16 @@ func catalogGenerateAction(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Index the AIP-122 resource types each proto module declares, read from
+	// the google.api.resource annotations already present in its protos. This
+	// is derived at generation time — no schema release, no manual entry.
+	// Only modules whose source dir exists on disk (the canonical repo being
+	// scanned) are indexed; remote/sourced modules keep whatever the source
+	// provided.
+	if err := indexResourceTypes(cat, dir); err != nil {
+		return fmt.Errorf("failed to index resource types: %w", err)
+	}
+
 	// Ensure output directory exists
 	if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
@@ -178,5 +189,27 @@ func catalogGenerateAction(cmd *cobra.Command, args []string) error {
 		ui.Info("  %s  %s  [%s]", m.ID, version, lifecycle)
 	}
 
+	return nil
+}
+
+// indexResourceTypes populates each proto module's ResourceTypes by scanning
+// the module's on-disk proto directory (repoDir/<module.Path>) for
+// google.api.resource annotations. Modules whose directory is absent (remote or
+// sourced) are left untouched. Only proto-format modules are scanned.
+func indexResourceTypes(cat *catalog.Catalog, repoDir string) error {
+	for i := range cat.Modules {
+		m := &cat.Modules[i]
+		if m.Format != "proto" || m.Path == "" {
+			continue
+		}
+		protoDir := filepath.Join(repoDir, filepath.FromSlash(m.Path))
+		types, err := catalog.ScanResourceTypes(protoDir)
+		if err != nil {
+			return fmt.Errorf("scanning %s: %w", m.DisplayName(), err)
+		}
+		if len(types) > 0 {
+			m.ResourceTypes = types
+		}
+	}
 	return nil
 }

@@ -85,6 +85,51 @@ $ apx --json show proto/payments/ledger/v1
 
 ---
 
+## `apx catalog resolve`
+
+Resolve an AIP-122 resource type (from a `google.api.resource_reference.type`, e.g. `iam.example.com/User`) to the catalog module that serves it, returning **path coordinates**: module ID, domain, API line, version, and lifecycle.
+
+```bash
+apx catalog resolve <resource-type>
+```
+
+apx resolves **type → module** only. The API path is derivable from the domain and API line; the concrete network **host** stays consumer/environment-supplied (apx is a schema catalog, not a service registry — the catalog carries no base-URL hint).
+
+Resolution **fails loud**:
+
+- an **unknown** type (no module serves it) exits non-zero with an error naming the type
+- an **ambiguous** type (more than one module claims it) exits non-zero, listing the claimants — apx never silently picks one
+
+A type that is **declared but has no serving surface** (a schema-only module) resolves successfully with a `no serving surface` warning; the consumer decides whether that is fatal. External/forked-imported types resolve to the **managing** module (`managed_repo`) so consumers call the curated surface.
+
+The `resource_types` index is derived at `apx catalog generate` time and travels inside the published OCI catalog artifact, so resolution from a registry/HTTP/aggregate source matches a local catalog.
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--catalog`, `-c` | string | (see search) | Path or URL to catalog file (default: `catalog_url` from `apx.yaml`, then `catalog/catalog.yaml`) |
+
+### Examples
+
+```bash
+$ apx catalog resolve iam.example.com/User
+Type:       iam.example.com/User
+Module:     proto/iam/user/v1
+Domain:     iam
+API line:   v1
+Version:    v1.2.3
+Lifecycle:  stable
+
+$ apx --json catalog resolve iam.example.com/User
+
+# Unknown type — non-zero exit
+$ apx catalog resolve iam.example.com/Ghost
+Error: unresolved resource reference: no module in the catalog serves type "iam.example.com/Ghost"
+```
+
+---
+
 ## `apx add`
 
 Add a schema dependency to `apx.yaml` and `apx.lock`.

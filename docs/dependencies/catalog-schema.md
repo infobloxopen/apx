@@ -1,6 +1,6 @@
 # Catalog Schema
 
-The `catalog/catalog.yaml` file is the organization-wide index of released API schemas. It is generated automatically by `apx catalog generate` (run by canonical CI on every merge) and consumed by `apx search`, `apx show`, `apx add`, `apx update`, and `apx upgrade`.
+The `catalog/catalog.yaml` file is the organization-wide index of released API schemas. It is generated automatically by `apx catalog generate` (run by canonical CI on every merge) and consumed by `apx search`, `apx show`, `apx add`, `apx update`, `apx upgrade`, and `apx catalog resolve`.
 
 ## Catalog File Structure
 
@@ -22,6 +22,8 @@ modules:
     path: proto/payments/ledger/v1
     tags: [payments, internal]
     owners: [payments-team]
+    resource_types:
+      - payments.acme.com/Ledger
 ```
 
 ## Top-Level Fields
@@ -74,6 +76,14 @@ Each entry in `modules` describes a single released API line.
 | `tags` | list of strings | Searchable tags (e.g. `["payments", "public"]`) |
 | `owners` | list of strings | Team or individual owners (e.g. `["payments-team"]`) |
 
+### Resource Types
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `resource_types` | list of strings | AIP-122 resource types the module declares (e.g. `iam.acme.com/User`) |
+
+`resource_types` is the index that `apx catalog resolve` reads to map a resource type to its serving module. It is **derived**, not entered by hand: during `apx catalog generate`, apx scans each proto module's directory for `option (google.api.resource) = { type: "..." }` annotations already present in the schema and records the types found. Modules with no such annotation (or non-proto formats) simply carry no `resource_types`. Because the index is derived from existing annotations, populating it requires **no schema release** and **no manual entry**.
+
 ### External API Provenance
 
 These fields are populated only for external and forked APIs (registered via `external_apis` in `apx.yaml`). First-party APIs leave them empty.
@@ -93,6 +103,7 @@ These fields are populated only for external and forked APIs (registered via `ex
 1. **Git tags** — tags matching `<format>/<domain>/<name>/<line>/v<semver>` are parsed to populate `version`, `latest_stable`, and `latest_prerelease`
 2. **Organization config** — `import_root` from `apx.yaml` is propagated into the catalog for downstream discovery
 3. **External API registrations** — `external_apis` entries in `apx.yaml` are merged in to add provenance fields
+4. **Resource-type annotations** — each proto module's directory is scanned for `google.api.resource` annotations to populate `resource_types` (see [Resource Types](#resource-types))
 
 The canonical CI workflow runs `apx catalog generate` on every merge to keep the catalog current.
 
