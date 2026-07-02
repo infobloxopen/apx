@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Go client generator (`apx client generate --generator go`)
+- A `go` client generator orchestrates [`oapi-codegen`](https://github.com/oapi-codegen/oapi-codegen)
+  to emit a typed, buildable Go module (client + models) from an OpenAPI v3 spec — the Go client the
+  devedge CLI and Terraform provider (WS-024) sit on. For this generator `--package` is the Go
+  **module path** and `--scope` is ignored.
+- New optional `Builder`/`Publisher` interfaces on `internal/client` (type-asserted, mirroring
+  `internal/language`): the go generator's `Builder` runs `go build`, its `Publisher` records a
+  `go-module` artifact honoring `--dry-run`. The `typescript-angular` npm build/publish path is
+  unchanged.
+- Generated Go types honor the enriched devedge-sdk contract (`enum`, `required`,
+  `readOnly`/`writeOnly`); unknown `x-aip-*` vendor extensions are ignored.
+
 ### Changed
 
 #### Single Canonical Import Root
