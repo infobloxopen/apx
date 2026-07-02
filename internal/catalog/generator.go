@@ -29,6 +29,10 @@ type Module struct {
 	Path             string   `yaml:"path"`
 	Tags             []string `yaml:"tags,omitempty"`
 	Owners           []string `yaml:"owners,omitempty"`
+	// ResourceTypes lists the AIP-122 resource types this module declares
+	// (read from google.api.resource annotations in its protos at catalog
+	// generation). It is the key that type→module resolution reads.
+	ResourceTypes []string `yaml:"resource_types,omitempty"`
 	// External API provenance fields (empty for first-party APIs)
 	Origin       string `yaml:"origin,omitempty"`        // "external" or "forked"
 	ManagedRepo  string `yaml:"managed_repo,omitempty"`  // internal curating repository

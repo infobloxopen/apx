@@ -1,0 +1,101 @@
+# Test apx catalog resolve — resource type -> serving module
+#
+# Verifies that:
+#  1. `apx catalog generate` indexes google.api.resource types per module
+#     (resource_types appears in catalog.yaml, no manual entry)
+#  2. `apx catalog resolve <type>` returns the serving module coordinates
+#  3. an unknown type fails loud
+#  4. an ambiguous type (two modules claiming it) fails loud, listing claimants
+
+# Setup: canonical repo with git history
+mkdir canonical
+cd canonical
+exec git init
+exec git config user.email 'test@test.com'
+exec git config user.name 'Test'
+exec apx init canonical --org=testorg --repo=apis --skip-git --non-interactive
+
+# Place annotated protos at the module directories (matching the tag identity)
+mkdir proto/iam/user/v1
+cp $WORK/user.proto proto/iam/user/v1/user.proto
+mkdir proto/billing/invoice/v1
+cp $WORK/invoice.proto proto/billing/invoice/v1/invoice.proto
+# Two modules that both declare the same type -> ambiguous
+mkdir proto/dup/a/v1
+cp $WORK/dup_a.proto proto/dup/a/v1/dup.proto
+mkdir proto/dup/b/v1
+cp $WORK/dup_b.proto proto/dup/b/v1/dup.proto
+
+exec git add -A
+exec git commit -m 'init'
+
+# Release tags so the modules land in the catalog
+exec git tag proto/iam/user/v1/v1.2.3
+exec git tag proto/billing/invoice/v1/v1.0.0
+exec git tag proto/dup/a/v1/v1.0.0
+exec git tag proto/dup/b/v1/v1.0.0
+
+# Generate: types are indexed from the annotations
+exec apx catalog generate --org=testorg --repo=apis
+exists catalog/catalog.yaml
+exec grep 'resource_types:' catalog/catalog.yaml
+exec grep 'iam.example.com/User' catalog/catalog.yaml
+exec grep 'billing.example.com/Invoice' catalog/catalog.yaml
+
+# Resolve a known type -> serving module coordinates
+exec apx catalog resolve --catalog catalog/catalog.yaml iam.example.com/User
+stdout 'proto/iam/user/v1'
+stdout 'v1.2.3'
+
+# Resolve as JSON
+exec apx --json catalog resolve --catalog catalog/catalog.yaml billing.example.com/Invoice
+stdout '"module_id": "proto/billing/invoice/v1"'
+
+# Unknown type fails loud
+! exec apx catalog resolve --catalog catalog/catalog.yaml iam.example.com/Ghost
+stderr 'iam.example.com/Ghost'
+
+# Ambiguous type fails loud, listing claimants
+! exec apx catalog resolve --catalog catalog/catalog.yaml dup.example.com/Thing
+stderr 'proto/dup/a/v1'
+stderr 'proto/dup/b/v1'
+
+-- user.proto --
+syntax = "proto3";
+package iam.user.v1;
+
+message User {
+  option (google.api.resource) = {
+    type: "iam.example.com/User"
+    pattern: "users/{user}"
+  };
+  string name = 1;
+}
+
+-- invoice.proto --
+syntax = "proto3";
+package billing.invoice.v1;
+
+message Invoice {
+  option (google.api.resource) = {
+    type: "billing.example.com/Invoice"
+    pattern: "invoices/{invoice}"
+  };
+  string id = 1;
+}
+
+-- dup_a.proto --
+syntax = "proto3";
+package dup.a.v1;
+
+message Thing {
+  option (google.api.resource) = { type: "dup.example.com/Thing" };
+}
+
+-- dup_b.proto --
+syntax = "proto3";
+package dup.b.v1;
+
+message Thing {
+  option (google.api.resource) = { type: "dup.example.com/Thing" };
+}
