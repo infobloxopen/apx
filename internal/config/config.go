@@ -30,6 +30,19 @@ type Config struct {
 	Languages         map[string]LanguageCoords `yaml:"languages,omitempty"`
 	ExternalAPIs      []ExternalRegistration    `yaml:"external_apis,omitempty"`
 	APISources        []APISource               `yaml:"api_sources,omitempty"`
+	Clients           []ClientTarget            `yaml:"clients,omitempty"`
+}
+
+// ClientTarget describes a generated API client target for `apx client generate`.
+// It is additive and optional: absent clients leave existing behavior unchanged.
+type ClientTarget struct {
+	Name      string `yaml:"name"`                // target id, e.g. "web"
+	Generator string `yaml:"generator,omitempty"` // default "typescript-angular"
+	Scope     string `yaml:"scope,omitempty"`     // npm scope, e.g. "@example"
+	Package   string `yaml:"package,omitempty"`   // package name
+	Spec      string `yaml:"spec,omitempty"`      // OpenAPI spec path (optional override)
+	Output    string `yaml:"output,omitempty"`    // output dir
+	From      string `yaml:"from,omitempty"`      // api-id of an apx.lock dependency to source the spec from (unreleased override)
 }
 
 // APIIdentity describes the canonical identity of an API.
@@ -143,6 +156,21 @@ type DependencyLock struct {
 	UpstreamRepo string   `yaml:"upstream_repo,omitempty"`
 	UpstreamPath string   `yaml:"upstream_path,omitempty"`
 	ImportMode   string   `yaml:"import_mode,omitempty"`
+
+	// Unreleased dependency overrides (WS-020 Phase 3). When either Path or Git
+	// is set the dependency is pinned to an UNRELEASED source (a local checkout
+	// or a git branch/fork) rather than a released catalog version. These are a
+	// local hot-loop convenience and are fail-closed at release time: the CI
+	// drift gate blocks any release while an override is present.
+	Path   string `yaml:"path,omitempty"`    // local dir override: read this dep's schema from here
+	Git    string `yaml:"git,omitempty"`     // git repo (URL or github.com/org/repo) override
+	GitRef string `yaml:"git_ref,omitempty"` // branch / tag / commit for Git
+}
+
+// IsOverride reports whether this dependency is pinned to an unreleased
+// override (a local path or a git ref) rather than a released catalog version.
+func (d DependencyLock) IsOverride() bool {
+	return d.Path != "" || d.Git != ""
 }
 
 // ErrorKind classifies the type of a validation error.

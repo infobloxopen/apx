@@ -475,6 +475,25 @@ func buildV1Schema() SchemaVersion {
 				},
 			},
 		},
+		"clients": {
+			Name:        "clients",
+			Type:        TypeList,
+			Description: "Generated API client targets consumed by 'apx client generate'",
+			ItemDef: &FieldDef{
+				Name:        "client_target",
+				Type:        TypeStruct,
+				Description: "A generated API client target",
+				Children: map[string]FieldDef{
+					"name":      {Name: "name", Type: TypeString, Description: "Target id (e.g. web)"},
+					"generator": {Name: "generator", Type: TypeString, Description: "Client generator name (default typescript-angular)"},
+					"scope":     {Name: "scope", Type: TypeString, Description: "npm scope (e.g. @example)"},
+					"package":   {Name: "package", Type: TypeString, Description: "Generated package name"},
+					"spec":      {Name: "spec", Type: TypeString, Description: "OpenAPI spec path override"},
+					"output":    {Name: "output", Type: TypeString, Description: "Output directory"},
+					"from":      {Name: "from", Type: TypeString, Description: "api-id of an apx.lock dependency to source the spec from (unreleased override)"},
+				},
+			},
+		},
 		"external_apis": {
 			Name:        "external_apis",
 			Type:        TypeList,
