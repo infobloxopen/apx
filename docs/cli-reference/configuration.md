@@ -350,6 +350,11 @@ clients:
 
 All fields are optional. When `spec` is omitted the command falls back to the `--input` flag or auto-detects `openapi/*.openapi.yaml` in the repository. When `output` is omitted it defaults to the package name. Flags on `apx client generate` (`--input`, `--output`, `--scope`, `--package`, `--generator`, `--version`) override the target's values.
 
+Available generators:
+
+- `typescript-angular` (default) — orchestrates `ng-openapi-gen`, emits an npm package; built/published with `npm`.
+- `go` — orchestrates [`oapi-codegen`](https://github.com/oapi-codegen/oapi-codegen), emits a buildable Go module (typed client + models). For this generator `--package` is the Go **module path** (e.g. `github.com/you/your-client`) and `--scope` is ignored. `apx client generate --generator go --build` compile-verifies with `go build`; `apx client publish --generator go` records a `go-module` release artifact (Go modules are published by git tag in their own repo). The generated types honor the enriched OpenAPI contract from devedge-sdk (`enum`, `required`, `readOnly`/`writeOnly`); `x-aip-*` vendor extensions are ignored by the tool.
+
 ### `external_apis`
 
 Registers third-party APIs for inclusion in the catalog and dependency system. See [External API Registration](../dependencies/external-apis.md) for full workflow documentation.

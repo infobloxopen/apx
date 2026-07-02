@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -174,7 +175,7 @@ func clientGenerateAction(cmd *cobra.Command, args []string) error {
 	}
 
 	if doBuild {
-		if err := buildClientPackage(res.PackageDir); err != nil {
+		if err := buildClient(cmd.Context(), gen, res); err != nil {
 			return fmt.Errorf("building client package: %w", err)
 		}
 	}
@@ -200,12 +201,23 @@ func clientPublishAction(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("generating client: %w", err)
 	}
 
-	// Publishing an npm package requires its build output (dist/), so always
-	// build before publishing.
-	if err := buildClientPackage(res.PackageDir); err != nil {
+	// Build first: a Builder-aware generator (e.g. go) compile-verifies; the npm
+	// path builds dist/ which `npm publish` needs.
+	if err := buildClient(cmd.Context(), gen, res); err != nil {
 		return fmt.Errorf("building client package: %w", err)
 	}
 
+	// A Publisher-aware generator owns its publish + artifact record (e.g. the go
+	// generator records a go-module artifact and documents the git-tag publish).
+	if p, ok := gen.(client.Publisher); ok {
+		return p.Publish(cmd.Context(), res, client.PublishOptions{
+			DryRun:     dryRun,
+			Version:    gc.PackageVersion,
+			RecordPath: recordPath,
+		})
+	}
+
+	// Default (npm) publish path — unchanged.
 	if err := publishClientPackage(res.PackageDir, dryRun); err != nil {
 		return fmt.Errorf("publishing client package: %w", err)
 	}
@@ -351,6 +363,16 @@ func defaultPackageName(specPath string) string {
 		base = "api"
 	}
 	return base + "-client"
+}
+
+// buildClient compile-verifies the generated package. A Builder-aware generator
+// (e.g. the go generator: `go mod tidy` + `go build`) supplies its own build;
+// generators without a Builder (e.g. typescript-angular) use the npm build path.
+func buildClient(ctx context.Context, gen client.Generator, res client.Result) error {
+	if b, ok := gen.(client.Builder); ok {
+		return b.Build(ctx, res)
+	}
+	return buildClientPackage(res.PackageDir)
 }
 
 // buildClientPackage runs npm install then npm run build in dir to prove the

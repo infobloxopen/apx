@@ -61,3 +61,47 @@ type Generator interface {
 	// Result describing what was written.
 	Generate(ctx context.Context, gc GenerateContext) (Result, error)
 }
+
+// Builder is an optional interface a Generator may implement to compile-verify
+// the package it emitted. When a resolved generator implements Builder, the
+// command layer calls Build instead of the default (npm) build path. This
+// mirrors the optional interfaces in internal/language (Scaffolder, PostGenHook,
+// …) that are consumed by type-assertion.
+//
+// A generator that does NOT implement Builder (e.g. typescript-angular) keeps
+// the existing npm build path unchanged.
+type Builder interface {
+	// Build compiles/verifies the package described by res (the Result from
+	// Generate). It returns a non-nil error if the package does not build; the
+	// command layer MUST NOT publish a package that failed to build.
+	Build(ctx context.Context, res Result) error
+}
+
+// PublishOptions carries the knobs a Publisher needs to publish (or dry-run) a
+// generated client package.
+type PublishOptions struct {
+	// DryRun validates/records without performing a real publish (default true
+	// at the command layer). It is the keystone bar: dry-run + artifact record
+	// require no write token.
+	DryRun bool
+
+	// Version is the package/module version being published (e.g. "0.1.0").
+	Version string
+
+	// RecordPath, when non-empty, is an apx release record to which the
+	// Publisher appends an artifact describing what it published.
+	RecordPath string
+}
+
+// Publisher is an optional interface a Generator may implement to publish the
+// package it emitted (and record the corresponding release artifact). When a
+// resolved generator implements Publisher, the command layer calls Publish
+// instead of the default (npm publish + npm-package artifact) path.
+//
+// A generator that does NOT implement Publisher (e.g. typescript-angular) keeps
+// the existing npm publish path unchanged.
+type Publisher interface {
+	// Publish publishes the package described by res, honoring opts.DryRun. When
+	// opts.RecordPath is set the Publisher appends its own artifact record.
+	Publish(ctx context.Context, res Result, opts PublishOptions) error
+}

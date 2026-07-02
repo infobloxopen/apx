@@ -1,0 +1,616 @@
+components:
+    schemas:
+        WidgetServiceArchiveWidgetBody:
+            description: 'AIP-136: custom method — archive a widget.'
+            type: object
+        WidgetServiceCancelWidgetOperationBody:
+            description: 'AIP-152: cancel a running long-running operation.'
+            type: object
+        WidgetServiceProcessWidgetBody:
+            description: 'AIP-151: long-running operation status for widget processing.'
+            type: object
+        protobufAny:
+            additionalProperties: {}
+            properties:
+                '@type':
+                    type: string
+            type: object
+        rpcStatus:
+            properties:
+                code:
+                    format: int32
+                    type: integer
+                details:
+                    items:
+                        $ref: '#/components/schemas/protobufAny'
+                    type: array
+                message:
+                    type: string
+            type: object
+        v1ArchiveWidgetResponse:
+            properties:
+                widget:
+                    $ref: '#/components/schemas/v1Widget'
+            type: object
+        v1BatchDeleteWidgetsRequest:
+            description: 'AIP-137: batch delete.'
+            properties:
+                ids:
+                    items:
+                        type: string
+                    type: array
+            type: object
+        v1BatchGetWidgetsResponse:
+            properties:
+                widgets:
+                    items:
+                        $ref: '#/components/schemas/v1Widget'
+                    type: array
+            type: object
+        v1BatchUpdateWidgetsRequest:
+            description: 'AIP-137: batch update — each request carries its own widget + update_mask.'
+            properties:
+                requests:
+                    items:
+                        $ref: '#/components/schemas/v1UpdateWidgetRequest'
+                    type: array
+            type: object
+        v1BatchUpdateWidgetsResponse:
+            properties:
+                widgets:
+                    items:
+                        $ref: '#/components/schemas/v1Widget'
+                    type: array
+            type: object
+        v1DeleteWidgetResponse:
+            type: object
+        v1ListWidgetsResponse:
+            properties:
+                nextPageToken:
+                    type: string
+                widgets:
+                    items:
+                        $ref: '#/components/schemas/v1Widget'
+                    type: array
+            type: object
+        v1OperationStatus:
+            properties:
+                done:
+                    type: boolean
+                name:
+                    type: string
+                result:
+                    type: string
+            type: object
+        v1UpdateWidgetRequest:
+            properties:
+                updateMask:
+                    items:
+                        type: string
+                    type: array
+                widget:
+                    $ref: '#/components/schemas/v1Widget'
+            type: object
+        v1Widget:
+            description: Widget is the resource managed by WidgetService.
+            properties:
+                archivedTime:
+                    description: 'AIP-136: set by ArchiveWidget; non-nil means the widget is archived.'
+                    format: date-time
+                    readOnly: true
+                    type: string
+                    x-aip-field-behavior:
+                        - OUTPUT_ONLY
+                category:
+                    description: category is a string-backed enum (allowed_values → OpenAPI enum, AC-4).
+                    enum:
+                        - standard
+                        - premium
+                    type: string
+                color:
+                    description: 'color is IMMUTABLE (explicit field_behavior): set at create, never updated.'
+                    type: string
+                    x-aip-field-behavior:
+                        - IMMUTABLE
+                deleteTime:
+                    description: 'AIP-148: soft-delete timestamp; set by Delete, cleared by Undelete.'
+                    format: date-time
+                    readOnly: true
+                    type: string
+                    x-aip-field-behavior:
+                        - OUTPUT_ONLY
+                displayName:
+                    description: display_name is client-REQUIRED (explicit field_behavior).
+                    type: string
+                    x-aip-field-behavior:
+                        - REQUIRED
+                etag:
+                    type: string
+                id:
+                    description: |-
+                        id is USER_SETTABLE (AIP-133): the annotation alone derives IMMUTABLE for the
+                        API contract (FR-A6 "annotate once") — no explicit field_behavior needed.
+                    type: string
+                    x-aip-field-behavior:
+                        - IMMUTABLE
+                name:
+                    description: name is the AIP-122 resource name, e.g. "widgets/abc123".
+                    readOnly: true
+                    type: string
+                    x-aip-field-behavior:
+                        - OUTPUT_ONLY
+                parentId:
+                    description: |-
+                        parent_id is a cross-service reference to another Widget (AIP-124). Widget is
+                        batch-fetchable (WidgetService serves BatchGetWidgets), so the reference
+                        resolves; surfaces as x-aip-references in the enriched OpenAPI (AC-5).
+                    type: string
+                    x-aip-references:
+                        type: toy.example.com/Widget
+                secretToken:
+                    description: |-
+                        secret_token is write-only material (secret → INPUT_ONLY): accepted on write,
+                        stripped from responses by middleware/redact (AC-3), writeOnly in OpenAPI.
+                    type: string
+                    writeOnly: true
+                    x-aip-field-behavior:
+                        - INPUT_ONLY
+                sku:
+                    description: |-
+                        sku is storage NOT NULL but NOT client-required — proving not_null is never
+                        mapped to REQUIRED (FM-4/AC-1).
+                    type: string
+                weight:
+                    format: int32
+                    type: integer
+            required:
+                - displayName
+            type: object
+            x-aip-resource:
+                key: id
+                pattern:
+                    - widgets/{widget}
+                type: toy.example.com/Widget
+info:
+    description: |-
+        Test fixture for protoc-gen-svc + protoc-gen-storage (W3-4 checkpoint).
+        This proto exercises both plugins: a resource message (Widget) and a service
+        (WidgetService) with authz annotations on all five standard AIP methods.
+    title: widgets.proto
+    version: version not set
+openapi: 3.0.3
+paths:
+    /v1/operations/{name}:
+        get:
+            operationId: WidgetService_GetOperationStatus
+            parameters:
+                - in: path
+                  name: name
+                  required: true
+                  schema:
+                    pattern: .+
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/v1OperationStatus'
+                    description: A successful response.
+                default:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/rpcStatus'
+                    description: An unexpected error response.
+            summary: 'AIP-151: poll the status of a previously submitted ProcessWidget operation.'
+            tags:
+                - WidgetService
+            x-aip-method: Custom
+    /v1/operations/{name}:cancel:
+        post:
+            operationId: WidgetService_CancelWidgetOperation
+            parameters:
+                - in: path
+                  name: name
+                  required: true
+                  schema:
+                    pattern: .+
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/WidgetServiceCancelWidgetOperationBody'
+                required: true
+                x-originalParamName: body
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/v1OperationStatus'
+                    description: A successful response.
+                default:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/rpcStatus'
+                    description: An unexpected error response.
+            summary: 'AIP-152: cancel a running ProcessWidget operation.'
+            tags:
+                - WidgetService
+            x-aip-method: Custom
+    /v1/widgets:
+        get:
+            operationId: WidgetService_ListWidgets
+            parameters:
+                - in: query
+                  name: pageSize
+                  schema:
+                    format: int32
+                    type: integer
+                - in: query
+                  name: pageToken
+                  schema:
+                    type: string
+                - description: 'AIP-148: include soft-deleted widgets when true.'
+                  in: query
+                  name: showDeleted
+                  schema:
+                    type: boolean
+                - description: 'AIP-157: fields to return; empty means all fields.'
+                  in: query
+                  name: readMask
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/v1ListWidgetsResponse'
+                    description: A successful response.
+                default:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/rpcStatus'
+                    description: An unexpected error response.
+            tags:
+                - WidgetService
+            x-aip-method: List
+            x-aip-pagination:
+                nextPageTokenField: nextPageToken
+                pageSizeParam: pageSize
+                pageTokenParam: pageToken
+        post:
+            operationId: WidgetService_CreateWidget
+            parameters:
+                - description: 'AIP-155: idempotency key; empty = no dedup.'
+                  in: query
+                  name: requestId
+                  schema:
+                    type: string
+                - description: 'AIP-163: dry-run; validate but do not persist.'
+                  in: query
+                  name: validateOnly
+                  schema:
+                    type: boolean
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/v1Widget'
+                required: true
+                x-originalParamName: widget
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/v1Widget'
+                    description: A successful response.
+                default:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/rpcStatus'
+                    description: An unexpected error response.
+            tags:
+                - WidgetService
+            x-aip-method: Create
+    /v1/widgets/{id}:
+        delete:
+            operationId: WidgetService_DeleteWidget
+            parameters:
+                - in: path
+                  name: id
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/v1DeleteWidgetResponse'
+                    description: A successful response.
+                default:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/rpcStatus'
+                    description: An unexpected error response.
+            tags:
+                - WidgetService
+            x-aip-method: Delete
+        get:
+            operationId: WidgetService_GetWidget
+            parameters:
+                - in: path
+                  name: id
+                  required: true
+                  schema:
+                    type: string
+                - description: 'AIP-157: fields to return; empty means all fields.'
+                  in: query
+                  name: readMask
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/v1Widget'
+                    description: A successful response.
+                default:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/rpcStatus'
+                    description: An unexpected error response.
+            tags:
+                - WidgetService
+            x-aip-method: Get
+    /v1/widgets/{id}:archive:
+        post:
+            operationId: WidgetService_ArchiveWidget
+            parameters:
+                - in: path
+                  name: id
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/WidgetServiceArchiveWidgetBody'
+                required: true
+                x-originalParamName: body
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/v1ArchiveWidgetResponse'
+                    description: A successful response.
+                default:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/rpcStatus'
+                    description: An unexpected error response.
+            summary: 'AIP-136: custom method — sets archived_time on the widget.'
+            tags:
+                - WidgetService
+            x-aip-method: Custom
+    /v1/widgets/{id}:process:
+        post:
+            operationId: WidgetService_ProcessWidget
+            parameters:
+                - in: path
+                  name: id
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/WidgetServiceProcessWidgetBody'
+                required: true
+                x-originalParamName: body
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/v1OperationStatus'
+                    description: A successful response.
+                default:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/rpcStatus'
+                    description: An unexpected error response.
+            summary: 'AIP-151: start async processing; returns a pending OperationStatus immediately.'
+            tags:
+                - WidgetService
+            x-aip-method: Custom
+    /v1/widgets/{widget.id}:
+        patch:
+            operationId: WidgetService_UpdateWidget
+            parameters:
+                - description: |-
+                    id is USER_SETTABLE (AIP-133): the annotation alone derives IMMUTABLE for the
+                    API contract (FR-A6 "annotate once") — no explicit field_behavior needed.
+                  in: path
+                  name: widget.id
+                  required: true
+                  schema:
+                    type: string
+                - in: query
+                  name: updateMask
+                  schema:
+                    items:
+                        type: string
+                    type: array
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            description: Widget is the resource managed by WidgetService.
+                            properties:
+                                archivedTime:
+                                    description: 'AIP-136: set by ArchiveWidget; non-nil means the widget is archived.'
+                                    format: date-time
+                                    readOnly: true
+                                    type: string
+                                category:
+                                    description: category is a string-backed enum (allowed_values → OpenAPI enum, AC-4).
+                                    type: string
+                                color:
+                                    description: 'color is IMMUTABLE (explicit field_behavior): set at create, never updated.'
+                                    type: string
+                                deleteTime:
+                                    description: 'AIP-148: soft-delete timestamp; set by Delete, cleared by Undelete.'
+                                    format: date-time
+                                    readOnly: true
+                                    type: string
+                                displayName:
+                                    description: display_name is client-REQUIRED (explicit field_behavior).
+                                    type: string
+                                etag:
+                                    type: string
+                                name:
+                                    description: name is the AIP-122 resource name, e.g. "widgets/abc123".
+                                    readOnly: true
+                                    type: string
+                                parentId:
+                                    description: |-
+                                        parent_id is a cross-service reference to another Widget (AIP-124). Widget is
+                                        batch-fetchable (WidgetService serves BatchGetWidgets), so the reference
+                                        resolves; surfaces as x-aip-references in the enriched OpenAPI (AC-5).
+                                    type: string
+                                secretToken:
+                                    description: |-
+                                        secret_token is write-only material (secret → INPUT_ONLY): accepted on write,
+                                        stripped from responses by middleware/redact (AC-3), writeOnly in OpenAPI.
+                                    type: string
+                                sku:
+                                    description: |-
+                                        sku is storage NOT NULL but NOT client-required — proving not_null is never
+                                        mapped to REQUIRED (FM-4/AC-1).
+                                    type: string
+                                weight:
+                                    format: int32
+                                    type: integer
+                            required:
+                                - displayName
+                            type: object
+                required: true
+                x-originalParamName: widget
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/v1Widget'
+                    description: A successful response.
+                default:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/rpcStatus'
+                    description: An unexpected error response.
+            tags:
+                - WidgetService
+            x-aip-method: Update
+    /v1/widgets:batchDelete:
+        post:
+            operationId: WidgetService_BatchDeleteWidgets
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/v1BatchDeleteWidgetsRequest'
+                description: 'AIP-137: batch delete.'
+                required: true
+                x-originalParamName: body
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                    description: A successful response.
+                default:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/rpcStatus'
+                    description: An unexpected error response.
+            summary: 'AIP-137: soft-delete multiple widgets atomically.'
+            tags:
+                - WidgetService
+            x-aip-method: Custom
+    /v1/widgets:batchGet:
+        get:
+            operationId: WidgetService_BatchGetWidgets
+            parameters:
+                - in: query
+                  name: ids
+                  schema:
+                    items:
+                        type: string
+                    type: array
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/v1BatchGetWidgetsResponse'
+                    description: A successful response.
+                default:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/rpcStatus'
+                    description: An unexpected error response.
+            summary: 'AIP-137: retrieve multiple widgets in one call.'
+            tags:
+                - WidgetService
+            x-aip-method: BatchGet
+    /v1/widgets:batchUpdate:
+        post:
+            operationId: WidgetService_BatchUpdateWidgets
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/v1BatchUpdateWidgetsRequest'
+                description: 'AIP-137: batch update — each request carries its own widget + update_mask.'
+                required: true
+                x-originalParamName: body
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/v1BatchUpdateWidgetsResponse'
+                    description: A successful response.
+                default:
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/rpcStatus'
+                    description: An unexpected error response.
+            summary: 'AIP-137: update multiple widgets atomically (each request carries its own update_mask).'
+            tags:
+                - WidgetService
+            x-aip-method: Custom
+tags:
+    - name: WidgetService
