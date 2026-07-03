@@ -556,7 +556,10 @@ func DefaultConfig() *Config {
 			AllowedProtoPlugins:   []string{"protoc-gen-go", "protoc-gen-go-grpc"},
 			OpenAPI: struct {
 				SpectralRuleset string `yaml:"spectral_ruleset,omitempty"`
-			}{SpectralRuleset: ".spectral.yaml"},
+			}{}, // no default ruleset: a hardcoded ".spectral.yaml" that no scaffold
+			//      creates made every fresh service's first `de api publish` fail
+			//      POLICY_FAILED (DX 065). Empty = the OpenAPI ruleset check is
+			//      skipped (policy.go); opt in by setting spectral_ruleset explicitly.
 			Avro: struct {
 				Compatibility string `yaml:"compatibility,omitempty"`
 			}{Compatibility: "BACKWARD"},
