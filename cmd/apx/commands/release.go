@@ -2,6 +2,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,6 +21,157 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
+
+// ---------------------------------------------------------------------------
+// ci_only release handling
+//
+// A canonical repo with `release.ci_only: true` (e.g. infobloxopen/apis) runs
+// `apx release finalize` in canonical CI via a GitHub App, not on a
+// contributor's machine: creating the protected version tag needs the app's
+// credentials and a tag-ruleset bypass a schema author usually can't see. The
+// helpers below make that boundary explicit — surfaced early at prepare/submit
+// and enforced with actionable guidance at finalize — instead of failing late
+// with an opaque CI error.
+// ---------------------------------------------------------------------------
+
+// ciAppName is the display name of the GitHub App that finalizes releases in
+// canonical CI. Used only in guidance messages.
+const ciAppName = "apx-release (canonical CI GitHub App)"
+
+// ciOnlyEnabled reports whether the loaded config marks this canonical repo as
+// ci_only (finalize runs in canonical CI, not locally).
+func ciOnlyEnabled(cfg *config.Config) bool {
+	return cfg != nil && cfg.Release.CIOnly
+}
+
+// runningInCI reports whether apx is executing inside a recognized CI system.
+// In CI, a ci_only finalize is expected to run (the GitHub App credentials and
+// tag-ruleset bypass live there), so the local guidance gate is not applied.
+func runningInCI() bool {
+	return os.Getenv("GITHUB_ACTIONS") == "true" ||
+		os.Getenv("GITLAB_CI") == "true" ||
+		os.Getenv("JENKINS_URL") != "" ||
+		os.Getenv("CI") == "true"
+}
+
+// ciOnlyPrereqLines returns the human-readable prerequisites that canonical CI
+// needs to finalize a release for a ci_only repo. Shared by the prepare/submit
+// preflight notice and the finalize fail-fast guidance so the two never drift.
+func ciOnlyPrereqLines() []string {
+	return []string{
+		fmt.Sprintf("the %s installed on the canonical org", ciAppName),
+		"org secrets APX_APP_ID and APX_APP_PRIVATE_KEY set for that app",
+		"a tag-ruleset bypass entry for the app so it can push the protected version tag",
+	}
+}
+
+// noticeCIOnlyPreflight prints an informational preflight notice during
+// prepare/submit for a ci_only repo. It is intentionally non-fatal: prepare and
+// submit are legitimate local steps that succeed. The notice makes the
+// otherwise-invisible CI prerequisites visible up front so the author is not
+// surprised by an opaque wall at finalize. The listed org-level prerequisites
+// (app install / secrets / ruleset bypass) cannot be verified with a
+// contributor's token, so they are surfaced rather than probed.
+func noticeCIOnlyPreflight(cfg *config.Config) {
+	if !ciOnlyEnabled(cfg) {
+		return
+	}
+	ui.Info("")
+	ui.Warning("This canonical repo is ci_only — 'apx release finalize' runs in canonical CI, not locally.")
+	ui.Info("After your release PR merges, canonical CI finalizes it. That requires:")
+	for _, line := range ciOnlyPrereqLines() {
+		ui.Info("  - %s", line)
+	}
+	ui.Info("To finalize from your machine instead, run 'apx release finalize --local' with a")
+	ui.Info("GitHub token that has contents:write on the canonical repo and a tag-ruleset bypass.")
+}
+
+// ciOnlyFinalizeGuidance builds the fail-fast error returned when a contributor
+// runs 'apx release finalize' locally against a ci_only repo without --local
+// and outside CI. It spells out the exact prerequisites and a copy-pasteable
+// fallback instead of silently attempting to push a protected tag.
+func ciOnlyFinalizeGuidance(manifest *publisher.ReleaseManifest) error {
+	var b strings.Builder
+	b.WriteString("finalize runs in canonical CI for this repo (release.ci_only: true) and is not completable locally by default.\n\n")
+	b.WriteString("Canonical CI finalizes the release after your PR merges. It needs:\n")
+	for _, line := range ciOnlyPrereqLines() {
+		b.WriteString("  - " + line + "\n")
+	}
+	b.WriteString("\nRecommended path (no local credentials needed):\n")
+	b.WriteString("  1. Get the release PR reviewed and merged.\n")
+	b.WriteString("  2. Canonical CI runs, on the merge commit:\n")
+	if manifest != nil && manifest.APIID != "" && manifest.RequestedVersion != "" {
+		b.WriteString(fmt.Sprintf("       apx release finalize --api %s --version %s\n", manifest.APIID, manifest.RequestedVersion))
+	} else {
+		b.WriteString("       apx release finalize --api <api-id> --version <version>\n")
+	}
+	b.WriteString("\nLocal fallback (only if you control the credentials): re-run with --local using a\n")
+	b.WriteString("GitHub token (GITHUB_TOKEN/GH_TOKEN) that has contents:write on the canonical repo\n")
+	b.WriteString("AND a tag-ruleset bypass for your identity, e.g.:\n")
+	if manifest != nil && manifest.APIID != "" && manifest.RequestedVersion != "" {
+		b.WriteString(fmt.Sprintf("  apx release finalize --local --api %s --version %s\n", manifest.APIID, manifest.RequestedVersion))
+	} else {
+		b.WriteString("  apx release finalize --local --api <api-id> --version <version>\n")
+	}
+	b.WriteString("Without those, --local will fail fast when it tries to push the protected tag —\n")
+	b.WriteString("it will not leave a half-finished release.")
+	return publisher.NewReleaseError(publisher.ErrCodePushFailed, b.String())
+}
+
+// tagModulePrefix extracts the module (tag) prefix from a release tag by
+// stripping a trailing "/v<semver>" version segment. It returns "" for tags
+// that do not look like release tags (e.g. a bare "v0.1.0" repo tag), so those
+// are ignored by drift detection.
+func tagModulePrefix(tag string) string {
+	idx := strings.LastIndex(tag, "/")
+	if idx < 0 {
+		return ""
+	}
+	prefix, ver := tag[:idx], tag[idx+1:]
+	if _, err := config.ParseSemVer(ver); err != nil {
+		return ""
+	}
+	return prefix
+}
+
+// catalogDriftFromTags returns the sorted set of module tag prefixes that have
+// at least one release tag but no corresponding catalog entry. It is the pure
+// core of drift detection (no git), so it is directly unit-testable.
+func catalogDriftFromTags(tags []string, cat *catalog.Catalog) []string {
+	known := map[string]bool{}
+	if cat != nil {
+		for _, mod := range cat.Modules {
+			id := mod.DisplayName()
+			if id == "" {
+				continue
+			}
+			known[config.DeriveTagPrefix(id)] = true
+		}
+	}
+	seen := map[string]bool{}
+	var drift []string
+	for _, tag := range tags {
+		prefix := tagModulePrefix(tag)
+		if prefix == "" || known[prefix] || seen[prefix] {
+			continue
+		}
+		seen[prefix] = true
+		drift = append(drift, prefix)
+	}
+	sort.Strings(drift)
+	return drift
+}
+
+// detectCatalogDrift lists all release tags in the repo and reports module
+// prefixes that are tagged but absent from the catalog.
+func detectCatalogDrift(repoPath string, cat *catalog.Catalog) []string {
+	tm := publisher.NewTagManager(repoPath, "")
+	tags, err := tm.ListTags("")
+	if err != nil || len(tags) == 0 {
+		return nil
+	}
+	return catalogDriftFromTags(tags, cat)
+}
 
 func newReleaseCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -447,6 +599,10 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 		ui.Info("Commit:      %s", manifest.SourceCommit)
 	}
 	ui.Info("Manifest:    .apx-release.yaml")
+
+	// Surface the CI finalize handoff early for ci_only canonical repos.
+	noticeCIOnlyPreflight(cfg)
+
 	ui.Info("")
 	ui.Info("Next step:   apx release submit")
 
@@ -599,6 +755,24 @@ func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
 
 	resp, err := publisher.SubmitReleaseWithPR(ghClient, manifest, snapshotDir, prBodyExtra)
 	if err != nil {
+		// Empty-PR / no-diff: the prepared snapshot matches canonical, so there
+		// is nothing to submit. Exit cleanly with a recommended next step
+		// instead of surfacing GitHub's opaque HTTP 422.
+		if errors.Is(err, publisher.ErrNoReleaseDiff) {
+			ui.Info("Nothing to release: the prepared snapshot for %s @ %s is identical to the canonical repo.",
+				manifest.APIID, manifest.RequestedVersion)
+			ui.Info("")
+			ui.Info("This usually means the content was already submitted or merged.")
+			if manifest.Tag != "" {
+				ui.Info("Next step: if the release tag %s does not exist yet, finalize it:", manifest.Tag)
+				if ciOnlyEnabled(cfg) {
+					ui.Info("  (ci_only repo) merge the release PR — canonical CI runs 'apx release finalize'.")
+				} else {
+					ui.Info("  apx release finalize --api %s --version %s", manifest.APIID, manifest.RequestedVersion)
+				}
+			}
+			return nil
+		}
 		manifest.Fail(string(publisher.ErrCodePRCreationFailed), err.Error(), "submit")
 		_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
 		return &publisher.ReleaseError{
@@ -646,6 +820,9 @@ func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
 	}
 	ui.Info("Branch:  %s", manifest.PRBranch)
 	ui.Info("Tag:     %s", manifest.Tag)
+
+	// Surface the CI finalize handoff for ci_only canonical repos.
+	noticeCIOnlyPreflight(cfg)
 
 	return nil
 }
@@ -830,6 +1007,7 @@ Examples:
 	cmd.Flags().String("version", "", "Version to finalize without a local manifest (CI mode; requires --api)")
 	cmd.Flags().String("lifecycle", "", "Lifecycle for CI mode (default: inferred from the version's prerelease)")
 	cmd.Flags().String("commit", "", "Commit to tag in CI mode (default: HEAD)")
+	cmd.Flags().Bool("local", false, "Run the CI-mode finalize locally for a ci_only repo (requires a token with contents:write and a tag-ruleset bypass)")
 	return cmd
 }
 
@@ -940,6 +1118,17 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 		).WithHint("Fix the issue and re-run the release pipeline")
 	default:
 		return fmt.Errorf("unexpected manifest state %q — expected 'submitted' or 'canonical-pr-open'", manifest.State)
+	}
+
+	// ci_only gate: for a canonical repo whose finalize runs in CI, fail fast
+	// with actionable guidance rather than opaquely attempting to push a
+	// protected tag from a contributor's machine. In CI (where the GitHub App
+	// credentials and ruleset bypass live) or when --local is passed
+	// explicitly, proceed.
+	localFinalize, _ := cmd.Flags().GetBool("local")
+	ciOnly := ciOnlyEnabled(cfg)
+	if ciOnly && !runningInCI() && !localFinalize {
+		return ciOnlyFinalizeGuidance(manifest)
 	}
 
 	repoPath, err := os.Getwd()
@@ -1062,6 +1251,21 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 			}
 		}
 		if err := tm.PushTag(manifest.Tag, ""); err != nil {
+			// For a ci_only (protected-tag) repo the pushed tag IS the release —
+			// downstream consumers cannot import until it lands. A push failure
+			// here means the credentials/ruleset bypass are missing, so fail loud
+			// with actionable guidance instead of leaving a local-only tag.
+			if ciOnly {
+				manifest.Fail(string(publisher.ErrCodePushFailed), err.Error(), "finalize")
+				_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
+				return &publisher.ReleaseError{
+					Code:    publisher.ErrCodePushFailed,
+					Message: fmt.Sprintf("pushing protected tag %s failed: %v", manifest.Tag, err),
+					Hint: "This ci_only repo protects version tags. The pushing identity needs " +
+						"contents:write on the canonical repo AND a tag-ruleset bypass. Normally " +
+						"canonical CI (the apx GitHub App) does this after the release PR merges.",
+				}
+			}
 			ui.Warning("Tag created locally but push failed: %v", err)
 		}
 	} else {
@@ -1126,6 +1330,19 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 			record.CatalogUpdated = true
 			record.CatalogPath = catalogPath
 			ui.Success("Catalog updated")
+		}
+
+		// Reconcile: surface catalog drift — modules whose tags exist in the
+		// repo but that have no catalog entry. Finalize already reconciled the
+		// current module above (find-or-create is idempotent); this reports any
+		// OTHER tagged-but-uncataloged modules so the drift is visible rather
+		// than silent (e.g. a tag created by a partial or earlier finalize).
+		if drift := detectCatalogDrift(repoPath, cat); len(drift) > 0 {
+			ui.Warning("Catalog drift: %d tagged module(s) missing from %s:", len(drift), catalogPath)
+			for _, p := range drift {
+				ui.Warning("  - %s (has release tag(s), no catalog entry)", p)
+			}
+			ui.Warning("Reconcile with 'apx catalog generate' or finalize each missing module.")
 		}
 	}
 

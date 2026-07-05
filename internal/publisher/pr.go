@@ -2,6 +2,7 @@ package publisher
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +11,13 @@ import (
 
 	"github.com/infobloxopen/apx/pkg/githubauth"
 )
+
+// ErrNoReleaseDiff signals that the prepared snapshot is byte-identical to the
+// canonical repo: after staging the snapshot there is nothing to commit, so
+// there is nothing to submit. Callers should treat this as a clean "nothing to
+// release" outcome rather than a failure — creating a PR from an empty diff is
+// what produces GitHub's opaque HTTP 422.
+var ErrNoReleaseDiff = errors.New("no diff between prepared snapshot and canonical repo")
 
 // ---------------------------------------------------------------------------
 // Canonical repo URL helpers
@@ -173,6 +181,13 @@ func SubmitReleaseWithPR(
 	// ── 5. git add + commit ──────────────────────────────────────────
 	if out, addErr := runGitIn(cloneDir, "add", "--all"); addErr != nil {
 		return nil, fmt.Errorf("git add: %s", out)
+	}
+
+	// Detect the empty-PR / no-diff case before pushing an empty branch and
+	// hitting GitHub's opaque HTTP 422 at PR creation. "git diff --cached
+	// --quiet" exits 0 (nil error) when nothing is staged.
+	if _, diffErr := runGitIn(cloneDir, "diff", "--cached", "--quiet"); diffErr == nil {
+		return nil, ErrNoReleaseDiff
 	}
 
 	commitMsg := fmt.Sprintf("release: %s@%s\n\nCreated by apx release submit",

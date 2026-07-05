@@ -210,11 +210,22 @@ func stubGit(t *testing.T, gitFn func(args ...string) (string, error)) {
 	}
 }
 
+// isDiffQuiet reports whether the git args are the "diff --cached --quiet"
+// no-diff probe. Real git exits non-zero from this command when changes are
+// staged, so a stub that simulates "there are changes" must return an error
+// for it — otherwise SubmitReleaseWithPR treats the release as empty.
+func isDiffQuiet(args []string) bool {
+	return len(args) == 3 && args[0] == "diff" && args[1] == "--cached" && args[2] == "--quiet"
+}
+
 func TestSubmitReleaseWithPR_BranchAndCommit(t *testing.T) {
 	// Track git commands to verify branch naming and commit message
 	var gitArgs [][]string
 	stubGit(t, func(args ...string) (string, error) {
 		gitArgs = append(gitArgs, args)
+		if isDiffQuiet(args) {
+			return "", fmt.Errorf("exit status 1") // staged changes present
+		}
 		return "", nil
 	})
 
@@ -284,6 +295,9 @@ func TestSubmitReleaseWithPR_BranchAndCommit(t *testing.T) {
 
 func TestSubmitReleaseWithPR_ExistingPR(t *testing.T) {
 	stubGit(t, func(args ...string) (string, error) {
+		if isDiffQuiet(args) {
+			return "", fmt.Errorf("exit status 1") // staged changes present
+		}
 		return "", nil
 	})
 
@@ -319,6 +333,9 @@ func TestSubmitReleaseWithPR_ExistingPR(t *testing.T) {
 
 func TestSubmitReleaseWithPR_WithCIProvenance(t *testing.T) {
 	stubGit(t, func(args ...string) (string, error) {
+		if isDiffQuiet(args) {
+			return "", fmt.Errorf("exit status 1") // staged changes present
+		}
 		return "", nil
 	})
 
@@ -355,4 +372,47 @@ func TestSubmitReleaseWithPR_WithCIProvenance(t *testing.T) {
 	require.NotNil(t, resp)
 	assert.Contains(t, capturedBody["body"], "CI")
 	assert.Contains(t, capturedBody["body"], "github-actions")
+}
+
+// TestSubmitReleaseWithPR_NoDiff verifies that when the prepared snapshot is
+// identical to canonical (nothing staged), submit returns ErrNoReleaseDiff and
+// never reaches PR creation — instead of pushing an empty branch and getting an
+// opaque HTTP 422.
+func TestSubmitReleaseWithPR_NoDiff(t *testing.T) {
+	var pushed, prCreated bool
+	stubGit(t, func(args ...string) (string, error) {
+		if len(args) >= 1 && args[0] == "push" {
+			pushed = true
+		}
+		// isDiffQuiet returns nil error here → no staged changes.
+		return "", nil
+	})
+
+	client, _ := setupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && r.URL.Path == "/repos/acme/apis/pulls" {
+			prCreated = true
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `[]`)
+	})
+
+	snapshotDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(snapshotDir, "test.proto"), []byte("proto"), 0o644))
+
+	manifest := &ReleaseManifest{
+		APIID:            "proto/test/v1",
+		RequestedVersion: "v1.0.0",
+		CanonicalRepo:    "github.com/acme/apis",
+		CanonicalPath:    "proto/test/v1",
+		SourceRepo:       "github.com/acme/app",
+		SourcePath:       "proto/test/v1",
+		Tag:              "proto/test/v1/v1.0.0",
+	}
+
+	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, "")
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	assert.ErrorIs(t, err, ErrNoReleaseDiff)
+	assert.False(t, pushed, "must not push an empty branch")
+	assert.False(t, prCreated, "must not create a PR from an empty diff")
 }

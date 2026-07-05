@@ -6,9 +6,31 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/publisher"
 	"github.com/infobloxopen/apx/internal/ui"
 )
+
+// ciOnlyConfigYAML is a minimal, schema-valid apx.yaml for a ci_only canonical
+// repo, used by the finalize ci_only gate tests.
+const ciOnlyConfigYAML = `version: 1
+org: acme
+repo: apis
+release:
+  tag_format: "{subdir}/v{version}"
+  ci_only: true
+`
+
+// clearCIEnv makes runningInCI() report false for the duration of a test so the
+// ci_only local guidance gate is exercised deterministically regardless of the
+// host CI environment.
+func clearCIEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("GITHUB_ACTIONS", "")
+	t.Setenv("GITLAB_CI", "")
+	t.Setenv("JENKINS_URL", "")
+	t.Setenv("CI", "")
+}
 
 func TestInferLifecycleFromVersion(t *testing.T) {
 	tests := []struct {
@@ -272,5 +294,138 @@ func TestFindDependents_NoCatalog(t *testing.T) {
 	}
 	if len(deps) != 0 {
 		t.Errorf("expected no dependents, got %v", deps)
+	}
+}
+
+// writeCIOnlySubmittedManifest sets up a tmp dir (as cwd) with a ci_only
+// apx.yaml and a submitted release manifest, returning the tmp dir.
+func writeCIOnlySubmittedManifest(t *testing.T) string {
+	t.Helper()
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "apx.yaml"), []byte(ciOnlyConfigYAML), 0o644); err != nil {
+		t.Fatalf("writing apx.yaml: %v", err)
+	}
+	m := &publisher.ReleaseManifest{
+		SchemaVersion:    "1",
+		State:            publisher.StateSubmitted,
+		APIID:            "proto/infoblox/field/v1",
+		Format:           "proto",
+		Domain:           "infoblox",
+		Name:             "field",
+		Line:             "v1",
+		RequestedVersion: "v1.0.0-alpha.2",
+		Tag:              "proto/infoblox/field/v1.0.0-alpha.2",
+		CanonicalRepo:    "github.com/acme/apis",
+		CanonicalPath:    "proto/infoblox/field/v1",
+	}
+	oldWd, _ := os.Getwd()
+	t.Cleanup(func() { os.Chdir(oldWd) })
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	if err := publisher.WriteManifest(m, ".apx-release.yaml"); err != nil {
+		t.Fatalf("writing manifest: %v", err)
+	}
+	return tmpDir
+}
+
+// TestReleaseFinalizeCmd_CIOnlyGuidance verifies that finalizing a ci_only repo
+// locally (no --local, not in CI) fails fast with actionable guidance naming
+// the exact prerequisites, instead of attempting to push a protected tag.
+func TestReleaseFinalizeCmd_CIOnlyGuidance(t *testing.T) {
+	clearCIEnv(t)
+	writeCIOnlySubmittedManifest(t)
+
+	var stdout strings.Builder
+	ui.SetOutput(&stdout)
+	defer ui.SetOutput(os.Stdout)
+
+	cmd := NewRootCmd("test")
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+	cmd.SetArgs([]string{"release", "finalize"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected ci_only finalize to fail fast with guidance")
+	}
+	msg := err.Error()
+	for _, want := range []string{"ci_only", "APX_APP_ID", "APX_APP_PRIVATE_KEY", "tag-ruleset bypass", "--local"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("guidance missing %q; got: %s", want, msg)
+		}
+	}
+	// It must include the CI-mode finalize command with the manifest coordinates.
+	if !strings.Contains(msg, "--api proto/infoblox/field/v1 --version v1.0.0-alpha.2") {
+		t.Errorf("guidance missing CI-mode finalize command; got: %s", msg)
+	}
+}
+
+// TestReleaseFinalizeCmd_CIOnlyLocalBypass verifies that --local bypasses the
+// ci_only guidance gate. The command then proceeds and fails elsewhere (there
+// is no git repo in the temp dir), but the error must NOT be the ci_only
+// guidance — proving the gate was bypassed.
+func TestReleaseFinalizeCmd_CIOnlyLocalBypass(t *testing.T) {
+	clearCIEnv(t)
+	writeCIOnlySubmittedManifest(t)
+
+	var stdout strings.Builder
+	ui.SetOutput(&stdout)
+	defer ui.SetOutput(os.Stdout)
+
+	cmd := NewRootCmd("test")
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+	cmd.SetArgs([]string{"release", "finalize", "--local"})
+
+	err := cmd.Execute()
+	if err != nil && strings.Contains(err.Error(), "APX_APP_ID") {
+		t.Errorf("--local should bypass the ci_only guidance gate; got guidance error: %v", err)
+	}
+}
+
+func TestTagModulePrefix(t *testing.T) {
+	tests := []struct {
+		tag  string
+		want string
+	}{
+		{"proto/infoblox/field/v1.0.0-alpha.2", "proto/infoblox/field"},
+		{"proto/payments/ledger/v2/v2.0.0", "proto/payments/ledger/v2"},
+		{"openapi/users/v1.1.0", "openapi/users"},
+		{"v0.15.0", ""}, // repo-level tag, not a module release tag
+		{"edge", ""},    // non-version tag
+		{"proto/x/notver", ""},
+	}
+	for _, tt := range tests {
+		if got := tagModulePrefix(tt.tag); got != tt.want {
+			t.Errorf("tagModulePrefix(%q) = %q, want %q", tt.tag, got, tt.want)
+		}
+	}
+}
+
+func TestCatalogDriftFromTags(t *testing.T) {
+	cat := &catalog.Catalog{
+		Version: 1,
+		Modules: []catalog.Module{
+			{ID: "proto/infoblox/authz/v1", Format: "proto"},
+			{ID: "proto/infoblox/storage/v1", Format: "proto"},
+		},
+	}
+	tags := []string{
+		"proto/infoblox/authz/v1.1.0",         // cataloged
+		"proto/infoblox/storage/v1.0.0",       // cataloged
+		"proto/infoblox/field/v1.0.0-alpha.2", // tagged but NOT cataloged → drift
+		"proto/infoblox/field/v1.0.0-alpha.1", // same module, dedup
+		"v0.15.0",                             // repo tag, ignored
+	}
+	drift := catalogDriftFromTags(tags, cat)
+	if len(drift) != 1 || drift[0] != "proto/infoblox/field" {
+		t.Fatalf("expected drift [proto/infoblox/field], got %v", drift)
+	}
+
+	// No drift when every tagged module is cataloged.
+	cat.Modules = append(cat.Modules, catalog.Module{ID: "proto/infoblox/field/v1", Format: "proto"})
+	if drift := catalogDriftFromTags(tags, cat); len(drift) != 0 {
+		t.Fatalf("expected no drift, got %v", drift)
 	}
 }

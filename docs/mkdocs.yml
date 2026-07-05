@@ -135,6 +135,7 @@ nav:
     - Overview: releasing/overview.md
     - Lifecycle: releasing/lifecycle.md
     - Canonical PR: releasing/canonical-pr.md
+    - CI-only Finalize: releasing/ci-only-finalize.md
     - Tagging Strategy: releasing/tagging-strategy.md
     - Release Guardrails: releasing/release-guardrails.md
     - Validation: releasing/validation.md
