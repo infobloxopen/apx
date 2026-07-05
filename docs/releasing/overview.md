@@ -111,6 +111,15 @@ The `--skip-packages` flag on `release finalize` controls whether Go module
 artifact metadata is _recorded_ in the release record — it does not build or
 publish packages to any registry.
 
+!!! note "`ci_only` repos: finalize runs in CI"
+    When the canonical repo sets `release.ci_only: true` (e.g.
+    `infobloxopen/apis`), `finalize` runs in **canonical CI**, not locally —
+    the version tag is protected and only the CI GitHub App can push it.
+    `prepare` and `submit` remain local and print a preflight notice of what CI
+    needs. See [CI-only Finalize](ci-only-finalize.md) for the full contributor
+    flow, prerequisites, the `--local` fallback, and downstream
+    tag-before-consume sequencing.
+
 ## The Release Pipeline
 
 APX provides one path to get an API into the canonical repository: the

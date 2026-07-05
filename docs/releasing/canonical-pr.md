@@ -102,7 +102,16 @@ Run `gh auth login` and follow the prompts.
 You need write access to the canonical repo.  Ask an org admin to grant
 you the **Write** or **Maintainer** role on the repo.
 
-### "no changes to release"
+### "Nothing to release" (no diff)
 
-The canonical repo already contains identical content for this module.
-Verify you have new changes to release.
+When the prepared snapshot is byte-identical to the canonical repo, `submit`
+exits cleanly with `Nothing to release: …` and a recommended next step, rather
+than pushing an empty branch and hitting an opaque GitHub `HTTP 422`. This
+usually means the content was already submitted or merged — proceed to
+`finalize` if the tag does not yet exist.
+
+### Finalize is CI-gated (`ci_only` repos)
+
+If the canonical repo sets `release.ci_only: true`, `finalize` runs in
+canonical CI, not locally. `submit` prints a preflight notice of the CI
+prerequisites. See [CI-only Finalize](ci-only-finalize.md).

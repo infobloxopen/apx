@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Release UX for `ci_only` canonical repos (#11)
+- `apx release finalize` now **detects `release.ci_only: true`** and, when run
+  locally (outside CI, without `--local`), fails fast with actionable guidance:
+  the exact CI prerequisites (the finalize GitHub App install, `APX_APP_ID` /
+  `APX_APP_PRIVATE_KEY` org secrets, and a tag-ruleset bypass for the app) and a
+  copy-pasteable CI-mode finalize command — instead of an opaque CI error.
+- New `apx release finalize --local` flag runs the CI-mode finalize from a
+  contributor's machine when they control the credentials. It never silently
+  pushes a protected tag: if the protected-tag push fails, finalize fails loudly
+  with guidance rather than leaving a local-only tag.
+- `apx release prepare` and `apx release submit` print a **preflight notice** on
+  `ci_only` repos so the CI finalize handoff and its prerequisites are visible up
+  front. (These org-level prerequisites cannot be probed with a contributor
+  token, so they are surfaced, not verified.)
+- `apx release submit` handles the **empty-PR / no-diff** case: when the prepared
+  snapshot matches canonical, it exits cleanly with `Nothing to release` and a
+  recommended next step instead of GitHub's opaque `HTTP 422`.
+- `apx release finalize` **surfaces catalog drift** — modules that have release
+  tags but no `catalog.yaml` entry — while idempotently reconciling the released
+  module's entry.
+- New docs: [CI-only Finalize](releasing/ci-only-finalize.md) documents the
+  end-to-end contributor flow, the CI handoff and prerequisites, the `--local`
+  fallback, and the downstream tag-before-consume sequencing (plus the `replace`
+  bridge for local development).
+
 #### Go client generator (`apx client generate --generator go`)
 - A `go` client generator orchestrates [`oapi-codegen`](https://github.com/oapi-codegen/oapi-codegen)
   to emit a typed, buildable Go module (client + models) from an OpenAPI v3 spec — the Go client the
