@@ -367,37 +367,72 @@ func (g *Generator) Search(query string) ([]Module, error) {
 
 // ---------- Tag-based catalog generation ----------
 
-// ParseReleaseTag parses a git tag matching `<format>/<domain>/<name>/<line>/v<semver>`
-// into an API ID and the version string. Returns ("", "") for non-matching tags.
-// Uses golang.org/x/mod/semver for robust semver validation including pre-releases,
-// build metadata, and proper precedence ordering per the semver 2.0.0 spec.
+// ParseReleaseTag parses a release git tag into an API ID and version string.
+// Returns ("", "") for non-matching tags. Uses golang.org/x/mod/semver for
+// robust semver validation including pre-releases, build metadata, and proper
+// precedence ordering per the semver 2.0.0 spec.
+//
+// It accepts the two tag shapes `apx release finalize` actually mints, which
+// differ because Go-module tag semantics drop the /v0 and /v1 major-version
+// suffix from a module path:
+//
+//   - line-present (v2+):  <format>/<domain>/<name>/<line>/v<semver>   (5 segments)
+//     e.g. "openapi/csp.infoblox.com/probe/v2/v2.0.0"
+//   - line-dropped (v0/v1): <format>/<domain>/<name>/v<semver>          (4 segments)
+//     e.g. "openapi/csp.infoblox.com/probe/v1.0.0"
+//
+// For the line-dropped form the API line is recovered from the version's major
+// (valid because the suffix is only dropped for major <= 1, where the release's
+// semver major equals its line). Before this accepted both shapes, every v0/v1
+// module minted by finalize was silently absent from the generated catalog.
 func ParseReleaseTag(tag string) (apiID string, version string) {
 	parts := strings.Split(tag, "/")
-	if len(parts) != 5 {
-		return "", ""
-	}
 
-	format := parts[0]
 	validFormats := map[string]bool{
 		"proto": true, "openapi": true, "avro": true,
 		"jsonschema": true, "parquet": true, "crd": true,
 	}
-	if !validFormats[format] {
+
+	switch len(parts) {
+	case 5:
+		// Line-present form: <format>/<domain>/<name>/<line>/v<semver>.
+		if !validFormats[parts[0]] {
+			return "", ""
+		}
+		if !isVersionLine(parts[3]) {
+			return "", ""
+		}
+		if !semver.IsValid(parts[4]) {
+			return "", ""
+		}
+		apiID = fmt.Sprintf("%s/%s/%s/%s", parts[0], parts[1], parts[2], parts[3])
+		return apiID, parts[4]
+
+	case 4:
+		// Line-dropped form: <format>/<domain>/<name>/v<semver>.
+		if !validFormats[parts[0]] {
+			return "", ""
+		}
+		// Reject the domainless line-present shape (<format>/<name>/<line>/v<semver>):
+		// catalog IDs are 4-part, domain-qualified (see detectAPIIdentity), so a
+		// version-line in the name position is not a supported catalog ID.
+		if isVersionLine(parts[2]) {
+			return "", ""
+		}
+		v := parts[3]
+		if !semver.IsValid(v) {
+			return "", ""
+		}
+		line := semver.Major(v) // "v0" or "v1" for a line-dropped tag
+		if line == "" {
+			return "", ""
+		}
+		apiID = fmt.Sprintf("%s/%s/%s/%s", parts[0], parts[1], parts[2], line)
+		return apiID, v
+
+	default:
 		return "", ""
 	}
-
-	line := parts[3]
-	if !isVersionLine(line) {
-		return "", ""
-	}
-
-	version = parts[4]
-	if !semver.IsValid(version) {
-		return "", ""
-	}
-
-	apiID = fmt.Sprintf("%s/%s/%s/%s", parts[0], parts[1], parts[2], parts[3])
-	return apiID, version
 }
 
 // isStableVersion returns true if the version has no pre-release suffix.
