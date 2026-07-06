@@ -18,6 +18,8 @@ func (g *goPlugin) Name() string { return "go" }
 func (g *goPlugin) Tier() int    { return 1 }
 
 // Available always returns true — Go is always available regardless of org.
+// (The crd format, which has no language bindings, is excluded centrally in
+// registry.Available.)
 func (g *goPlugin) Available(ctx DerivationContext) bool { return true }
 
 func (g *goPlugin) DeriveCoords(ctx DerivationContext) (config.LanguageCoords, error) {

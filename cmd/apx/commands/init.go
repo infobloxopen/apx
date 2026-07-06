@@ -27,7 +27,7 @@ SUBCOMMANDS:
   app       - Initialize an application repository with schema module
 
 MODULE INIT:
-  Supported kinds: proto, openapi, avro, jsonschema, parquet
+  Supported kinds: proto, openapi, avro, jsonschema, parquet, crd
   The command will interactively guide you through setup unless --non-interactive is used.
   If no arguments are provided, you'll be prompted to select the schema type and module path.`,
 		Args: cobra.MaximumNArgs(2),

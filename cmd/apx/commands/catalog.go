@@ -8,6 +8,7 @@ import (
 
 	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/ui"
+	"github.com/infobloxopen/apx/internal/validator"
 	"github.com/spf13/cobra"
 )
 
@@ -149,6 +150,12 @@ func catalogGenerateAction(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to index resource types: %w", err)
 	}
 
+	// Enrich CRD modules with their GVK and served/storage facts, read from the
+	// CRD manifest on disk (repoDir/<module.Path>). This makes a Kubernetes
+	// capability version-constrainable from the catalog. Modules whose directory
+	// is absent are left untouched.
+	indexCRDMetadata(cat, dir)
+
 	// Ensure output directory exists
 	if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
@@ -212,4 +219,28 @@ func indexResourceTypes(cat *catalog.Catalog, repoDir string) error {
 		}
 	}
 	return nil
+}
+
+// indexCRDMetadata populates each crd module's GVK and served/storage facts by
+// reading the CRD manifest at repoDir/<module.Path>. Modules whose directory is
+// absent (remote or sourced) are left untouched. Only crd-format modules are
+// scanned. Failures are non-fatal — a catalog entry without CRD facts still
+// resolves by ID.
+func indexCRDMetadata(cat *catalog.Catalog, repoDir string) {
+	for i := range cat.Modules {
+		m := &cat.Modules[i]
+		if m.Format != "crd" || m.Path == "" {
+			continue
+		}
+		crdDir := filepath.Join(repoDir, filepath.FromSlash(m.Path))
+		info, err := validator.ExtractCRDInfo(crdDir)
+		if err != nil {
+			continue
+		}
+		m.CRDGroup = info.Group
+		m.CRDKind = info.Kind
+		m.CRDScope = info.Scope
+		m.ServedVersions = info.ServedVersions
+		m.StorageVersion = info.StorageVersion
+	}
 }

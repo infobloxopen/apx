@@ -21,6 +21,7 @@ const (
 	FormatAvro       SchemaFormat = "avro"
 	FormatJSONSchema SchemaFormat = "jsonschema"
 	FormatParquet    SchemaFormat = "parquet"
+	FormatCRD        SchemaFormat = "crd"
 	FormatUnknown    SchemaFormat = "unknown"
 )
 
@@ -32,6 +33,7 @@ type Validator struct {
 	avroValidator    *AvroValidator
 	jsonValidator    *JSONSchemaValidator
 	parquetValidator *ParquetValidator
+	crdValidator     *CRDValidator
 }
 
 // NewValidator creates a new validator with the specified toolchain resolver
@@ -43,6 +45,7 @@ func NewValidator(resolver *ToolchainResolver) *Validator {
 		avroValidator:    NewAvroValidator(resolver),
 		jsonValidator:    NewJSONSchemaValidator(resolver),
 		parquetValidator: NewParquetValidator(resolver),
+		crdValidator:     NewCRDValidator(resolver),
 	}
 }
 
@@ -72,8 +75,15 @@ func detectFormatFromFile(path string) SchemaFormat {
 		return FormatOpenAPI
 	}
 	if ext == ".yaml" || ext == ".yml" || ext == ".json" {
-		// Could be OpenAPI, Avro, or JSON Schema - need more context
-		// For now, check directory structure
+		// Could be a CRD, OpenAPI, Avro, or JSON Schema. A CRD is
+		// recognizable by content (apiextensions.k8s.io + the CRD kind),
+		// so sniff the file before falling back to directory heuristics.
+		if ext == ".yaml" || ext == ".yml" {
+			if data, err := os.ReadFile(path); err == nil && LooksLikeCRD(data) {
+				return FormatCRD
+			}
+		}
+		// For non-CRD files, check directory structure.
 		dir := filepath.Dir(path)
 		if strings.Contains(dir, "openapi") {
 			return FormatOpenAPI
@@ -83,6 +93,9 @@ func detectFormatFromFile(path string) SchemaFormat {
 		}
 		if strings.Contains(dir, "jsonschema") {
 			return FormatJSONSchema
+		}
+		if strings.Contains(dir, "crd") {
+			return FormatCRD
 		}
 	}
 
@@ -143,6 +156,8 @@ func DetectFormatFromModuleRoots(roots []string) SchemaFormat {
 			f = FormatJSONSchema
 		case "parquet":
 			f = FormatParquet
+		case "crd", "crds":
+			f = FormatCRD
 		default:
 			continue
 		}
@@ -175,6 +190,8 @@ func (v *Validator) Lint(path string, format SchemaFormat) error {
 		return v.jsonValidator.Lint(path)
 	case FormatParquet:
 		return v.parquetValidator.Lint(path)
+	case FormatCRD:
+		return v.crdValidator.Lint(path)
 	default:
 		return fmt.Errorf("unsupported schema format for file: %s", path)
 	}
@@ -197,6 +214,8 @@ func (v *Validator) Breaking(path, against string, format SchemaFormat) error {
 		return v.jsonValidator.Breaking(path, against)
 	case FormatParquet:
 		return v.parquetValidator.Breaking(path, against)
+	case FormatCRD:
+		return v.crdValidator.Breaking(path, against)
 	default:
 		return fmt.Errorf("unsupported schema format for file: %s", path)
 	}

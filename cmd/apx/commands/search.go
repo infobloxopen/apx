@@ -40,7 +40,7 @@ Examples:
 		Args: cobra.MaximumNArgs(1),
 		RunE: searchAction,
 	}
-	cmd.Flags().StringP("format", "f", "", "Filter by schema format (proto, openapi, avro, jsonschema, parquet)")
+	cmd.Flags().StringP("format", "f", "", "Filter by schema format (proto, openapi, avro, jsonschema, parquet, crd)")
 	cmd.Flags().StringP("lifecycle", "l", "", "Filter by lifecycle (experimental, beta, stable, deprecated, sunset)")
 	cmd.Flags().StringP("domain", "d", "", "Filter by domain (e.g. payments, billing)")
 	cmd.Flags().String("api-line", "", "Filter by API line (e.g. v1, v2)")

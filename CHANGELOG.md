@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### `crd` schema format — catalog Kubernetes CRDs as versioned capabilities (WS-036)
+- A first-class **`crd`** format, alongside `proto`/`openapi`/`avro`/`jsonschema`/`parquet`.
+  A Kubernetes `CustomResourceDefinition` becomes a versioned, lint-checked,
+  breaking-analyzed, releasable, catalog-resolvable module — so a GVK is a
+  version-constrainable capability token.
+- **Detection** by content (`apiextensions.k8s.io/*` + `kind: CustomResourceDefinition`).
+- **Identity**: GVK maps to `crd/<group>/<kind>/<version>` (group = domain, kind = name,
+  CRD version = API line). One apx module per CRD version. Alpha/beta/GA maturity maps to
+  the experimental/beta/stable lifecycle; the K8s version major is the module's semver major.
+- **Lint**: Kubernetes structural-schema rules and CRD conventions on the embedded
+  `openAPIV3Schema` (root object, typed nodes, `x-kubernetes-preserve-unknown-fields` /
+  `x-kubernetes-int-or-string` escape hatches, single storage version, unique served versions).
+- **Breaking analysis**: a CRD-aware served-version compatibility checker (can't remove/narrow
+  a served field, add a required field, tighten a constraint, remove enum values, or drop
+  preserve-unknown-fields), with the Kubernetes rule that **alpha versions carry no
+  compatibility guarantee**. Feeds `apx semver`. This is not raw oasdiff.
+- **Release + catalog**: CRD modules flow through `release prepare/submit/finalize` and appear
+  in `catalog generate/show/search/inspect`; catalog entries carry `crd_group`, `crd_kind`,
+  `crd_scope`, `served_versions`, and `storage_version`. `apx init crd` scaffolds a starter CRD.
+- Codegen stays out of apx: `controller-gen`/`kubebuilder` author CRDs; apx lifecycles them.
+
 #### Release UX for `ci_only` canonical repos (#11)
 - `apx release finalize` now **detects `release.ci_only: true`** and, when run
   locally (outside CI, without `--local`), fails fast with actionable guidance:

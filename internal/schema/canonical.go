@@ -43,6 +43,7 @@ func (s *CanonicalScaffolder) Generate(targetDir string) error {
 		"avro",
 		"jsonschema",
 		"parquet",
+		"crd",
 		"catalog",
 		".github/workflows",
 	}

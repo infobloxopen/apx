@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -19,12 +20,12 @@ func ParseAPIID(apiID string) (*APIIdentity, error) {
 
 	validFormats := map[string]bool{
 		"proto": true, "openapi": true, "avro": true,
-		"jsonschema": true, "parquet": true,
+		"jsonschema": true, "parquet": true, "crd": true,
 	}
 
 	format := parts[0]
 	if !validFormats[format] {
-		return nil, fmt.Errorf("invalid API format %q: must be one of proto, openapi, avro, jsonschema, parquet", format)
+		return nil, fmt.Errorf("invalid API format %q: must be one of proto, openapi, avro, jsonschema, parquet, crd", format)
 	}
 
 	var domain, name, line string
@@ -48,32 +49,43 @@ func ParseAPIID(apiID string) (*APIIdentity, error) {
 	}, nil
 }
 
-// isValidLine checks that a line string matches v<N> where N >= 0.
-// v0 lines are allowed for experimental/beta APIs.
+// k8sLineRe matches a Kubernetes-style API version line: v<major> with an
+// optional alpha/beta maturity suffix (e.g. v1alpha1, v2beta3). It is used by
+// the crd format, whose API line is the CRD version name. Plain v<N> lines
+// (all other formats) are handled directly by strconv.
+var k8sLineRe = regexp.MustCompile(`^v([1-9][0-9]*)(?:(?:alpha|beta)[1-9][0-9]*)?$`)
+
+// isValidLine checks that a line string is a valid API line. It accepts the
+// canonical v<N> form (N >= 0, used by proto/openapi/avro/…) and the
+// Kubernetes v<major>[alpha|beta<n>] form (used by the crd format).
 func isValidLine(line string) bool {
 	if !strings.HasPrefix(line, "v") {
 		return false
 	}
-	n, err := strconv.Atoi(line[1:])
-	if err != nil || n < 0 {
-		return false
+	if n, err := strconv.Atoi(line[1:]); err == nil && n >= 0 {
+		return true
 	}
-	return true
+	return k8sLineRe.MatchString(line)
 }
 
-// LineMajor returns the major version number from a line string (e.g. "v1" → 1, "v0" → 0).
+// LineMajor returns the major version number from a line string
+// (e.g. "v1" → 1, "v0" → 0, and the Kubernetes forms "v1alpha1" → 1,
+// "v2beta3" → 2).
 func LineMajor(line string) (int, error) {
 	if !strings.HasPrefix(line, "v") {
 		return 0, fmt.Errorf("line %q must start with 'v'", line)
 	}
-	n, err := strconv.Atoi(line[1:])
-	if err != nil {
-		return 0, fmt.Errorf("line %q is not a valid version: %w", line, err)
+	if n, err := strconv.Atoi(line[1:]); err == nil {
+		if n < 0 {
+			return 0, fmt.Errorf("line major version must be >= 0, got %d", n)
+		}
+		return n, nil
 	}
-	if n < 0 {
-		return 0, fmt.Errorf("line major version must be >= 0, got %d", n)
+	if m := k8sLineRe.FindStringSubmatch(line); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		return n, nil
 	}
-	return n, nil
+	return 0, fmt.Errorf("line %q is not a valid version", line)
 }
 
 // IsV0Line returns true if the line represents a v0 (unstable) API line.
@@ -212,6 +224,12 @@ func ValidateGoPackage(goPackage string, expectedImport string) error {
 //   - For v2+: <format>/<domain>/<name>/v<N>   (module root = package dir, includes major version suffix)
 func DeriveGoModDir(api *APIIdentity) string {
 	base := path.Join(api.Format, api.Domain, api.Name)
+	// CRD modules are one-per-version and are not Go modules. Their tag prefix
+	// keeps the full Kubernetes version segment (e.g. crd/g/k/v1alpha1) so each
+	// version is an independently taggable, catalog-resolvable module.
+	if api.Format == "crd" {
+		return path.Join(base, api.Line)
+	}
 	major, err := LineMajor(api.Line)
 	if err != nil || major <= 1 {
 		return base

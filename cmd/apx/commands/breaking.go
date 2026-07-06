@@ -19,7 +19,7 @@ func newBreakingCmd() *cobra.Command {
 		RunE:  breakingAction,
 	}
 	cmd.Flags().String("against", "", "git reference or path to compare against (required)")
-	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet)")
+	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet, crd)")
 	return cmd
 }
 
