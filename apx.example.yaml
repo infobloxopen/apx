@@ -8,6 +8,7 @@ module_roots:
   - avro
   - jsonschema
   - parquet
+  - crd
 
 # Canonical API identity (optional — populated per API module)
 # api:

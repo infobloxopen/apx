@@ -50,7 +50,15 @@ func All() []LanguagePlugin {
 
 // Available returns plugins that are available for the given context,
 // sorted in display order.
+//
+// No language plugin is available for the crd format: apx lifecycles a
+// Kubernetes CustomResourceDefinition, it does not generate language bindings
+// for it (controller-gen/kubebuilder own that). So a CRD module carries no Go
+// module, npm package, Maven artifact, etc. — deriving them would be bogus.
 func Available(ctx DerivationContext) []LanguagePlugin {
+	if ctx.API != nil && ctx.API.Format == "crd" {
+		return nil
+	}
 	all := All()
 	result := make([]LanguagePlugin, 0, len(all))
 	for _, p := range all {

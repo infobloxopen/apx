@@ -29,7 +29,7 @@ func NewInitializer() *Initializer {
 // Initialize creates a new schema module
 func (i *Initializer) Initialize(opts InitOptions) error {
 	// Validate kind
-	validKinds := []string{"proto", "openapi", "avro", "jsonschema", "parquet"}
+	validKinds := []string{"proto", "openapi", "avro", "jsonschema", "parquet", "crd"}
 	if !contains(validKinds, opts.Kind) {
 		return fmt.Errorf("invalid kind '%s'. Supported kinds: %v", opts.Kind, validKinds)
 	}
@@ -228,6 +228,8 @@ func getSchemaFileName(kind string) string {
 		return "example.json"
 	case "parquet":
 		return "example.parquet.schema"
+	case "crd":
+		return "example.crd.yaml"
 	default:
 		return "example.schema"
 	}
@@ -361,6 +363,44 @@ components:
   required binary name (UTF8);
   optional int64 timestamp;
 }`
+
+	case "crd":
+		// A minimal, structurally-valid starter CRD. apx lifecycles CRDs; the
+		// authored CRD is normally produced by controller-gen/kubebuilder — edit
+		// or replace this with your generated manifest.
+		return `apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: widgets.example.com
+spec:
+  group: example.com
+  names:
+    kind: Widget
+    listKind: WidgetList
+    plural: widgets
+    singular: widget
+  scope: Namespaced
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                size:
+                  type: integer
+              required:
+                - size
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+`
 
 	default:
 		return "# Example schema content"

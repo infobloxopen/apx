@@ -5,9 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
+	"github.com/infobloxopen/apx/internal/validator"
 	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
 )
@@ -33,6 +35,13 @@ type Module struct {
 	// (read from google.api.resource annotations in its protos at catalog
 	// generation). It is the key that type→module resolution reads.
 	ResourceTypes []string `yaml:"resource_types,omitempty"`
+	// CRD facts (populated for the crd format at catalog generation). They make
+	// a Kubernetes GVK a first-class, version-constrainable capability token.
+	CRDGroup       string   `yaml:"crd_group,omitempty"`
+	CRDKind        string   `yaml:"crd_kind,omitempty"`
+	CRDScope       string   `yaml:"crd_scope,omitempty"`
+	ServedVersions []string `yaml:"served_versions,omitempty"`
+	StorageVersion string   `yaml:"storage_version,omitempty"`
 	// External API provenance fields (empty for first-party APIs)
 	Origin       string `yaml:"origin,omitempty"`        // "external" or "forked"
 	ManagedRepo  string `yaml:"managed_repo,omitempty"`  // internal curating repository
@@ -160,6 +169,12 @@ func DetectFormat(path string) string {
 	case ".parquet":
 		return "parquet"
 	case ".yaml", ".yml", ".json":
+		// A CRD is recognizable by content, so sniff before dir heuristics.
+		if ext == ".yaml" || ext == ".yml" {
+			if data, err := os.ReadFile(path); err == nil && validator.LooksLikeCRD(data) {
+				return "crd"
+			}
+		}
 		if strings.Contains(dir, "openapi") {
 			return "openapi"
 		}
@@ -168,6 +183,9 @@ func DetectFormat(path string) string {
 		}
 		if strings.Contains(dir, "avro") {
 			return "avro"
+		}
+		if strings.Contains(dir, "crd") {
+			return "crd"
 		}
 		return "unknown"
 	}
@@ -219,6 +237,17 @@ func (g *Generator) ScanDirectory(dir string) ([]Module, error) {
 				APILine: apiLine,
 				Path:    filepath.Dir(relPath),
 			}
+			// Enrich CRD modules with their GVK and served/storage facts so a
+			// Kubernetes capability is version-constrainable from the catalog.
+			if format == "crd" {
+				if info, infoErr := validator.ExtractCRDInfo(path); infoErr == nil {
+					module.CRDGroup = info.Group
+					module.CRDKind = info.Kind
+					module.CRDScope = info.Scope
+					module.ServedVersions = info.ServedVersions
+					module.StorageVersion = info.StorageVersion
+				}
+			}
 			modules = append(modules, module)
 		} else {
 			// Legacy: no identity detected, use file-level entry
@@ -248,7 +277,7 @@ func detectAPIIdentity(relPath string) (string, string, string) {
 	format := parts[0]
 	validFormats := map[string]bool{
 		"proto": true, "openapi": true, "avro": true,
-		"jsonschema": true, "parquet": true,
+		"jsonschema": true, "parquet": true, "crd": true,
 	}
 	if !validFormats[format] {
 		return "", "", ""
@@ -267,7 +296,13 @@ func detectAPIIdentity(relPath string) (string, string, string) {
 	return apiID, domain, line
 }
 
-// isVersionLine checks if a string matches "v<N>" where N >= 1 with no leading zeros.
+// k8sVersionLineRe matches a Kubernetes API version segment used by the crd
+// format: v<major> with an optional alpha/beta maturity suffix (e.g. v1alpha1).
+var k8sVersionLineRe = regexp.MustCompile(`^v[1-9][0-9]*(?:(?:alpha|beta)[1-9][0-9]*)?$`)
+
+// isVersionLine checks if a string is a valid API line segment. It accepts the
+// canonical "v<N>" form (N >= 1, no leading zeros) and the Kubernetes
+// "v<major>[alpha|beta<n>]" form used by the crd format.
 func isVersionLine(s string) bool {
 	if len(s) < 2 || s[0] != 'v' {
 		return false
@@ -277,16 +312,20 @@ func isVersionLine(s string) bool {
 	if len(digits) > 1 && digits[0] == '0' {
 		return false
 	}
-	for _, c := range digits {
-		if c < '0' || c > '9' {
-			return false
-		}
-	}
+	allDigits := true
 	n := 0
 	for _, c := range digits {
+		if c < '0' || c > '9' {
+			allDigits = false
+			break
+		}
 		n = n*10 + int(c-'0')
 	}
-	return n >= 1
+	if allDigits {
+		return n >= 1
+	}
+	// Kubernetes version with alpha/beta suffix.
+	return k8sVersionLineRe.MatchString(s)
 }
 
 // GenerateCatalog generates a catalog from a directory
@@ -341,7 +380,7 @@ func ParseReleaseTag(tag string) (apiID string, version string) {
 	format := parts[0]
 	validFormats := map[string]bool{
 		"proto": true, "openapi": true, "avro": true,
-		"jsonschema": true, "parquet": true,
+		"jsonschema": true, "parquet": true, "crd": true,
 	}
 	if !validFormats[format] {
 		return "", ""

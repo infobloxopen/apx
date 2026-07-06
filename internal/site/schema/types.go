@@ -19,6 +19,19 @@ type SchemaFile struct {
 	Avro       *AvroSchema    `json:"avro,omitempty"`
 	JSONSchema *JSONSchemaDoc `json:"jsonschema,omitempty"`
 	Parquet    *ParquetSchema `json:"parquet,omitempty"`
+	CRD        *CRDSchema     `json:"crd,omitempty"`
+}
+
+// ── CRD ────────────────────────────────────────────────────────────────────
+
+// CRDSchema is a summarized view of a Kubernetes CustomResourceDefinition.
+type CRDSchema struct {
+	Group          string   `json:"group"`
+	Kind           string   `json:"kind"`
+	Plural         string   `json:"plural,omitempty"`
+	Scope          string   `json:"scope,omitempty"`
+	ServedVersions []string `json:"served_versions,omitempty"`
+	StorageVersion string   `json:"storage_version,omitempty"`
 }
 
 // ── Proto ──────────────────────────────────────────────────────────────────

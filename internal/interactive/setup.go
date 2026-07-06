@@ -25,6 +25,7 @@ func RunSetup(defaults *detector.ProjectDefaults, kind, modulePath string) (stri
 				huh.NewOption("avro", "avro"),
 				huh.NewOption("jsonschema", "jsonschema"),
 				huh.NewOption("parquet", "parquet"),
+				huh.NewOption("crd", "crd"),
 			).
 			Value(&kind).
 			Run()
@@ -47,6 +48,8 @@ func RunSetup(defaults *detector.ProjectDefaults, kind, modulePath string) (stri
 			defaultModulePath = "com.example.schema"
 		case "parquet":
 			defaultModulePath = "com.example.data"
+		case "crd":
+			defaultModulePath = "crd/example.com/widget/v1"
 		}
 
 		err := huh.NewInput().

@@ -35,7 +35,7 @@ Lifecycle pre-release mapping:
 	cmd.Flags().String("against", "", "Git reference or path to compare against (required)")
 	cmd.Flags().String("api-id", "", "API ID (e.g. proto/payments/ledger/v1)")
 	cmd.Flags().String("lifecycle", "", "Lifecycle state (experimental, beta, stable, deprecated, sunset)")
-	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet)")
+	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet, crd)")
 	return cmd
 }
 

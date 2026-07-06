@@ -382,7 +382,7 @@ func buildV1Schema() SchemaVersion {
 					Name:        "format",
 					Type:        TypeString,
 					Description: "Schema format",
-					EnumValues:  []string{"proto", "openapi", "avro", "jsonschema", "parquet"},
+					EnumValues:  []string{"proto", "openapi", "avro", "jsonschema", "parquet", "crd"},
 				},
 				"domain": {
 					Name:        "domain",
@@ -541,6 +541,7 @@ func DefaultConfig() *Config {
 			"avro",
 			"jsonschema",
 			"parquet",
+			"crd",
 		},
 		LanguageTargets: map[string]LanguageTarget{
 			"go": {

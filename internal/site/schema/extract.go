@@ -13,6 +13,7 @@ var formatExtensions = map[string][]string{
 	"avro":       {".avsc", ".json"},
 	"jsonschema": {".json"},
 	"parquet":    {".parquet"},
+	"crd":        {".yaml", ".yml"},
 }
 
 // ExtractSchema scans the directory at modulePath for schema files matching
@@ -75,6 +76,11 @@ func ExtractSchema(modulePath, format string) *SchemaDetail {
 		case "parquet":
 			if result, err := ExtractParquet(filePath); err == nil {
 				sf.Parquet = result
+				extracted = true
+			}
+		case "crd":
+			if result, err := ExtractCRD(filePath); err == nil {
+				sf.CRD = result
 				extracted = true
 			}
 		}

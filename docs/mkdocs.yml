@@ -107,6 +107,7 @@ nav:
     - Initialization Guide: getting-started/initialization.md
   - Concepts:
     - Multi-Language Strategy: concepts/multi-language-strategy.md
+    - CRD Format: concepts/crd-format.md
   - Canonical Repo:
     - canonical-repo/index.md
     - Setup: canonical-repo/setup.md

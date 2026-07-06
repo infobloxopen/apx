@@ -18,7 +18,7 @@ func newLintCmd() *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE:  lintAction,
 	}
-	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet)")
+	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet, crd)")
 	return cmd
 }
 
