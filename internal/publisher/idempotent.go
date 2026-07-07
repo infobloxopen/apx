@@ -1,6 +1,7 @@
 package publisher
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"io/fs"
@@ -72,19 +73,34 @@ func CheckIdempotency(repoPath, tag, contentDir string) (IdempotencyResult, erro
 // contents. Files are sorted lexicographically by relative path to ensure
 // determinism. Only regular files are hashed.
 func HashDirectory(dir string) (string, error) {
+	return HashDirectoryFiltered(dir, nil)
+}
+
+// HashDirectoryFiltered is HashDirectory with an optional skip predicate. When
+// skip is non-nil, any file whose forward-slash path relative to dir makes skip
+// return true is excluded from the hash. This lets callers scope a comparison
+// to schema content and ignore generated packaging (go.mod, sidecars) so an
+// unchanged API is not reported as drift. Relative paths are normalized to
+// forward slashes so the result matches HashGitTreeAtTagFiltered for the same
+// logical file set.
+func HashDirectoryFiltered(dir string, skip func(rel string) bool) (string, error) {
 	h := sha256.New()
 
 	var files []string
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			return nil
 		}
-		rel, relErr := filepath.Rel(dir, path)
+		rel, relErr := filepath.Rel(dir, p)
 		if relErr != nil {
 			return relErr
+		}
+		rel = filepath.ToSlash(rel)
+		if skip != nil && skip(rel) {
+			return nil
 		}
 		files = append(files, rel)
 		return nil
@@ -99,7 +115,7 @@ func HashDirectory(dir string) (string, error) {
 		// Write filename as boundary
 		fmt.Fprintf(h, "file:%s\n", f)
 
-		data, err := os.ReadFile(filepath.Join(dir, f))
+		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(f)))
 		if err != nil {
 			return "", fmt.Errorf("reading %s: %w", f, err)
 		}
@@ -112,6 +128,14 @@ func HashDirectory(dir string) (string, error) {
 // HashGitTreeAtTag computes the same hash but from the git tree at a given tag.
 // The subDir parameter scopes the hash to a subdirectory within the tree.
 func HashGitTreeAtTag(repoPath, tag, subDir string) (string, error) {
+	return HashGitTreeAtTagFiltered(repoPath, tag, subDir, nil)
+}
+
+// HashGitTreeAtTagFiltered is HashGitTreeAtTag with an optional skip predicate.
+// When skip is non-nil, any file whose path relative to subDir makes skip
+// return true is excluded, mirroring HashDirectoryFiltered so the two hashes
+// are comparable for the same logical (schema-only) file set.
+func HashGitTreeAtTagFiltered(repoPath, tag, subDir string, skip func(rel string) bool) (string, error) {
 	// Use git ls-tree to list files at the tag, scoped to subDir
 	relDir, err := filepath.Rel(repoPath, subDir)
 	if err != nil {
@@ -140,6 +164,7 @@ func HashGitTreeAtTag(repoPath, tag, subDir string) (string, error) {
 	sort.Strings(lines)
 
 	h := sha256.New()
+	wrote := false
 	for _, line := range lines {
 		var relPath string
 		if relDir != "" {
@@ -147,26 +172,40 @@ func HashGitTreeAtTag(repoPath, tag, subDir string) (string, error) {
 		} else {
 			relPath = line
 		}
+		if skip != nil && skip(relPath) {
+			continue
+		}
 		fmt.Fprintf(h, "file:%s\n", relPath)
 
-		content, err := gitCommand(repoPath, "show", tag+":"+line)
+		// core.autocrlf=false so .gitattributes EOL smudging can't rewrite bytes
+		// and desync this hash from the local os.ReadFile hash.
+		content, err := gitCommand(repoPath, "-c", "core.autocrlf=false", "show", tag+":"+line)
 		if err != nil {
 			return "", fmt.Errorf("reading %s at %s: %w", line, tag, err)
 		}
 		h.Write([]byte(content))
+		wrote = true
+	}
+
+	if !wrote {
+		return "", fmt.Errorf("no schema files found at tag %s in %s", tag, relDir)
 	}
 
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-// gitCommand runs a git command and returns its stdout.
+// gitCommand runs a git command and returns its stdout only. stderr is kept
+// separate so a git warning never contaminates content that gets hashed (a
+// stderr-merged byte would corrupt a drift hash and force a false "changed").
 func gitCommand(repoPath string, args ...string) (string, error) {
 	cmd := newGitCmd(repoPath, args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("git %s: %w\n%s", strings.Join(args, " "), err, string(output))
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("git %s: %w\n%s", strings.Join(args, " "), err, stderr.String())
 	}
-	return string(output), nil
+	return stdout.String(), nil
 }
 
 // newGitCmd creates an exec.Cmd for git in the given repo directory.

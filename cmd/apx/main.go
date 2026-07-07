@@ -1,12 +1,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/infobloxopen/apx/cmd/apx/commands"
-	gh "github.com/infobloxopen/apx/internal/github"
 	"github.com/infobloxopen/apx/internal/config"
+	gh "github.com/infobloxopen/apx/internal/github"
 	"github.com/infobloxopen/apx/internal/ui"
 	"github.com/infobloxopen/apx/pkg/githubauth"
 	"github.com/spf13/cobra"
@@ -25,7 +26,11 @@ func main() {
 	githubauth.OpenBrowserFn = gh.OpenBrowser
 	root := NewApp()
 	if err := root.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		// ErrNotInSync is a clean exit-code signal (status already printed);
+		// don't print it as an error.
+		if !errors.Is(err, commands.ErrNotInSync) {
+			fmt.Fprintln(os.Stderr, err)
+		}
 		os.Exit(exitCode(err))
 	}
 }
@@ -39,6 +44,11 @@ func NewApp() *cobra.Command {
 func exitCode(err error) int {
 	if err == nil {
 		return 0
+	}
+
+	// Not-in-sync signal from `apx release status --exit-code`.
+	if errors.Is(err, commands.ErrNotInSync) {
+		return 2
 	}
 
 	// Handle config errors
