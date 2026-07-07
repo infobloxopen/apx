@@ -36,6 +36,32 @@ func TestParseReleaseTag_Valid(t *testing.T) {
 	}
 }
 
+// TestParseReleaseTag_LineDropped covers the 4-segment tag shape `finalize`
+// mints for v0/v1 modules (Go-module semantics drop the /v0 and /v1 suffix).
+// The line is recovered from the version's major. Regression for G3.
+func TestParseReleaseTag_LineDropped(t *testing.T) {
+	tests := []struct {
+		tag     string
+		wantID  string
+		wantVer string
+	}{
+		// Dotted-domain v1 modules (the brownfield-pilot shape).
+		{"openapi/csp.infoblox.com/probe/v1.0.0", "openapi/csp.infoblox.com/probe/v1", "v1.0.0"},
+		{"openapi/csp.infoblox.com/probe-internal/v1.0.0", "openapi/csp.infoblox.com/probe-internal/v1", "v1.0.0"},
+		// v1 pre-release still resolves to the v1 line.
+		{"proto/payments/ledger/v1.0.0-beta.1", "proto/payments/ledger/v1", "v1.0.0-beta.1"},
+		// v0 line.
+		{"openapi/iam/roles/v0.3.0", "openapi/iam/roles/v0", "v0.3.0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.tag, func(t *testing.T) {
+			id, ver := ParseReleaseTag(tt.tag)
+			assert.Equal(t, tt.wantID, id)
+			assert.Equal(t, tt.wantVer, ver)
+		})
+	}
+}
+
 func TestParseReleaseTag_Invalid(t *testing.T) {
 	tests := []struct {
 		name string
@@ -193,6 +219,36 @@ func TestGenerateFromTags_MultipleAPIs(t *testing.T) {
 
 	assert.Equal(t, "proto/payments/wallet/v1", cat.Modules[3].ID)
 	assert.Equal(t, "beta", cat.Modules[3].Lifecycle)
+}
+
+// TestGenerateFromTags_V1AndV2LineForms is the end-to-end G3 regression: a v1
+// module (line-dropped 4-segment tag) and a v2 module (line-present 5-segment
+// tag) must BOTH appear in the generated catalog. Before the fix the v1 tag was
+// silently dropped by the scanner's exact-5-segment requirement.
+func TestGenerateFromTags_V1AndV2LineForms(t *testing.T) {
+	tags := []string{
+		"openapi/csp.infoblox.com/probe/v1.0.0",    // v1: line dropped (4-seg)
+		"openapi/csp.infoblox.com/probe/v2/v2.0.0", // v2: line present (5-seg)
+	}
+	cat := GenerateFromTags(tags, "devedge-dogfood", "apis-sandbox")
+	require.Len(t, cat.Modules, 2, "both the v1 and v2 modules must be discovered")
+
+	byID := map[string]Module{}
+	for _, m := range cat.Modules {
+		byID[m.ID] = m
+	}
+
+	v1, ok := byID["openapi/csp.infoblox.com/probe/v1"]
+	require.True(t, ok, "v1 module must appear in the generated catalog")
+	assert.Equal(t, "v1", v1.APILine)
+	assert.Equal(t, "csp.infoblox.com", v1.Domain)
+	assert.Equal(t, "v1.0.0", v1.Version)
+
+	v2, ok := byID["openapi/csp.infoblox.com/probe/v2"]
+	require.True(t, ok, "v2 module must appear in the generated catalog")
+	assert.Equal(t, "v2", v2.APILine)
+	assert.Equal(t, "csp.infoblox.com", v2.Domain)
+	assert.Equal(t, "v2.0.0", v2.Version)
 }
 
 func TestGenerateFromTags_IgnoresNonMatchingTags(t *testing.T) {

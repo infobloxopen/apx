@@ -2,6 +2,7 @@ package commands
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -120,6 +121,91 @@ func TestContainsString(t *testing.T) {
 	}
 	if containsString(slice, "d") {
 		t.Error("expected containsString to return false for 'd'")
+	}
+}
+
+// TestResolveCurrentLifecycle_ScopedToAPI is the F-31 regression: a stale
+// .apx-release.yaml left by an unrelated prior release (recording `deprecated`)
+// must NOT be read as the current lifecycle of a different API being prepared —
+// which had poisoned subsequent `stable` releases with a spurious "illegal
+// transition deprecated → stable".
+func TestResolveCurrentLifecycle_ScopedToAPI(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(tmpDir)
+
+	// A stale manifest from a DIFFERENT API, recorded as deprecated.
+	stale := &publisher.ReleaseManifest{
+		SchemaVersion: "1",
+		State:         publisher.StatePackagePublished,
+		APIID:         "openapi/csp.infoblox.com/hostapp/v1",
+		Lifecycle:     "deprecated",
+	}
+	if err := publisher.WriteManifest(stale, ".apx-release.yaml"); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewRootCmd("test")
+
+	// The unrelated API must NOT inherit the stale deprecated lifecycle.
+	if got := resolveCurrentLifecycle(cmd, "openapi/csp.infoblox.com/widgets/v1"); got != "" {
+		t.Fatalf("expected empty lifecycle for unrelated api, got %q", got)
+	}
+	// The SAME API still resolves from its manifest.
+	if got := resolveCurrentLifecycle(cmd, "openapi/csp.infoblox.com/hostapp/v1"); got != "deprecated" {
+		t.Fatalf("expected deprecated for matching api, got %q", got)
+	}
+}
+
+// TestAssertModuleLandedOnBase exercises the finalize landed-on-base-branch
+// guard: finalize must refuse to mint a tag/catalog for content that is not on
+// the base branch (the racing/failed-merge case from WS-035).
+func TestAssertModuleLandedOnBase(t *testing.T) {
+	dir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		c := exec.Command("git", append([]string{"-C", dir}, args...)...)
+		c.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	write := func(rel string) {
+		t.Helper()
+		full := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte("openapi: 3.0.0\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	run("init", "-q")
+	run("checkout", "-q", "-b", "main")
+	write("openapi/csp.infoblox.com/probe/v1/spec.yaml")
+	run("add", ".")
+	run("commit", "-q", "-m", "landed module")
+
+	// Happy path: HEAD is on main and the module content is present there.
+	if err := assertModuleLandedOnBase(dir, "HEAD", "main", "openapi/csp.infoblox.com/probe/v1"); err != nil {
+		t.Fatalf("expected landed module to pass, got %v", err)
+	}
+
+	// Content present at base but a DIFFERENT module path is not → fail loud.
+	if err := assertModuleLandedOnBase(dir, "main", "main", "openapi/csp.infoblox.com/ghost/v1"); err == nil {
+		t.Fatal("expected failure for module content absent on base branch")
+	}
+
+	// A commit that only exists on a side branch (PR never merged) → fail loud.
+	run("checkout", "-q", "-b", "feature")
+	write("openapi/csp.infoblox.com/widgets/v1/spec.yaml")
+	run("add", ".")
+	run("commit", "-q", "-m", "unmerged module")
+	if err := assertModuleLandedOnBase(dir, "HEAD", "main", "openapi/csp.infoblox.com/widgets/v1"); err == nil {
+		t.Fatal("expected failure when the tagged commit is not on the base branch")
 	}
 }
 

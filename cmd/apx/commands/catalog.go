@@ -87,15 +87,26 @@ func catalogGenerateAction(cmd *cobra.Command, args []string) error {
 
 	ui.Info("Scanning git tags in %s...", dir)
 
-	tags, err := catalog.ListGitTags(dir)
+	// Read each release tag together with the metadata recorded in its annotation
+	// (lifecycle + first-party tags), so a module cut `--lifecycle deprecated`
+	// surfaces as deprecated and first-party tags round-trip (WS-035 F-32/F-33).
+	// Fall back to name-only tags if the annotation read fails for any reason.
+	records, err := catalog.ReadTagRecords(dir)
 	if err != nil {
-		return fmt.Errorf("failed to list git tags: %w", err)
+		tags, listErr := catalog.ListGitTags(dir)
+		if listErr != nil {
+			return fmt.Errorf("failed to list git tags: %w", listErr)
+		}
+		records = make([]catalog.TagRecord, len(tags))
+		for i, t := range tags {
+			records[i] = catalog.TagRecord{Tag: t}
+		}
 	}
-	if len(tags) == 0 {
+	if len(records) == 0 {
 		ui.Warning("No git tags found")
 	}
 
-	cat := catalog.GenerateFromTags(tags, org, repo)
+	cat := catalog.GenerateFromTagRecords(records, org, repo)
 	cat.GeneratedBy = cmd.Root().Version
 
 	// Propagate import_root from apx.yaml into catalog
@@ -155,6 +166,13 @@ func catalogGenerateAction(cmd *cobra.Command, args []string) error {
 	// capability version-constrainable from the catalog. Modules whose directory
 	// is absent are left untouched.
 	indexCRDMetadata(cat, dir)
+
+	// Reconcile with the existing catalog at the output path. catalog/catalog.yaml
+	// is the committed source of truth (WS-035 G6), so a regeneration must not
+	// clobber the facts tags cannot express: an in-place lifecycle change made by
+	// `apx release promote --to deprecated` (no new version), and curated tags,
+	// owners, and descriptions. Tag-derived facts (versions, format) always win.
+	catalog.PreserveCuratedFields(cat, output)
 
 	// Ensure output directory exists
 	if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {

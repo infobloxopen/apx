@@ -2,6 +2,17 @@
 
 The `catalog/catalog.yaml` file is the organization-wide index of released API schemas. It is generated automatically by `apx catalog generate` (run by canonical CI on every merge) and consumed by `apx search`, `apx show`, `apx add`, `apx update`, `apx upgrade`, and `apx catalog resolve`.
 
+## Authoritative location
+
+`catalog/catalog.yaml` is the single source of truth. `apx catalog generate`, `apx release finalize`, and `apx release promote` all read and write this same path — there is no separate root-level `catalog.yaml`. `catalog generate` rebuilds the index from the repo's release tags and then preserves the fields tags cannot express: a lifecycle that has been advanced in place (see below), plus curated `tags`, `owners`, and `description`.
+
+## Recorded lifecycle and tags
+
+A module's `lifecycle` and first-party `tags` are recorded on the annotated release tag by `finalize` (from `--lifecycle` and repeatable `--tag` flags) and reflected in the catalog. This means:
+
+- A module released `--lifecycle deprecated` shows `deprecated` in the generated catalog rather than a lifecycle re-derived from its semver.
+- `apx release promote <api-id> --to deprecated` (or `--to sunset`) with no `--version` performs an **in-place** lifecycle change: it updates the module's `lifecycle` in `catalog/catalog.yaml` without minting a new version. `catalog generate` preserves that further-along lifecycle on subsequent runs. Commit the catalog change to publish it.
+
 ## Catalog File Structure
 
 ```yaml
