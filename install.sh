@@ -255,7 +255,13 @@ main() {
     # ── Temp directory ──
     local tmpdir
     tmpdir="$(mktemp -d)"
-    trap 'rm -rf "$tmpdir"' EXIT
+    # Expand $tmpdir into the trap now: it is function-local, so a deferred
+    # 'rm -rf "$tmpdir"' would reference an out-of-scope (unset) variable when
+    # the EXIT trap fires at top level — tripping `set -u` ("tmpdir: unbound
+    # variable") after a successful install. Baking the path also ensures the
+    # temp dir is actually removed.
+    # shellcheck disable=SC2064  # expand-now is intentional (see above)
+    trap "rm -rf '$tmpdir'" EXIT
 
     # ── Download archive + checksums ──
     info "Downloading ${BOLD}${archive_name}${RESET}…"
