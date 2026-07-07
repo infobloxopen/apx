@@ -20,6 +20,7 @@ func newBreakingCmd() *cobra.Command {
 	}
 	cmd.Flags().String("against", "", "git reference or path to compare against (required)")
 	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet, crd)")
+	cmd.Flags().Bool("advisory", false, "Report breaking changes without failing (exit 0). Lets CI gate blocking vs advisory declaratively instead of shell '|| true'.")
 	return cmd
 }
 
@@ -83,7 +84,12 @@ func breakingAction(cmd *cobra.Command, args []string) error {
 
 	ui.Info("Checking %s for breaking changes against: %s", format, against)
 
+	advisory, _ := cmd.Flags().GetBool("advisory")
 	if err := v.Breaking(absPath, against, format); err != nil {
+		if advisory {
+			ui.Warning("Breaking changes detected (advisory \u2014 not failing): %v", err)
+			return nil
+		}
 		ui.Error("Breaking changes detected: %v", err)
 		return err
 	}

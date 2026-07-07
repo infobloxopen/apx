@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Publish-on-change support: drift status, path lint, advisory breaking (ARCH-271)
+- **`apx release status <api-id>`** — reports whether a module's local content is
+  `unchanged` / `changed` / `absent` versus the catalog, by comparing schema
+  content (an allowlist by format) against the canonical repo's default-branch
+  content (robust to release tags that lag the published content). Flags:
+  `--canonical-dir` (an existing clone; forge-agnostic, no network),
+  `--canonical-repo` (clone), `--against <ref>`, `--format json`, and
+  `--exit-code` (2 when not in sync). This is the primitive a publish-on-change
+  workflow needs to answer "is the current API already published?".
+- **`apx pathlint`** — path-reconciliation lint comparing the paths a service's
+  rendered Kubernetes ingress exposes against the paths its published spec
+  declares (`--ingress`, `--spec`, `--warn-only`, `--out`). Reports coverage as a
+  metric (undeclared / unreachable / matched), not a hard gate.
+- **`apx breaking --advisory`** — report breaking changes without failing
+  (exit 0), so CI can choose blocking vs advisory declaratively instead of a
+  shell `|| true`.
+- Schema-content hashing is stdout-only and disables EOL smudging so a git
+  warning or `.gitattributes` conversion can't desync a drift hash.
+
 #### `crd` schema format — catalog Kubernetes CRDs as versioned capabilities (WS-036)
 - A first-class **`crd`** format, alongside `proto`/`openapi`/`avro`/`jsonschema`/`parquet`.
   A Kubernetes `CustomResourceDefinition` becomes a versioned, lint-checked,

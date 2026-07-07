@@ -267,6 +267,7 @@ Use 'apx release promote' to promote an API to a new lifecycle.`,
 		newReleaseFinalizeCmd(),
 		newReleaseInspectCmd(),
 		newReleaseHistoryCmd(),
+		newReleaseStatusCmd(),
 		newReleasePromoteCmd(),
 	)
 	return cmd
