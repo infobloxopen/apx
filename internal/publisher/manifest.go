@@ -37,6 +37,12 @@ type ReleaseManifest struct {
 	// Release
 	RequestedVersion string `yaml:"requested_version" json:"requested_version"`
 
+	// Tags are free-form catalog labels recorded for a first-party module at
+	// release (e.g. audience/product/family axes). They are the first-party
+	// counterpart to the tags an external_apis registration carries, and travel
+	// into the catalog and the annotated release tag at finalize (WS-035 F-33).
+	Tags []string `yaml:"tags,omitempty" json:"tags,omitempty"`
+
 	// Canonical destination
 	CanonicalRepo string `yaml:"canonical_repo" json:"canonical_repo"`
 	CanonicalPath string `yaml:"canonical_path" json:"canonical_path"`

@@ -173,6 +173,77 @@ func detectCatalogDrift(repoPath string, cat *catalog.Catalog) []string {
 	return catalogDriftFromTags(tags, cat)
 }
 
+// resolveBaseRef returns the base branch finalize should verify a release landed
+// on. It honors an explicit value, then falls back to origin/HEAD's default
+// branch, then a local main/master. Returns "" when none can be determined.
+func resolveBaseRef(repoPath, explicit string) string {
+	git := func(args ...string) (string, bool) {
+		out, err := exec.Command("git", append([]string{"-C", repoPath}, args...)...).Output()
+		if err != nil {
+			return "", false
+		}
+		return strings.TrimSpace(string(out)), true
+	}
+	verify := func(ref string) bool {
+		_, ok := git("rev-parse", "--verify", "--quiet", ref+"^{commit}")
+		return ok
+	}
+	if explicit != "" {
+		return explicit
+	}
+	// origin/HEAD → refs/remotes/origin/<default>; use the remote-tracking ref.
+	if sym, ok := git("symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"); ok {
+		ref := strings.TrimPrefix(sym, "refs/remotes/")
+		if ref != "" && verify(ref) {
+			return ref
+		}
+	}
+	for _, cand := range []string{"origin/main", "origin/master", "main", "master"} {
+		if verify(cand) {
+			return cand
+		}
+	}
+	return ""
+}
+
+// assertModuleLandedOnBase fails loud unless the commit being tagged is an
+// ancestor of the base ref AND the module's content directory is present in the
+// base ref's tree. When no base ref can be determined it warns and proceeds
+// (nothing to check against). See the finalize guard for why this matters.
+func assertModuleLandedOnBase(repoPath, commit, explicitBaseRef, canonicalPath string) error {
+	baseRef := resolveBaseRef(repoPath, explicitBaseRef)
+	if baseRef == "" {
+		ui.Warning("Could not determine a base branch to verify the release landed; skipping the check (pass --base-ref to enforce)")
+		return nil
+	}
+
+	// The tagged commit must be reachable from the base branch tip.
+	isAncestor := exec.Command("git", "-C", repoPath, "merge-base", "--is-ancestor", commit, baseRef)
+	if err := isAncestor.Run(); err != nil {
+		return &publisher.ReleaseError{
+			Code: publisher.ErrCodeValidationFailed,
+			Message: fmt.Sprintf("release not landed: commit %s is not on base branch %s — the release PR has not merged",
+				commit, baseRef),
+			Hint: "Merge the release PR into the base branch before finalizing, or pass --base-ref to the branch it merges into.",
+		}
+	}
+
+	// The module content must actually exist in the base ref's tree.
+	if canonicalPath != "" {
+		treePath := strings.TrimSuffix(filepath.ToSlash(canonicalPath), "/") + "/"
+		ls, _ := exec.Command("git", "-C", repoPath, "ls-tree", "--name-only", baseRef, treePath).Output()
+		if strings.TrimSpace(string(ls)) == "" {
+			return &publisher.ReleaseError{
+				Code: publisher.ErrCodeValidationFailed,
+				Message: fmt.Sprintf("release not landed: module content %q is not present on base branch %s",
+					canonicalPath, baseRef),
+				Hint: "Ensure the release PR that adds the module content merged into the base branch before finalizing.",
+			}
+		}
+	}
+	return nil
+}
+
 func newReleaseCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "release",
@@ -227,6 +298,7 @@ Examples:
 	cmd.Flags().Bool("skip-gomod", false, "Skip go.mod generation and validation")
 	cmd.Flags().Bool("force", false, "Override sunset block")
 	cmd.Flags().Bool("dry-run", false, "Show what would be prepared without writing the manifest")
+	cmd.Flags().StringSlice("tag", nil, "Catalog tag to record on the module (repeatable; e.g. --tag audience:internal --tag product:ddi)")
 	_ = cmd.MarkFlagRequired("version")
 	return cmd
 }
@@ -294,6 +366,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	skipGomod, _ := cmd.Flags().GetBool("skip-gomod")
 	force, _ := cmd.Flags().GetBool("force")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	tagsFlag, _ := cmd.Flags().GetStringSlice("tag")
 
 	cfg, err := loadConfig(cmd)
 	if err != nil {
@@ -394,6 +467,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 
 	// Create manifest
 	manifest := publisher.NewManifest(api, source, langs, version, sourceRepo)
+	manifest.Tags = catalog.UnionTags(nil, tagsFlag)
 
 	// --- State: validated (run validations) ---
 	manifest.Validation = &publisher.ValidationResults{
@@ -949,13 +1023,19 @@ func releaseInspectAction(cmd *cobra.Command, args []string) error {
 
 // resolveCurrentLifecycle attempts to determine the current lifecycle state
 // for an API. It checks:
-// 1. An existing .apx-release.yaml manifest
-// 2. The config's API section
+//  1. An existing .apx-release.yaml manifest — but only if that manifest is for
+//     the SAME api being resolved. A stale manifest left behind by an unrelated
+//     prior release (e.g. one that recorded `deprecated`) must not govern this
+//     api's transition; ignoring it is the fix for WS-035 F-31, where a leftover
+//     deprecated manifest poisoned subsequent unrelated `stable` releases with a
+//     spurious "illegal transition deprecated → stable".
+//  2. The config's API section
+//
 // Returns empty string if unknown (first-time publish).
 func resolveCurrentLifecycle(cmd *cobra.Command, apiID string) string {
-	// Check existing manifest
+	// Check existing manifest, scoped to the api being resolved.
 	manifest, err := publisher.ReadManifest(".apx-release.yaml")
-	if err == nil && manifest != nil && manifest.Lifecycle != "" {
+	if err == nil && manifest != nil && manifest.APIID == apiID && manifest.Lifecycle != "" {
 		return manifest.Lifecycle
 	}
 
@@ -994,12 +1074,18 @@ from the canonical repo's config — e.g. after merging a release PR.
 
 Examples:
   apx release finalize
-  apx release finalize --catalog catalog.yaml
+  apx release finalize --catalog catalog/catalog.yaml
   apx release finalize --skip-packages
   apx release finalize --api proto/payments/ledger/v1 --version v1.0.0-beta.1`,
 		RunE: releaseFinalizeAction,
 	}
-	cmd.Flags().String("catalog", "catalog.yaml", "Path to catalog.yaml")
+	// The default is catalog/catalog.yaml — the SAME path `apx catalog generate`
+	// writes and `apx catalog search`/`show`/`resolve` read. Finalize once wrote a
+	// root-level catalog.yaml, so a repo ended up with two disagreeing catalogs and
+	// it was ambiguous which was authoritative (WS-035 G6). catalog/catalog.yaml is
+	// the single source of truth; the generated file is authoritative and finalize
+	// keeps it current.
+	cmd.Flags().String("catalog", filepath.Join("catalog", "catalog.yaml"), "Path to the generated catalog (catalog/catalog.yaml)")
 	cmd.Flags().Bool("skip-packages", false, "Skip recording Go module artifact metadata")
 	cmd.Flags().Bool("skip-catalog", false, "Skip catalog update")
 	cmd.Flags().String("record-path", ".apx-release-record.yaml", "Path to write the release record")
@@ -1008,6 +1094,9 @@ Examples:
 	cmd.Flags().String("lifecycle", "", "Lifecycle for CI mode (default: inferred from the version's prerelease)")
 	cmd.Flags().String("commit", "", "Commit to tag in CI mode (default: HEAD)")
 	cmd.Flags().Bool("local", false, "Run the CI-mode finalize locally for a ci_only repo (requires a token with contents:write and a tag-ruleset bypass)")
+	cmd.Flags().StringSlice("tag", nil, "Catalog tag to record on the module in CI mode (repeatable); ignored when a local manifest already carries tags")
+	cmd.Flags().String("base-ref", "", "Base branch the release PR merges into; finalize verifies the module landed there before tagging (default: auto-detect origin/HEAD, then main/master)")
+	cmd.Flags().Bool("allow-not-landed", false, "Skip the landed-on-base-branch check (escape hatch; the tag+catalog would otherwise be minted for content not on the base branch)")
 	return cmd
 }
 
@@ -1064,6 +1153,9 @@ func buildFinalizeManifest(cmd *cobra.Command, apiID, version string) (*publishe
 	manifest.State = publisher.StateSubmitted
 	if commit, _ := cmd.Flags().GetString("commit"); commit != "" {
 		manifest.SourceCommit = commit
+	}
+	if tags, _ := cmd.Flags().GetStringSlice("tag"); len(tags) > 0 {
+		manifest.Tags = catalog.UnionTags(nil, tags)
 	}
 	return manifest, nil
 }
@@ -1225,6 +1317,27 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 	_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
 	ui.Success("Re-validation passed")
 
+	// --- Landed-on-base-branch guard ---
+	// The minted tag IS the release and the catalog write is authoritative, so
+	// both must reference content that actually landed on the base branch. A
+	// racing/failed PR merge (observed on Gitea in WS-035) could leave finalize
+	// tagging a commit whose module content never reached the base branch. Verify
+	// the tagged commit is an ancestor of the base ref AND the module content is
+	// present there before minting anything.
+	allowNotLanded, _ := cmd.Flags().GetBool("allow-not-landed")
+	if !allowNotLanded {
+		baseRef, _ := cmd.Flags().GetString("base-ref")
+		commitToTag := manifest.SourceCommit
+		if commitToTag == "" {
+			commitToTag = "HEAD"
+		}
+		if err := assertModuleLandedOnBase(repoPath, commitToTag, baseRef, manifest.CanonicalPath); err != nil {
+			manifest.Fail(string(publisher.ErrCodeValidationFailed), err.Error(), "finalize")
+			_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
+			return err
+		}
+	}
+
 	// --- Create canonical tag ---
 	ui.Info("Creating canonical tag %s...", manifest.Tag)
 
@@ -1242,6 +1355,11 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 		message := fmt.Sprintf("Release %s %s\n\nLifecycle: %s\nSource: %s/%s",
 			manifest.APIID, manifest.RequestedVersion,
 			manifest.Lifecycle, manifest.SourceRepo, manifest.SourcePath)
+		// Record first-party tags in the annotation so `apx catalog generate` can
+		// round-trip them from git alone (WS-035 F-33).
+		if len(manifest.Tags) > 0 {
+			message += "\nTags: " + catalog.FormatTagList(manifest.Tags)
+		}
 		if err := tm.CreateTag(manifest.Tag, message, commitHash); err != nil {
 			manifest.Fail(string(publisher.ErrCodePushFailed), err.Error(), "finalize")
 			_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
@@ -1286,6 +1404,11 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 	// --- Catalog update ---
 	if !skipCatalog {
 		ui.Info("Updating catalog at %s...", catalogPath)
+		// The catalog lives under catalog/ by default (G6); create the parent
+		// directory so the first finalize in a fresh repo does not silently fail.
+		if dir := filepath.Dir(catalogPath); dir != "" && dir != "." {
+			_ = os.MkdirAll(dir, 0o755)
+		}
 		gen := catalog.NewGenerator(catalogPath)
 		cat, loadErr := gen.Load()
 		if loadErr != nil {
@@ -1304,6 +1427,9 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 				cat.Modules[i].Lifecycle = manifest.Lifecycle
 				cat.Modules[i].LatestStable = updateLatestStable(cat.Modules[i].LatestStable, manifest.RequestedVersion, manifest.Lifecycle)
 				cat.Modules[i].LatestPrerelease = updateLatestPrerelease(cat.Modules[i].LatestPrerelease, manifest.RequestedVersion, manifest.Lifecycle)
+				// Carry first-party tags recorded at release into the catalog
+				// (WS-035 F-33). Union so a re-release does not drop curated tags.
+				cat.Modules[i].Tags = catalog.UnionTags(cat.Modules[i].Tags, manifest.Tags)
 				found = true
 				break
 			}
@@ -1317,6 +1443,7 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 				Version:   manifest.RequestedVersion,
 				Lifecycle: manifest.Lifecycle,
 				Path:      manifest.CanonicalPath,
+				Tags:      catalog.UnionTags(nil, manifest.Tags),
 			}
 			mod.LatestStable = updateLatestStable("", manifest.RequestedVersion, manifest.Lifecycle)
 			mod.LatestPrerelease = updateLatestPrerelease("", manifest.RequestedVersion, manifest.Lifecycle)
@@ -1570,6 +1697,7 @@ Examples:
 	cmd.Flags().String("version", "", "Version for the promoted release (required for stable promotion)")
 	cmd.Flags().String("canonical-repo", "", "Canonical repository URL")
 	cmd.Flags().Bool("force", false, "Override lifecycle checks")
+	cmd.Flags().String("catalog", filepath.Join("catalog", "catalog.yaml"), "Path to the generated catalog for an in-place lifecycle change")
 	_ = cmd.MarkFlagRequired("to")
 	return cmd
 }
@@ -1641,6 +1769,15 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 				}
 			}
 		}
+	}
+
+	// In-place lifecycle change: deprecating (or sunsetting) an API is a status
+	// change, not a new artifact, so with no --version promote edits the module's
+	// lifecycle in the catalog directly rather than minting a new version (WS-035
+	// F-32). A --version still takes the versioned-release path below.
+	if version == "" && (targetLifecycle == "deprecated" || targetLifecycle == "sunset") {
+		catalogPath, _ := cmd.Flags().GetString("catalog")
+		return promoteLifecycleInPlace(apiID, targetLifecycle, catalogPath)
 	}
 
 	// Determine version for the promotion
@@ -1790,6 +1927,46 @@ func releasePromoteAction(cmd *cobra.Command, args []string) error {
 	ui.Info("")
 	ui.Info("Next step:   apx release submit")
 
+	return nil
+}
+
+// promoteLifecycleInPlace changes a module's lifecycle in the generated catalog
+// without minting a new version. The catalog is the committed source of truth
+// (G6) and `apx catalog generate` preserves a further-along lifecycle across
+// regenerations (F-32), so this edit persists. The change must be committed to
+// the canonical repo like any other catalog update.
+func promoteLifecycleInPlace(apiID, targetLifecycle, catalogPath string) error {
+	gen := catalog.NewGenerator(catalogPath)
+	cat, err := gen.Load()
+	if err != nil {
+		return &publisher.ReleaseError{
+			Code:    publisher.ErrCodeMissingConfig,
+			Message: fmt.Sprintf("cannot load catalog %s for in-place %s: %v", catalogPath, targetLifecycle, err),
+			Hint:    "Run 'apx catalog generate' first, or pass --catalog to the generated catalog.",
+		}
+	}
+	found := false
+	for i := range cat.Modules {
+		if cat.Modules[i].DisplayName() == apiID {
+			cat.Modules[i].Lifecycle = targetLifecycle
+			found = true
+			break
+		}
+	}
+	if !found {
+		return &publisher.ReleaseError{
+			Code:    publisher.ErrCodeMissingConfig,
+			Message: fmt.Sprintf("module %s not found in catalog %s", apiID, catalogPath),
+			Hint:    "The API must be released and cataloged before it can be deprecated in place.",
+		}
+	}
+	if err := gen.Save(cat); err != nil {
+		return fmt.Errorf("writing catalog %s: %w", catalogPath, err)
+	}
+	ui.Success("✓ %s marked %s in place (no new version)", apiID, targetLifecycle)
+	ui.Info("Catalog:     %s", catalogPath)
+	ui.Info("")
+	ui.Info("Commit the catalog change to the canonical repo to publish it.")
 	return nil
 }
 

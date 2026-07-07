@@ -446,19 +446,39 @@ type apiAccum struct {
 	Domain           string
 	APILine          string
 	Path             string
-	LatestStable     string // empty if none
-	LatestPrerelease string // empty if none
+	LatestStable     string            // empty if none
+	LatestPrerelease string            // empty if none
+	lifecycleByVer   map[string]string // recorded lifecycle per version (from the tag annotation)
+	tags             []string          // union of recorded tags across all versions
 }
 
-// GenerateFromTags builds a Catalog from a list of git tags.
-// Tags that don't match the release pattern are silently skipped.
-// Version comparison uses golang.org/x/mod/semver which fully implements
-// semver 2.0.0 precedence rules including pre-release ordering.
+// GenerateFromTags builds a Catalog from a list of git tag names, deriving
+// lifecycle from semver. It is retained for callers (and tests) that only have
+// tag names; when annotation metadata is available prefer GenerateFromTagRecords
+// so a recorded lifecycle (e.g. deprecated) and first-party tags survive.
 func GenerateFromTags(tags []string, org, repo string) *Catalog {
+	records := make([]TagRecord, len(tags))
+	for i, t := range tags {
+		records[i] = TagRecord{Tag: t}
+	}
+	return GenerateFromTagRecords(records, org, repo)
+}
+
+// GenerateFromTagRecords builds a Catalog from release tags plus the metadata
+// recorded in each tag's annotation. Tags that don't match the release pattern
+// are silently skipped. Version comparison uses golang.org/x/mod/semver, which
+// fully implements semver 2.0.0 precedence including pre-release ordering.
+//
+// A module's lifecycle is the lifecycle recorded on its CURRENT version (latest
+// stable, else latest prerelease) when the annotation carries one; otherwise it
+// falls back to the semver-derived heuristic. This is what makes a module cut
+// with `--lifecycle deprecated` show as deprecated rather than stable (F-32).
+// Recorded first-party tags are unioned across the module's versions (F-33).
+func GenerateFromTagRecords(records []TagRecord, org, repo string) *Catalog {
 	apis := make(map[string]*apiAccum)
 
-	for _, tag := range tags {
-		apiID, version := ParseReleaseTag(tag)
+	for _, rec := range records {
+		apiID, version := ParseReleaseTag(rec.Tag)
 		if apiID == "" {
 			continue
 		}
@@ -467,13 +487,19 @@ func GenerateFromTags(tags []string, org, repo string) *Catalog {
 		if !ok {
 			parts := strings.Split(apiID, "/")
 			acc = &apiAccum{
-				Format:  parts[0],
-				Domain:  parts[1],
-				APILine: parts[3],
-				Path:    apiID,
+				Format:         parts[0],
+				Domain:         parts[1],
+				APILine:        parts[3],
+				Path:           apiID,
+				lifecycleByVer: map[string]string{},
 			}
 			apis[apiID] = acc
 		}
+
+		if rec.Lifecycle != "" {
+			acc.lifecycleByVer[version] = rec.Lifecycle
+		}
+		acc.tags = UnionTags(acc.tags, rec.Tags)
 
 		if isStableVersion(version) {
 			if acc.LatestStable == "" || semver.Compare(version, acc.LatestStable) > 0 {
@@ -503,6 +529,7 @@ func GenerateFromTags(tags []string, org, repo string) *Catalog {
 			Domain:  acc.Domain,
 			APILine: acc.APILine,
 			Path:    acc.Path,
+			Tags:    acc.tags,
 		}
 		if acc.LatestStable != "" {
 			m.LatestStable = acc.LatestStable
@@ -518,18 +545,13 @@ func GenerateFromTags(tags []string, org, repo string) *Catalog {
 		}
 		// If no stable version, infer lifecycle from prerelease
 		if m.Lifecycle == "" && m.LatestPrerelease != "" {
-			pre := strings.ToLower(semver.Prerelease(acc.LatestPrerelease))
-			// pre includes the leading "-", e.g. "-beta.1"
-			switch {
-			case strings.HasPrefix(pre, "-alpha"):
-				m.Lifecycle = "experimental"
-			case strings.HasPrefix(pre, "-beta"):
-				m.Lifecycle = "beta"
-			case strings.HasPrefix(pre, "-rc"):
-				m.Lifecycle = "beta"
-			default:
-				m.Lifecycle = "experimental"
-			}
+			m.Lifecycle = lifecycleFromPrerelease(acc.LatestPrerelease)
+		}
+		// A lifecycle recorded on the current version's release tag overrides the
+		// semver-derived value — this is how `--lifecycle deprecated` (and any
+		// non-derivable state) surfaces in the generated catalog (F-32).
+		if rec := acc.lifecycleByVer[m.Version]; rec != "" {
+			m.Lifecycle = rec
 		}
 		modules = append(modules, m)
 	}
@@ -539,6 +561,21 @@ func GenerateFromTags(tags []string, org, repo string) *Catalog {
 		Org:     org,
 		Repo:    repo,
 		Modules: modules,
+	}
+}
+
+// lifecycleFromPrerelease maps a prerelease suffix to a lifecycle state.
+func lifecycleFromPrerelease(version string) string {
+	pre := strings.ToLower(semver.Prerelease(version)) // includes leading "-", e.g. "-beta.1"
+	switch {
+	case strings.HasPrefix(pre, "-alpha"):
+		return "experimental"
+	case strings.HasPrefix(pre, "-beta"):
+		return "beta"
+	case strings.HasPrefix(pre, "-rc"):
+		return "beta"
+	default:
+		return "experimental"
 	}
 }
 

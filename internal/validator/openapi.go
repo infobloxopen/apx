@@ -26,7 +26,14 @@ func (v *OpenAPIValidator) Lint(path string) error {
 		return fmt.Errorf("failed to resolve spectral: %w", err)
 	}
 
-	absPath, err := filepath.Abs(path)
+	// finalize passes the module DIRECTORY; spectral does not glob a bare
+	// directory ("No files found to lint"), so resolve it to the spec file
+	// first (WS-035 G4 directory-glob shim).
+	specPath, err := resolveOpenAPISpecFile(path)
+	if err != nil {
+		return err
+	}
+	absPath, err := filepath.Abs(specPath)
 	if err != nil {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}
@@ -82,7 +89,12 @@ func (v *OpenAPIValidator) Breaking(revPath, against string) error {
 		baseArg = baseFile
 	}
 
-	cmd := exec.Command(oasdiffPath, "breaking", baseArg, absRev)
+	// --fail-on ERR is load-bearing: without it oasdiff exits 0 even when it
+	// reports breaking changes, so the process exit code alone is a no-op gate
+	// (WS-035 G7). With it, oasdiff exits non-zero when a breaking (ERR-level)
+	// change is present, so a removed path or removed required field actually
+	// fails the check and drives the semver bump.
+	cmd := exec.Command(oasdiffPath, "breaking", "--fail-on", "ERR", baseArg, absRev)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("oasdiff breaking failed: %w\nOutput: %s", err, string(output))
