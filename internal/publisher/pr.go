@@ -153,29 +153,9 @@ func SubmitReleaseWithPR(
 		return nil, fmt.Errorf("creating branch: %s", out)
 	}
 
-	// ── 3. Copy snapshot files ───────────────────────────────────────
-	destDir := filepath.Join(cloneDir, filepath.FromSlash(manifest.CanonicalPath))
-	if err := copyDir(snapshotDir, destDir); err != nil {
-		return nil, fmt.Errorf("copying snapshot files: %w", err)
-	}
-
-	// ── 4. Generate go.mod if needed ─────────────────────────────────
-	if goCoords, ok := manifest.Languages["go"]; ok && goCoords.Module != "" {
-		goModDir := filepath.Dir(destDir)
-		goModPath := filepath.Join(goModDir, "go.mod")
-
-		if _, statErr := os.Stat(goModPath); os.IsNotExist(statErr) {
-			content, genErr := GenerateGoMod(goCoords.Module, "1.21")
-			if genErr != nil {
-				return nil, fmt.Errorf("generating go.mod: %w", genErr)
-			}
-			if mkErr := os.MkdirAll(goModDir, 0o755); mkErr != nil {
-				return nil, fmt.Errorf("creating go.mod dir: %w", mkErr)
-			}
-			if writeErr := os.WriteFile(goModPath, content, 0o644); writeErr != nil {
-				return nil, fmt.Errorf("writing go.mod: %w", writeErr)
-			}
-		}
+	// ── 3–4. Stage snapshot files + generate go.mod ──────────────────
+	if err := stageRelease(cloneDir, manifest, snapshotDir); err != nil {
+		return nil, err
 	}
 
 	// ── 5. git add + commit ──────────────────────────────────────────
@@ -265,6 +245,48 @@ func runGitInReal(dir string, args ...string) (string, error) {
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(out)), err
+}
+
+// stageRelease materializes a prepared snapshot into the canonical clone at the
+// manifest's canonical path and, for Go modules, generates the module's go.mod
+// in the correct semantic-import-versioning location (see goModTargetDir).
+//
+// It is the single place a release's files are written into the clone, so the
+// "every release PR touches only its own version subtree" invariant is
+// exercised — and testable — in one spot. Concurrent multi-version releases of
+// one family stage into disjoint file sets and never share a family-root
+// go.mod (apx#27).
+func stageRelease(cloneDir string, manifest *ReleaseManifest, snapshotDir string) error {
+	destDir := filepath.Join(cloneDir, filepath.FromSlash(manifest.CanonicalPath))
+	if err := copyDir(snapshotDir, destDir); err != nil {
+		return fmt.Errorf("copying snapshot files: %w", err)
+	}
+
+	goCoords, ok := manifest.Languages["go"]
+	if !ok || goCoords.Module == "" {
+		return nil
+	}
+
+	goModDir := goModTargetDir(destDir, goCoords.Module)
+	goModPath := filepath.Join(goModDir, "go.mod")
+
+	// Write only if absent so a go.mod already carried in the snapshot, or one
+	// already present in the canonical repo (e.g. a re-release), is preserved.
+	if _, statErr := os.Stat(goModPath); !os.IsNotExist(statErr) {
+		return nil
+	}
+
+	content, genErr := GenerateGoMod(goCoords.Module, "1.21")
+	if genErr != nil {
+		return fmt.Errorf("generating go.mod: %w", genErr)
+	}
+	if mkErr := os.MkdirAll(goModDir, 0o755); mkErr != nil {
+		return fmt.Errorf("creating go.mod dir: %w", mkErr)
+	}
+	if writeErr := os.WriteFile(goModPath, content, 0o644); writeErr != nil {
+		return fmt.Errorf("writing go.mod: %w", writeErr)
+	}
+	return nil
 }
 
 // copyDir recursively copies src to dst, creating dst if it does not exist.
