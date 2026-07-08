@@ -2,6 +2,7 @@ package publisher
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
@@ -25,6 +26,35 @@ func GenerateGoMod(modulePath string, goVersion string) ([]byte, error) {
 
 	content := fmt.Sprintf("module %s\n\ngo %s\n", modulePath, goVersion)
 	return []byte(content), nil
+}
+
+// goModTargetDir returns the directory that must hold the generated go.mod for
+// a released Go module, given destDir — the canonical version directory that
+// holds the version's sources (e.g. ".../iam-identity/v2") — and the module
+// path.
+//
+// Placement follows Go semantic-import-versioning:
+//
+//   - v2+ module paths carry a "/vN" suffix and are rooted IN their own version
+//     directory, so the go.mod belongs in destDir and its module path matches
+//     its directory (".../iam-identity/v2/go.mod" → "module .../iam-identity/v2").
+//   - v0/v1 module paths have no version suffix (Go rejects "/v0" and "/v1"
+//     suffixes) and are rooted at the family root, destDir's parent. Their code
+//     still lives in the vN/ subtree and imports as <module>/vN
+//     (".../iam-identity/go.mod" → "module .../iam-identity", sources under
+//     ".../iam-identity/v1/").
+//
+// Deriving the location from the module path — rather than unconditionally
+// using destDir's parent — keeps every release PR confined to its own version
+// subtree. Two concurrent releases of different major versions of one family
+// therefore never both write the shared family-root go.mod, which is the
+// add/add conflict fixed in apx#27.
+func goModTargetDir(destDir, module string) string {
+	verSeg := filepath.Base(destDir) // the version segment, e.g. "v1", "v2"
+	if strings.HasSuffix(module, "/"+verSeg) {
+		return destDir
+	}
+	return filepath.Dir(destDir)
 }
 
 // ParseGoModModule extracts the module path from an existing go.mod file's contents.

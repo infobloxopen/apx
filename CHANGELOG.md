@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`apx release submit`** now writes a Go module's generated `go.mod` inside its
+  own version subtree instead of at the shared module-family root (#27). A v2+
+  module's `go.mod` is placed in its version directory
+  (`…/iam-identity/v2/go.mod`, `module …/iam-identity/v2`), matching its
+  directory per Go semantic-import-versioning; v0/v1 modules (which have no
+  version suffix) stay rooted at the family root, as before. Previously every
+  version's `go.mod` was written one level up at `filepath.Dir(destDir)`, so two
+  release PRs for different major versions of one family — cut from the same base
+  before either merged — both created the same `…/<family>/go.mod` with different
+  `module` lines, an unavoidable add/add conflict once the first merged. Release
+  PRs are now independent and order-insensitive, each touching only its own
+  version subtree.
+
 ### Added
 
 #### Publish-on-change support: drift status, path lint, advisory breaking (ARCH-271)
