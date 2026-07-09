@@ -123,26 +123,36 @@ func EffectiveGoRoot(sourceRepo, importRoot string) string {
 	return sourceRepo
 }
 
-// DeriveTagPrefix computes the git-tag prefix for an API: its Go-module
-// subdirectory, which is version-suffix-normalized. Go disallows a /v1 module
-// path suffix (only /v2+ are allowed), so for v0/v1 the prefix drops the line
-// segment and for v2+ it keeps /vN — identical to DeriveGoModDir. This keeps a
-// release tag resolvable as a version of the published Go module. Falls back to
-// the raw api-id if it cannot be parsed.
+// DeriveTagPrefix computes the git-tag prefix for an API. Go's module tag
+// convention OMITS the major-version subdirectory from the tag prefix for ALL
+// majors: a /vN module (N>=2) is tagged "<format>/<domain>/<name>/vX.Y.Z", never
+// "<format>/<domain>/<name>/vN/vX.Y.Z". Requiring the /vN in the tag makes the
+// module un-`go get`-able (go list -m finds nothing). So the prefix is always
+// "<format>/<domain>/<name>" — DeriveGoModDir with any trailing /vN dropped —
+// even though the Go MODULE PATH (DeriveGoModDir) correctly keeps /vN for v2+.
+//
+// CRD modules are the exception: they are one-per-version and are not Go
+// modules, so their tag prefix keeps the full Kubernetes version segment (e.g.
+// crd/g/k/v1alpha1) to remain independently taggable and catalog-resolvable.
+//
+// Falls back to the raw api-id if it cannot be parsed.
 func DeriveTagPrefix(apiID string) string {
 	api, err := ParseAPIID(apiID)
 	if err != nil {
 		return apiID
 	}
-	return DeriveGoModDir(api)
+	if api.Format == "crd" {
+		return DeriveGoModDir(api)
+	}
+	return path.Join(api.Format, api.Domain, api.Name)
 }
 
 // DeriveTag computes the git tag for a release of an API.
 //
-// Format: <module-subdir>/v<semver>, where <module-subdir> is the normalized
-// Go-module directory (see DeriveTagPrefix). Examples:
+// Format: <tag-prefix>/v<semver>, where <tag-prefix> is the major-version-
+// stripped module path (see DeriveTagPrefix). Examples:
 //   - "proto/payments/ledger/v1" + "1.0.0-beta.1" → "proto/payments/ledger/v1.0.0-beta.1"
-//   - "proto/payments/ledger/v2" + "2.0.0"        → "proto/payments/ledger/v2/v2.0.0"
+//   - "proto/payments/ledger/v2" + "2.0.0"        → "proto/payments/ledger/v2.0.0"
 func DeriveTag(apiID, version string) string {
 	v := version
 	if !strings.HasPrefix(v, "v") {

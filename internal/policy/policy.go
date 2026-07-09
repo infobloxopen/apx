@@ -197,17 +197,29 @@ func checkAllowedPlugins(allowed []string, dir string, result *Result) {
 	}
 }
 
-// checkSpectralRuleset verifies that the spectral ruleset file referenced
-// by the policy actually exists in the project.
+// checkSpectralRuleset verifies that the spectral ruleset file referenced by
+// the policy is discoverable from the module directory. It resolves the ruleset
+// relative to dir and, when absent there, walks UP the directory tree, counting
+// it as present if found at dir or any ancestor. This mirrors how spectral
+// itself discovers a ruleset when linting (it runs `spectral lint <spec>` with
+// no --ruleset), so a monorepo catalog that stores ONE ruleset at the repo root
+// (applying to every module) is not forced to duplicate it into each module.
 func checkSpectralRuleset(ruleset string, dir string, result *Result) {
-	rulesetPath := filepath.Join(dir, ruleset)
-	if _, err := os.Stat(rulesetPath); os.IsNotExist(err) {
-		result.Violations = append(result.Violations, Violation{
-			Rule:    "openapi_spectral_ruleset",
-			File:    ruleset,
-			Message: fmt.Sprintf("spectral ruleset %q referenced in policy does not exist at %s", ruleset, rulesetPath),
-		})
+	for cur := dir; ; {
+		if _, err := os.Stat(filepath.Join(cur, ruleset)); err == nil {
+			return
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			break
+		}
+		cur = parent
 	}
+	result.Violations = append(result.Violations, Violation{
+		Rule:    "openapi_spectral_ruleset",
+		File:    ruleset,
+		Message: fmt.Sprintf("spectral ruleset %q referenced in policy was not found in %s or any parent directory", ruleset, dir),
+	})
 }
 
 // checkAvroCompatibility validates the configured compatibility mode.

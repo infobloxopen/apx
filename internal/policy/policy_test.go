@@ -238,6 +238,38 @@ func TestCheck_SpectralRuleset_Present(t *testing.T) {
 	}
 }
 
+// TestCheck_SpectralRuleset_InAncestor covers the monorepo canonical-catalog
+// layout: ONE ruleset at the repo root applies to every module. The module dir
+// (where Check runs during finalize) has no local copy, but the ruleset exists
+// in an ancestor — exactly what spectral itself discovers when it lints. This
+// must pass without forcing a per-module copy.
+func TestCheck_SpectralRuleset_InAncestor(t *testing.T) {
+	root := t.TempDir()
+	// Root ruleset, shared by every module (as in Infoblox-CTO/apis).
+	if err := os.WriteFile(filepath.Join(root, ".spectral.yaml"), []byte("rules: {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// The module dir is nested and has NO local ruleset copy.
+	moduleDir := filepath.Join(root, "openapi", "csp.infoblox.com", "iam-identity", "v1")
+	if err := os.MkdirAll(moduleDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moduleDir, "openapi.yaml"), []byte("openapi: 3.0.0\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	pol := config.Policy{}
+	pol.OpenAPI.SpectralRuleset = ".spectral.yaml"
+
+	result, err := Check(pol, moduleDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Passed() {
+		t.Errorf("expected no violations (ruleset resolvable from an ancestor); got: %v", result.Violations)
+	}
+}
+
 func TestCheck_EmptyPolicy(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "test.proto"), []byte("syntax = \"proto3\";\n"), 0644); err != nil {

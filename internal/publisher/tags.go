@@ -119,18 +119,31 @@ func (m *TagManager) ListTags(pattern string) ([]string, error) {
 	return result, nil
 }
 
-// ListVersionsForAPI lists all release tags for an API and extracts the version
-// part. Tags are prefixed by the API's normalized Go-module subdirectory (see
-// config.DeriveTagPrefix), so for example the v1 line of
-// "proto/payments/ledger/v1" uses prefix "proto/payments/ledger" and a tag
-// "proto/payments/ledger/v1.2.3" yields "v1.2.3". Tags belonging to a deeper
-// module that shares the prefix (e.g. a v2 line tagged under ".../v2/") are
-// skipped here and surface under their own prefix.
+// ListVersionsForAPI lists all release tags for an API line and extracts the
+// version part. Tags are prefixed by config.DeriveTagPrefix, which — following
+// Go's tag convention — omits the major-version segment for ALL majors. So the
+// prefix "proto/payments/ledger" matches EVERY major line of the API (v1.x,
+// v2.x, …). To return only the requested line's versions this scopes the result
+// by the line's semver major: "proto/payments/ledger/v1" yields only v1.x and
+// "proto/payments/ledger/v2" only v2.x, even though both share the prefix.
+//
+// The crd format is exempt from the major scoping: its prefix keeps the full
+// version segment (so it already isolates a single line) and its release semver
+// is independent of the Kubernetes version's major.
 func (m *TagManager) ListVersionsForAPI(apiID string) ([]string, error) {
 	prefix := config.DeriveTagPrefix(apiID) + "/"
 	tags, err := m.ListTags(prefix + "v*")
 	if err != nil {
 		return nil, err
+	}
+
+	// Scope to the line's major unless this is a crd module (prefix already
+	// isolates the line) or the id/line can't be parsed (then don't filter).
+	filterMajor := -1
+	if api, apiErr := config.ParseAPIID(apiID); apiErr == nil && api.Format != "crd" {
+		if maj, majErr := config.LineMajor(api.Line); majErr == nil {
+			filterMajor = maj
+		}
 	}
 
 	var versions []string
@@ -141,6 +154,12 @@ func (m *TagManager) ListVersionsForAPI(apiID string) ([]string, error) {
 		ver := strings.TrimPrefix(tag, prefix)
 		if strings.Contains(ver, "/") {
 			continue // belongs to a deeper module sharing this prefix
+		}
+		if filterMajor >= 0 {
+			sv, svErr := config.ParseSemVer(ver)
+			if svErr != nil || sv.Major != filterMajor {
+				continue // different major line sharing the prefix
+			}
 		}
 		versions = append(versions, ver)
 	}

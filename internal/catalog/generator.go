@@ -372,19 +372,18 @@ func (g *Generator) Search(query string) ([]Module, error) {
 // robust semver validation including pre-releases, build metadata, and proper
 // precedence ordering per the semver 2.0.0 spec.
 //
-// It accepts the two tag shapes `apx release finalize` actually mints, which
-// differ because Go-module tag semantics drop the /v0 and /v1 major-version
-// suffix from a module path:
+// It accepts two tag shapes:
 //
-//   - line-present (v2+):  <format>/<domain>/<name>/<line>/v<semver>   (5 segments)
-//     e.g. "openapi/csp.infoblox.com/probe/v2/v2.0.0"
-//   - line-dropped (v0/v1): <format>/<domain>/<name>/v<semver>          (4 segments)
-//     e.g. "openapi/csp.infoblox.com/probe/v1.0.0"
-//
-// For the line-dropped form the API line is recovered from the version's major
-// (valid because the suffix is only dropped for major <= 1, where the release's
-// semver major equals its line). Before this accepted both shapes, every v0/v1
-// module minted by finalize was silently absent from the generated catalog.
+//   - line-dropped (all Go-module majors):  <format>/<domain>/<name>/v<semver>
+//     (4 segments), e.g. "openapi/csp.infoblox.com/iam-identity/v2.0.0". This is
+//     what `apx release finalize` mints for every proto/openapi/avro/… module:
+//     Go's tag convention omits the major-version subdirectory for ALL majors,
+//     so the API line is recovered from the version's semver major (v1→v1,
+//     v2→v2, …).
+//   - line-present (crd + legacy):  <format>/<domain>/<name>/<line>/v<semver>
+//     (5 segments), e.g. "crd/platform.infoblox.com/widget/v1alpha1/v1.0.0". The
+//     crd format is one-module-per-version so it keeps the line segment; this
+//     shape also still parses pre-fix (/vN/) Go tags for backward compatibility.
 func ParseReleaseTag(tag string) (apiID string, version string) {
 	parts := strings.Split(tag, "/")
 
@@ -423,7 +422,7 @@ func ParseReleaseTag(tag string) (apiID string, version string) {
 		if !semver.IsValid(v) {
 			return "", ""
 		}
-		line := semver.Major(v) // "v0" or "v1" for a line-dropped tag
+		line := semver.Major(v) // recover the line from the version's major (v0, v1, v2, …)
 		if line == "" {
 			return "", ""
 		}
