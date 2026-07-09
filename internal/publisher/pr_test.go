@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/infobloxopen/apx/pkg/githubauth"
@@ -462,4 +464,161 @@ func TestSubmitReleaseWithPR_NoDiff(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNoReleaseDiff)
 	assert.False(t, pushed, "must not push an empty branch")
 	assert.False(t, prCreated, "must not create a PR from an empty diff")
+}
+
+// ---------------------------------------------------------------------------
+// SubmitReleaseWithPR — apx#34 regression (real git against a diverged repo)
+// ---------------------------------------------------------------------------
+
+// mustGit runs a real git command and fails the test on error.
+func mustGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	out, err := runGitInReal(dir, args...)
+	require.NoError(t, err, "git %v: %s", args, out)
+	return out
+}
+
+// writeTestFile writes content to path, creating parent directories.
+func writeTestFile(t *testing.T, path, content string) {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+}
+
+// gitSetIdentity sets a local commit identity so commits work in CI where no
+// global git identity is configured.
+func gitSetIdentity(t *testing.T, dir string) {
+	t.Helper()
+	mustGit(t, dir, "config", "user.email", "test@example.com")
+	mustGit(t, dir, "config", "user.name", "apx test")
+}
+
+// TestSubmitReleaseWithPR_DivergedDevelopBaseBranch is the apx#34 regression:
+// a develop publish must cut the release branch from — and diff the snapshot
+// against — the resolved base branch (develop), not the repo's default branch
+// (main). It drives real git against a local bare repo whose main and develop
+// have diverged.
+//
+// Scenario:
+//   - main:    users.yaml == snapshotContent (byte-identical to the snapshot)
+//   - develop: users.yaml == developContent + a develop-only marker file
+//     (content absent from main)
+//   - snapshot: users.yaml == snapshotContent
+//
+// On the pre-fix code the clone fetches main (the default branch), so staging
+// the snapshot over main's tree produces no diff → a false ErrNoReleaseDiff
+// ("Nothing to release"), and any branch would be cut from main. After the fix
+// the clone fetches develop, so the snapshot differs from develop → a real
+// diff; the release branch carries develop's develop-only file (proving it was
+// cut from develop) and the PR is opened with base=develop.
+func TestSubmitReleaseWithPR_DivergedDevelopBaseBranch(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	const (
+		snapshotContent = "openapi: 3.0.0\ninfo:\n  title: Users\n  version: 1.1.1\n"
+		developContent  = "openapi: 3.0.0\ninfo:\n  title: Users\n  version: 1.1.2-beta\n"
+		developOnlyFile = "DEVELOP_ONLY.md"
+		canonicalPath   = "openapi/users/v1"
+	)
+
+	// ── Build a local bare "canonical" repo with diverged main + develop ──
+	root := t.TempDir()
+	origin := filepath.Join(root, "origin.git")
+	work := filepath.Join(root, "work")
+
+	mustGit(t, "", "init", "--bare", "-b", "main", origin)
+
+	// Seed main with the snapshot content.
+	mustGit(t, "", "clone", origin, work)
+	gitSetIdentity(t, work)
+	writeTestFile(t, filepath.Join(work, canonicalPath, "users.yaml"), snapshotContent)
+	mustGit(t, work, "add", "--all")
+	mustGit(t, work, "commit", "-m", "main: users v1.1.1")
+	mustGit(t, work, "push", "origin", "main")
+
+	// Diverge develop: change users.yaml and add a develop-only file.
+	mustGit(t, work, "checkout", "-b", "develop")
+	writeTestFile(t, filepath.Join(work, canonicalPath, "users.yaml"), developContent)
+	writeTestFile(t, filepath.Join(work, canonicalPath, developOnlyFile), "develop-only content\n")
+	mustGit(t, work, "add", "--all")
+	mustGit(t, work, "commit", "-m", "develop: diverge from main")
+	mustGit(t, work, "push", "origin", "develop")
+
+	// Origin's default branch is main, so a plain (pre-fix) clone checks out main.
+	mustGit(t, "", "--git-dir", origin, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	// ── Redirect the production clone at the local bare repo and run real git
+	// for every other step. runGit is used only for the clone; runGitIn for
+	// checkout/add/commit/diff/push. ──
+	origGit := runGitFn
+	origGitIn := runGitInFn
+	t.Cleanup(func() { runGitFn = origGit; runGitInFn = origGitIn })
+	runGitFn = func(args ...string) (string, error) {
+		rewritten := make([]string, len(args))
+		for i, a := range args {
+			if strings.HasPrefix(a, "https://github.com/") {
+				rewritten[i] = origin
+			} else {
+				rewritten[i] = a
+			}
+		}
+		out, err := runGitInReal("", rewritten...)
+		if err == nil {
+			// The clone's push identity must be set so the commit succeeds.
+			gitSetIdentity(t, filepath.Join(rewritten[len(rewritten)-1]))
+		}
+		return out, err
+	}
+	runGitInFn = runGitInReal
+
+	// ── Snapshot is byte-identical to main's content. ──
+	snapshotDir := t.TempDir()
+	writeTestFile(t, filepath.Join(snapshotDir, "users.yaml"), snapshotContent)
+
+	// ── GitHub API mock: capture the PR base. ──
+	var capturedBase string
+	client, _ := setupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/repos/acme/apis/pulls":
+			fmt.Fprint(w, `[]`)
+		case r.Method == "POST" && r.URL.Path == "/repos/acme/apis/pulls":
+			var body map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			capturedBase = body["base"]
+			fmt.Fprint(w, `{"number":34,"html_url":"https://github.com/acme/apis/pull/34","state":"open"}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	manifest := &ReleaseManifest{
+		APIID:            "openapi/users/v1",
+		RequestedVersion: "v1.1.2-beta.1.gabcdef123456",
+		CanonicalRepo:    "github.com/acme/apis",
+		CanonicalPath:    canonicalPath,
+		SourceRepo:       "github.com/acme/app",
+		SourcePath:       canonicalPath,
+		Tag:              "openapi/users/v1/v1.1.2-beta.1.gabcdef123456",
+		BaseBranch:       "develop",
+	}
+
+	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, "", "develop")
+
+	// (b) No false no-op: the snapshot differs from develop, so there is a diff.
+	require.NoError(t, err, "must not false-report ErrNoReleaseDiff — snapshot differs from develop")
+	require.NotNil(t, resp)
+
+	// (c) PR opened against develop.
+	assert.Equal(t, "develop", capturedBase, "PR must target the resolved base branch develop")
+
+	// (a) Release branch cut from develop: it carries develop's develop-only
+	// file (absent on main), proving the branch was based on develop's tree.
+	branch := ComputeReleaseBranchName(manifest.APIID, manifest.RequestedVersion)
+	tree, treeErr := runGitInReal("", "--git-dir", origin, "ls-tree", "-r", "--name-only", branch)
+	require.NoError(t, treeErr, "release branch must have been pushed to origin: %s", tree)
+	assert.Contains(t, tree, canonicalPath+"/"+developOnlyFile,
+		"release branch must be cut from develop (carrying develop's develop-only file), not main")
 }
