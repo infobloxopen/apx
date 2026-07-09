@@ -47,6 +47,13 @@ type ReleaseManifest struct {
 	CanonicalRepo string `yaml:"canonical_repo" json:"canonical_repo"`
 	CanonicalPath string `yaml:"canonical_path" json:"canonical_path"`
 
+	// BaseBranch is the canonical-repo branch the release PR targets and the
+	// branch finalize verifies the module landed on (ARCH-271). Resolved from the
+	// service repo's source branch via branch_targets; empty means the stable
+	// default ("main"). A pre-release channel (base != "main") carries beta
+	// versions.
+	BaseBranch string `yaml:"base_branch,omitempty" json:"base_branch,omitempty"`
+
 	// Language coordinates (keyed by language name: "go", "python", "java", "typescript")
 	Languages map[string]config.LanguageCoords `yaml:"languages,omitempty" json:"languages,omitempty"`
 

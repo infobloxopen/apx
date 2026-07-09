@@ -206,6 +206,63 @@ func resolveBaseRef(repoPath, explicit string) string {
 	return ""
 }
 
+// resolveSourceBranch determines the service-repo source branch driving this
+// release (ARCH-271): an explicit --source-branch, else GitHub Actions'
+// GITHUB_REF_NAME, else the current git branch. Returns "" if none is known.
+func resolveSourceBranch(cmd *cobra.Command) string {
+	if v, _ := cmd.Flags().GetString("source-branch"); v != "" {
+		return v
+	}
+	if v := os.Getenv("GITHUB_REF_NAME"); v != "" {
+		return v
+	}
+	if out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
+		b := strings.TrimSpace(string(out))
+		if b != "" && b != "HEAD" {
+			return b
+		}
+	}
+	return ""
+}
+
+// resolveTargetBaseBranch resolves the canonical-repo base branch a release PR
+// targets (ARCH-271). Precedence: an explicit --base-branch, else the
+// branch_targets mapping applied to the resolved source branch (config, then the
+// built-in default, then the stable "main"). Also returns the source branch used.
+func resolveTargetBaseBranch(cmd *cobra.Command, cfg *config.Config) (base, source string) {
+	source = resolveSourceBranch(cmd)
+	if explicit, _ := cmd.Flags().GetString("base-branch"); explicit != "" {
+		return explicit, source
+	}
+	var bt map[string]string
+	if cfg != nil {
+		bt = cfg.BranchTargets
+	}
+	return config.ResolveTargetBranch(source, bt), source
+}
+
+// enforcePrereleaseRatchet is the fail-closed AC-1 gate: it rejects a
+// pre-release version that is not strictly greater than the module line's
+// highest GA release, reading release tags from tagsRepoPath (the canonical repo
+// in finalize; a canonical clone via --canonical-dir in prepare). A stable
+// version, an unresolvable tag set, or a line with no GA never trips it.
+func enforcePrereleaseRatchet(tagsRepoPath, apiID, version string) error {
+	sv, err := config.ParseSemVer(version)
+	if err != nil || !sv.IsPrerelease() {
+		return nil
+	}
+	tm := publisher.NewTagManager(tagsRepoPath, "")
+	versions, _ := tm.ListVersionsForAPI(apiID)
+	if rerr := config.AssertPrereleaseRatchet(version, versions, sv.Major); rerr != nil {
+		return &publisher.ReleaseError{
+			Code:    publisher.ErrCodeInvalidVersion,
+			Message: rerr.Error(),
+			Hint:    "The develop channel publishes pre-releases; ratchet above the highest GA before publishing.",
+		}
+	}
+	return nil
+}
+
 // assertModuleLandedOnBase fails loud unless the commit being tagged is an
 // ancestor of the base ref AND the module's content directory is present in the
 // base ref's tree. When no base ref can be determined it warns and proceeds
@@ -300,6 +357,12 @@ Examples:
 	cmd.Flags().Bool("force", false, "Override sunset block")
 	cmd.Flags().Bool("dry-run", false, "Show what would be prepared without writing the manifest")
 	cmd.Flags().StringSlice("tag", nil, "Catalog tag to record on the module (repeatable; e.g. --tag audience:internal --tag product:ddi)")
+	// ARCH-271 branch routing + pre-release mechanics.
+	cmd.Flags().String("source-branch", "", "Service-repo source branch driving this release (default: $GITHUB_REF_NAME, then the current branch). Resolved through branch_targets to the PR base branch.")
+	cmd.Flags().String("base-branch", "", "Canonical-repo base branch the PR targets, overriding branch_targets resolution")
+	cmd.Flags().Bool("encode-commit-hash", false, "Encode a short git commit hash into the pre-release segment (AC-2; requires a pre-release version)")
+	cmd.Flags().String("commit-hash", "", "Commit hash to encode with --encode-commit-hash (default: HEAD)")
+	cmd.Flags().String("canonical-dir", "", "Local clone of the canonical repo whose release tags enforce the pre-release ratchet (AC-1); defaults to the working tree")
 	_ = cmd.MarkFlagRequired("version")
 	return cmd
 }
@@ -368,6 +431,9 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	force, _ := cmd.Flags().GetBool("force")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	tagsFlag, _ := cmd.Flags().GetStringSlice("tag")
+	encodeHash, _ := cmd.Flags().GetBool("encode-commit-hash")
+	commitHashFlag, _ := cmd.Flags().GetString("commit-hash")
+	canonicalDir, _ := cmd.Flags().GetString("canonical-dir")
 
 	cfg, err := loadConfig(cmd)
 	if err != nil {
@@ -380,8 +446,52 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("module path does not exist: %s", apiID)
 	}
 
+	// --- ARCH-271: branch routing + pre-release mechanics ---
+	// Resolve the canonical-repo base branch this release PR will target from the
+	// service repo's source branch via branch_targets (B). Recorded in the
+	// manifest so submit/finalize are branch-aware.
+	baseBranch, sourceBranch := resolveTargetBaseBranch(cmd, cfg)
+
+	// AC-2: encode a short git commit hash into the pre-release segment so every
+	// develop build traces to its commit. The hash lives in the pre-release
+	// segment (never +build metadata, which Go module resolution rejects).
+	if encodeHash {
+		commitHash := commitHashFlag
+		if commitHash == "" {
+			if out, gerr := exec.Command("git", "rev-parse", "HEAD").Output(); gerr == nil {
+				commitHash = strings.TrimSpace(string(out))
+			}
+		}
+		encoded, encErr := config.EncodeCommitHash(version, commitHash)
+		if encErr != nil {
+			return &publisher.ReleaseError{
+				Code:    publisher.ErrCodeInvalidVersion,
+				Message: encErr.Error(),
+				Hint:    "Encode a commit hash only on a pre-release version (the develop/beta channel).",
+			}
+		}
+		if encoded != version {
+			ui.Info("Encoded commit hash: %s -> %s", version, encoded)
+			version = encoded
+		}
+	}
+
+	// AC-1: fail closed if this pre-release is not strictly greater than the
+	// module line's highest already-released (GA) version. The comparison uses
+	// the CANONICAL repo's release tags, so it runs only when --canonical-dir
+	// points at a canonical clone (the check/publish workflow supplies it). The
+	// service repo's own tags are unrelated to the catalog's module versions, so
+	// there is no working-tree fallback here; finalize enforces the same ratchet
+	// in the canonical repo as the authoritative, always-on gate.
+	if canonicalDir != "" {
+		if ratchetErr := enforcePrereleaseRatchet(canonicalDir, apiID, version); ratchetErr != nil {
+			return ratchetErr
+		}
+	}
+
 	// --- State: draft ---
-	ui.Info("Preparing release for %s @ %s", apiID, version)
+	ui.Info("Preparing release for %s @ %s (source branch %q -> base branch %q)",
+		apiID, version, sourceBranch, baseBranch)
 
 	// Validate lifecycle
 	if lifecycle != "" {
@@ -469,6 +579,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	// Create manifest
 	manifest := publisher.NewManifest(api, source, langs, version, sourceRepo)
 	manifest.Tags = catalog.UnionTags(nil, tagsFlag)
+	manifest.BaseBranch = baseBranch
 
 	// --- State: validated (run validations) ---
 	manifest.Validation = &publisher.ValidationResults{
@@ -670,6 +781,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	report := language.FormatIdentityReport(api, source, release, langs)
 	fmt.Print(report)
 	ui.Info("Tag:         %s", tag)
+	ui.Info("Base branch: %s", baseBranch)
 	if manifest.SourceCommit != "" {
 		ui.Info("Commit:      %s", manifest.SourceCommit)
 	}
@@ -707,7 +819,29 @@ Examples:
 		RunE: releaseSubmitAction,
 	}
 	cmd.Flags().Bool("dry-run", false, "Show what would be submitted without actually doing it")
+	// ARCH-271: allow overriding the PR base branch at submit time. Normally the
+	// base branch is resolved at prepare time and carried in the manifest.
+	cmd.Flags().String("source-branch", "", "Service-repo source branch; resolved through branch_targets to the PR base branch (overrides the manifest)")
+	cmd.Flags().String("base-branch", "", "Canonical-repo base branch the PR targets (overrides branch_targets resolution and the manifest)")
 	return cmd
+}
+
+// resolveSubmitBaseBranch determines the base branch a submit's PR targets:
+// an explicit --base-branch/--source-branch override, else the branch recorded
+// in the manifest at prepare time, else branch_targets resolution, else "main".
+func resolveSubmitBaseBranch(cmd *cobra.Command, cfg *config.Config, manifest *publisher.ReleaseManifest) string {
+	if explicit, _ := cmd.Flags().GetString("base-branch"); explicit != "" {
+		return explicit
+	}
+	if src, _ := cmd.Flags().GetString("source-branch"); src != "" {
+		base, _ := resolveTargetBaseBranch(cmd, cfg)
+		return base
+	}
+	if manifest != nil && manifest.BaseBranch != "" {
+		return manifest.BaseBranch
+	}
+	base, _ := resolveTargetBaseBranch(cmd, cfg)
+	return base
 }
 
 func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
@@ -828,7 +962,14 @@ func releaseSubmitAction(cmd *cobra.Command, _ []string) error {
 		snapshotDir = manifest.SourcePath // fall back to bare path
 	}
 
-	resp, err := publisher.SubmitReleaseWithPR(ghClient, manifest, snapshotDir, prBodyExtra)
+	// ARCH-271: open the PR against the resolved base branch (main for a
+	// stable/master publish, develop for a pre-release publish), not a hardcoded
+	// "main". Keep the manifest's record current so finalize is branch-aware.
+	baseBranch := resolveSubmitBaseBranch(cmd, cfg, manifest)
+	manifest.BaseBranch = baseBranch
+	ui.Info("Base branch: %s", baseBranch)
+
+	resp, err := publisher.SubmitReleaseWithPR(ghClient, manifest, snapshotDir, prBodyExtra, baseBranch)
 	if err != nil {
 		// Empty-PR / no-diff: the prepared snapshot matches canonical, so there
 		// is nothing to submit. Exit cleanly with a recommended next step
@@ -1096,8 +1237,12 @@ Examples:
 	cmd.Flags().String("commit", "", "Commit to tag in CI mode (default: HEAD)")
 	cmd.Flags().Bool("local", false, "Run the CI-mode finalize locally for a ci_only repo (requires a token with contents:write and a tag-ruleset bypass)")
 	cmd.Flags().StringSlice("tag", nil, "Catalog tag to record on the module in CI mode (repeatable); ignored when a local manifest already carries tags")
-	cmd.Flags().String("base-ref", "", "Base branch the release PR merges into; finalize verifies the module landed there before tagging (default: auto-detect origin/HEAD, then main/master)")
+	cmd.Flags().String("base-ref", "", "Base branch the release PR merges into; finalize verifies the module landed there before tagging (default: the manifest's base_branch, then auto-detect origin/HEAD, then main/master)")
 	cmd.Flags().Bool("allow-not-landed", false, "Skip the landed-on-base-branch check (escape hatch; the tag+catalog would otherwise be minted for content not on the base branch)")
+	// ARCH-271: branch routing for CI-mode finalize (no local manifest). The base
+	// branch is normally carried in the manifest from prepare/submit.
+	cmd.Flags().String("source-branch", "", "Service-repo source branch (CI mode); resolved through branch_targets to the base branch")
+	cmd.Flags().String("base-branch", "", "Canonical-repo base branch this release landed on (CI mode); overrides branch_targets resolution")
 	return cmd
 }
 
@@ -1158,6 +1303,10 @@ func buildFinalizeManifest(cmd *cobra.Command, apiID, version string) (*publishe
 	if tags, _ := cmd.Flags().GetStringSlice("tag"); len(tags) > 0 {
 		manifest.Tags = catalog.UnionTags(nil, tags)
 	}
+	// ARCH-271: record the base branch this release landed on so the landed-check
+	// and catalog write are branch-aware even without a local manifest.
+	cfg, _ := loadConfig(cmd)
+	manifest.BaseBranch, _ = resolveTargetBaseBranch(cmd, cfg)
 	return manifest, nil
 }
 
@@ -1227,6 +1376,15 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 	repoPath, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// AC-1 (fail before tagging): reject a pre-release that is not strictly
+	// greater than the module line's highest GA release. Finalize runs in the
+	// canonical repo, so the working tree carries the authoritative release tags.
+	if ratchetErr := enforcePrereleaseRatchet(repoPath, manifest.APIID, manifest.RequestedVersion); ratchetErr != nil {
+		manifest.Fail(string(publisher.ErrCodeInvalidVersion), ratchetErr.Error(), "finalize")
+		_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
+		return ratchetErr
 	}
 
 	ui.Info("Finalizing release %s @ %s", manifest.APIID, manifest.RequestedVersion)
@@ -1328,6 +1486,17 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 	allowNotLanded, _ := cmd.Flags().GetBool("allow-not-landed")
 	if !allowNotLanded {
 		baseRef, _ := cmd.Flags().GetString("base-ref")
+		// ARCH-271: default the landed-check base ref to the release's recorded
+		// base branch (develop for a pre-release), preferring whichever of the
+		// local or remote-tracking ref resolves in this checkout.
+		if baseRef == "" && manifest.BaseBranch != "" {
+			for _, cand := range []string{manifest.BaseBranch, "origin/" + manifest.BaseBranch} {
+				if _, e := exec.Command("git", "-C", repoPath, "rev-parse", "--verify", "--quiet", cand+"^{commit}").Output(); e == nil {
+					baseRef = cand
+					break
+				}
+			}
+		}
 		commitToTag := manifest.SourceCommit
 		if commitToTag == "" {
 			commitToTag = "HEAD"

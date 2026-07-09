@@ -211,6 +211,12 @@ func buildV1Schema() SchemaVersion {
 				Type: TypeString,
 			},
 		},
+		"branch_targets": {
+			Name:        "branch_targets",
+			Type:        TypeMap,
+			Description: "Maps a service-repo source branch to the canonical-repo base branch its release PR targets (ARCH-271). Default: main/master→main, develop→develop.",
+			ItemDef:     &FieldDef{Name: "base_branch", Type: TypeString},
+		},
 		"language_targets": {
 			Name:        "language_targets",
 			Type:        TypeMap,
