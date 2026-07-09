@@ -150,8 +150,15 @@ func SubmitReleaseWithPR(
 	cloneURL := fmt.Sprintf("https://github.com/%s.git", canonicalNWO)
 	cloneDir := filepath.Join(tmpDir, "canonical")
 
-	if out, cloneErr := runGit("clone", "--depth=1", cloneURL, cloneDir); cloneErr != nil {
-		return nil, fmt.Errorf("cloning canonical repo: %s", out)
+	// Clone the resolved base branch — not the repo's default branch (ARCH-271,
+	// apx#34). A shallow "clone --depth=1 <url>" fetches only the default branch
+	// (main), so a develop publish would otherwise diff the snapshot against
+	// main's tree and cut the release branch from main: that produces a false
+	// ErrNoReleaseDiff when main holds identical content, and a wrong merge base
+	// once develop has diverged. "--branch <baseBranch>" checks out that branch
+	// so the release branch is cut from — and diffed against — the correct base.
+	if out, cloneErr := runGit("clone", "--branch", baseBranch, "--depth=1", cloneURL, cloneDir); cloneErr != nil {
+		return nil, fmt.Errorf("cloning canonical repo (base branch %q): %s", baseBranch, out)
 	}
 
 	// ── 2. Create release branch ─────────────────────────────────────
