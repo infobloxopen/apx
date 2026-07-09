@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Setup APX action** now installs `spectral` so the OpenAPI lint re-validation
+  in `apx lint` and `apx release finalize` can resolve it (ARCH-271). The
+  composite action installed `buf` and `oasdiff` but never `spectral`; because
+  apx cannot auto-download spectral (it is an npm package, not a registered
+  download source), re-validation failed with `tool not found: spectral` on
+  runners without it — which blocked release finalize and tagging. The action now
+  installs `@stoplight/spectral-cli` (version from `apx.yaml`
+  `tools.spectral.version`, defaulting to `v6.15.0`) unless a `spectral` is
+  already on `PATH`.
 - **`apx release submit`** now writes a Go module's generated `go.mod` inside its
   own version subtree instead of at the shared module-family root (#27). A v2+
   module's `go.mod` is placed in its version directory

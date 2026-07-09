@@ -162,3 +162,21 @@ runs:
             echo "oasdiff ${OASDIFF_VERSION} installed"
           fi
         fi
+
+        # ── spectral ──────────────────────────────────────────────────
+        # apx's OpenAPI lint re-validation (apx lint / apx release finalize)
+        # shells out to spectral, which — unlike buf/oasdiff — apx cannot
+        # auto-download (it is an npm package), so the action must install it.
+        # Version comes from apx.yaml (tools.spectral.version) when pinned,
+        # else the version apx expects.
+        SPECTRAL_VERSION=$(grep -A1 '^\s*spectral:' "${CONFIG}" | grep 'version:' | sed 's/.*version:\s*//' | tr -d '[:space:]"'"'" || true)
+        if [[ -z "${SPECTRAL_VERSION}" ]]; then
+          SPECTRAL_VERSION="v6.15.0"
+        fi
+        if command -v spectral &>/dev/null; then
+          echo "spectral already available: $(spectral --version 2>&1 || true)"
+        else
+          echo "Installing spectral ${SPECTRAL_VERSION}..."
+          npm install -g "@stoplight/spectral-cli@${SPECTRAL_VERSION#v}"
+          echo "spectral ${SPECTRAL_VERSION} installed"
+        fi
