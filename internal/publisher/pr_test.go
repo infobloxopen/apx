@@ -267,7 +267,7 @@ func TestSubmitReleaseWithPR_BranchAndCommit(t *testing.T) {
 		Tag:              "proto/payments/ledger/v1/v1.2.0",
 	}
 
-	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, "")
+	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, "", "main")
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, 99, resp.Number)
@@ -324,7 +324,7 @@ func TestSubmitReleaseWithPR_ExistingPR(t *testing.T) {
 		Tag:              "proto/test/v1/v1.0.0",
 	}
 
-	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, "")
+	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, "", "main")
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, 55, resp.Number)
@@ -367,11 +367,58 @@ func TestSubmitReleaseWithPR_WithCIProvenance(t *testing.T) {
 	}
 
 	ciExtra := "**CI**: github-actions\n**Run**: https://github.com/acme/app/actions/runs/12345"
-	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, ciExtra)
+	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, ciExtra, "main")
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Contains(t, capturedBody["body"], "CI")
 	assert.Contains(t, capturedBody["body"], "github-actions")
+}
+
+// TestSubmitReleaseWithPR_BaseBranch verifies the resolved base branch (ARCH-271)
+// flows through to the created PR — a develop publish must target apis "develop",
+// not the hardcoded "main".
+func TestSubmitReleaseWithPR_BaseBranch(t *testing.T) {
+	stubGit(t, func(args ...string) (string, error) {
+		if isDiffQuiet(args) {
+			return "", fmt.Errorf("exit status 1") // staged changes present
+		}
+		return "", nil
+	})
+
+	var capturedBase string
+	client, _ := setupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/repos/acme/apis/pulls":
+			fmt.Fprint(w, `[]`)
+		case r.Method == "POST" && r.URL.Path == "/repos/acme/apis/pulls":
+			var body map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			capturedBase = body["base"]
+			fmt.Fprint(w, `{"number":123,"html_url":"https://github.com/acme/apis/pull/123","state":"open"}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	snapshotDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(snapshotDir, "u.yaml"), []byte("openapi: 3.0.0"), 0o644))
+
+	manifest := &ReleaseManifest{
+		APIID:            "openapi/users/v1",
+		RequestedVersion: "v1.2.0-beta.1.g1a2b3c4d5e6f",
+		CanonicalRepo:    "github.com/acme/apis",
+		CanonicalPath:    "openapi/users/v1",
+		SourceRepo:       "github.com/acme/app",
+		SourcePath:       "openapi/users/v1",
+		Tag:              "openapi/users/v1/v1.2.0-beta.1.g1a2b3c4d5e6f",
+		BaseBranch:       "develop",
+	}
+
+	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, "", manifest.BaseBranch)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, "develop", capturedBase, "release PR must target the resolved base branch")
 }
 
 // TestSubmitReleaseWithPR_NoDiff verifies that when the prepared snapshot is
@@ -409,7 +456,7 @@ func TestSubmitReleaseWithPR_NoDiff(t *testing.T) {
 		Tag:              "proto/test/v1/v1.0.0",
 	}
 
-	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, "")
+	resp, err := SubmitReleaseWithPR(client, manifest, snapshotDir, "", "main")
 	require.Error(t, err)
 	assert.Nil(t, resp)
 	assert.ErrorIs(t, err, ErrNoReleaseDiff)

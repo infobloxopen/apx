@@ -225,6 +225,34 @@ module_roots:
   - parquet
 ```
 
+### `branch_targets`
+
+Maps a service repo's source branch to the base branch of the canonical (apis)
+repo that its release PR should target. This routes stable and pre-release
+publishing to separate catalog branches: the service's stable branch
+(`main`/`master`) publishes to the catalog's stable branch (`main`), while its
+integration branch (`develop`) publishes to a pre-release branch (`develop`).
+Keeping pre-release churn off `main` mirrors the upstream develop/master
+workflow.
+
+```yaml
+branch_targets:            # service source branch → apis base branch
+  main: main
+  master: main
+  develop: develop
+```
+
+The mapping is fully tweakable. When `branch_targets` is omitted, or a source
+branch is not listed, apx falls back to this same built-in default, then to the
+stable base branch (`main`). `apx release submit` opens the PR against the
+resolved base branch; `apx release finalize` verifies the module landed on it
+before tagging. A resolved base branch other than `main` is a pre-release
+channel: releases on it are published as `beta` pre-release versions
+(`vX.Y.Z-beta.N`) carrying a short git commit hash in the pre-release segment
+(e.g. `v1.2.0-beta.1.g1a2b3c4d5e6f`), and a fail-closed ratchet rejects any
+pre-release that is not strictly greater than the line's highest released (GA)
+version.
+
 ### `language_targets`
 
 Configures code generation for each target language. Each key is a language name with settings for plugins and tools.

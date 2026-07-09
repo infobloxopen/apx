@@ -120,12 +120,20 @@ func ComputeReleaseBranchName(apiID, version string) string {
 
 // SubmitReleaseWithPR performs a PR-based release submission of a prepared
 // snapshot into the canonical repository.
+//
+// baseBranch is the canonical-repo branch the PR targets (ARCH-271). An empty
+// value defaults to "main" so callers that do not route by branch keep the
+// historical behavior.
 func SubmitReleaseWithPR(
 	client *githubauth.Client,
 	manifest *ReleaseManifest,
 	snapshotDir string,
 	prBodyExtra string,
+	baseBranch string,
 ) (*PRResponse, error) {
+	if baseBranch == "" {
+		baseBranch = "main"
+	}
 	// ── 0. Parse canonical NWO ───────────────────────────────────────
 	canonicalNWO, err := ParseCanonicalNWO(manifest.CanonicalRepo)
 	if err != nil {
@@ -207,7 +215,7 @@ func SubmitReleaseWithPR(
 		prBody += "\n\n" + prBodyExtra
 	}
 
-	pr, createErr := CreatePR(client, canonicalNWO, branch, "main", title, prBody)
+	pr, createErr := CreatePR(client, canonicalNWO, branch, baseBranch, title, prBody)
 	if createErr != nil {
 		return nil, createErr
 	}

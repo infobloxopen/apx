@@ -10,6 +10,17 @@ module_roots:
   - parquet
   - crd
 
+# Branch routing (ARCH-271): map a service repo's source branch to the base
+# branch of the canonical (apis) repo its release PR targets. main/master
+# publish stable to the catalog's stable branch (main); develop publishes
+# pre-releases (vX.Y.Z-beta.N, commit-hash tagged) to the develop branch.
+# Optional — this same mapping is the built-in default when omitted; tweak it to
+# route additional branches.
+# branch_targets:
+#   main: main
+#   master: main
+#   develop: develop
+
 # Canonical API identity (optional — populated per API module)
 # api:
 #   id: proto/payments/ledger/v1

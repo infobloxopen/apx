@@ -31,6 +31,10 @@ type Config struct {
 	ExternalAPIs      []ExternalRegistration    `yaml:"external_apis,omitempty"`
 	APISources        []APISource               `yaml:"api_sources,omitempty"`
 	Clients           []ClientTarget            `yaml:"clients,omitempty"`
+	// BranchTargets maps a service-repo source branch to the canonical-repo base
+	// branch its release PR should target (ARCH-271). Absent/omitted entries fall
+	// back to DefaultBranchTargets, then to the stable base branch. Tweakable.
+	BranchTargets map[string]string `yaml:"branch_targets,omitempty"`
 }
 
 // ClientTarget describes a generated API client target for `apx client generate`.
