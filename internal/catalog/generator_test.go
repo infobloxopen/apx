@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/infobloxopen/apx/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -37,8 +38,9 @@ func TestParseReleaseTag_Valid(t *testing.T) {
 }
 
 // TestParseReleaseTag_LineDropped covers the 4-segment tag shape `finalize`
-// mints for v0/v1 modules (Go-module semantics drop the /v0 and /v1 suffix).
-// The line is recovered from the version's major. Regression for G3.
+// mints for ALL Go-module majors (Go's tag convention drops the /vN suffix from
+// the tag prefix). The line is recovered from the version's semver major.
+// Regression for G3 (v0/v1) and ARCH-271 (v2+).
 func TestParseReleaseTag_LineDropped(t *testing.T) {
 	tests := []struct {
 		tag     string
@@ -52,12 +54,42 @@ func TestParseReleaseTag_LineDropped(t *testing.T) {
 		{"proto/payments/ledger/v1.0.0-beta.1", "proto/payments/ledger/v1", "v1.0.0-beta.1"},
 		// v0 line.
 		{"openapi/iam/roles/v0.3.0", "openapi/iam/roles/v0", "v0.3.0"},
+		// v2+ omit-form: the line is recovered from the version's major.
+		{"openapi/csp.infoblox.com/iam-identity/v2.0.0-beta.1", "openapi/csp.infoblox.com/iam-identity/v2", "v2.0.0-beta.1"},
+		{"proto/payments/ledger/v3.1.4", "proto/payments/ledger/v3", "v3.1.4"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.tag, func(t *testing.T) {
 			id, ver := ParseReleaseTag(tt.tag)
 			assert.Equal(t, tt.wantID, id)
 			assert.Equal(t, tt.wantVer, ver)
+		})
+	}
+}
+
+// TestDeriveTagParseReleaseTagRoundTrip proves DeriveTag and ParseReleaseTag are
+// inverses for v1/v2/v3 Go-module APIs: the tag DeriveTag mints (omit-form, no
+// /vN subdirectory) parses back to the exact API ID and version. This is the
+// invariant that keeps a v2+ release both `go get`-able and catalog-resolvable.
+func TestDeriveTagParseReleaseTagRoundTrip(t *testing.T) {
+	tests := []struct {
+		apiID   string
+		version string
+		wantTag string
+	}{
+		{"openapi/csp.infoblox.com/iam-identity/v1", "v1.0.0-beta.1", "openapi/csp.infoblox.com/iam-identity/v1.0.0-beta.1"},
+		{"openapi/csp.infoblox.com/iam-identity/v2", "v2.0.0-beta.1", "openapi/csp.infoblox.com/iam-identity/v2.0.0-beta.1"},
+		{"proto/payments/ledger/v3", "v3.1.4", "proto/payments/ledger/v3.1.4"},
+		{"proto/infoblox/authz/v1", "v1.0.0", "proto/infoblox/authz/v1.0.0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.apiID+"@"+tt.version, func(t *testing.T) {
+			tag := config.DeriveTag(tt.apiID, tt.version)
+			assert.Equal(t, tt.wantTag, tag, "DeriveTag must omit the /vN subdirectory")
+
+			gotID, gotVer := ParseReleaseTag(tag)
+			assert.Equal(t, tt.apiID, gotID, "round-trip API ID")
+			assert.Equal(t, tt.version, gotVer, "round-trip version")
 		})
 	}
 }

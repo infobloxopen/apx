@@ -133,7 +133,11 @@ func TestDeriveTag(t *testing.T) {
 	}{
 		{"proto/payments/ledger/v1", "v1.0.0-alpha.1", "proto/payments/ledger/v1.0.0-alpha.1"},
 		{"proto/payments/ledger/v1", "1.0.0-beta.1", "proto/payments/ledger/v1.0.0-beta.1"},
-		{"proto/payments/ledger/v2", "v2.0.0", "proto/payments/ledger/v2/v2.0.0"},
+		// v2+ omit the /vN major-version subdirectory from the tag (Go tag
+		// convention) so the published module stays `go get`-able.
+		{"proto/payments/ledger/v2", "v2.0.0", "proto/payments/ledger/v2.0.0"},
+		{"proto/payments/ledger/v3", "3.1.4", "proto/payments/ledger/v3.1.4"},
+		{"openapi/csp.infoblox.com/iam-identity/v2", "v2.0.0-beta.1", "openapi/csp.infoblox.com/iam-identity/v2.0.0-beta.1"},
 		{"proto/iam/role/v0", "0.3.0", "proto/iam/role/v0.3.0"},
 	}
 	for _, tt := range tests {
