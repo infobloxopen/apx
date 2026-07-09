@@ -82,12 +82,14 @@ exec apx release prepare proto/payments/ledger/v1 --version v1.0.0 --lifecycle s
 stdout 'v1.0.0'
 stdout 'stable'
 
-# Test identity release v2 line (create the v2 directory first)
+# Test identity release v2 line (create the v2 directory first).
+# The Go import/module path keeps the /v2 major suffix, but the release TAG
+# omits it (Go tag convention) so the module stays `go get`-able.
 mkdir -p internal/apis/proto/payments/ledger/v2
 exec apx release prepare proto/payments/ledger/v2 --version v2.0.0-alpha.1 --lifecycle experimental --canonical-repo=github.com/myorg/apis --dry-run
 stdout 'proto/payments/ledger/v2'
 stdout 'github.com/myorg/apis/proto/payments/ledger/v2'
-stdout 'proto/payments/ledger/v2/v2.0.0-alpha.1'
+stdout 'proto/payments/ledger/v2.0.0-alpha.1'
 
 # Test identity release requires --version
 ! exec apx release prepare proto/payments/ledger/v1 --canonical-repo=github.com/myorg/apis --dry-run
