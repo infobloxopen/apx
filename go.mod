@@ -3,7 +3,7 @@ module github.com/infobloxopen/apx
 go 1.26.1
 
 require (
-	github.com/charmbracelet/huh v0.8.0
+	github.com/charmbracelet/huh v1.0.0
 	github.com/fatih/color v1.18.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/rogpeppe/go-internal v1.14.1
