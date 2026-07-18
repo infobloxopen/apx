@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a defect in apx (CLI, GitHub Action, or release pipeline)
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please complete every required section so the
+        report is actionable and consistent with other filings.
+  - type: textarea
+    id: what-is-wrong
+    attributes:
+      label: What is wrong
+      description: A clear, concise description of the defect — what apx does that it should not.
+      placeholder: e.g. `apx client generate --generator go` produces a client that does not compile.
+    validations:
+      required: true
+  - type: textarea
+    id: why-fix
+    attributes:
+      label: Why we need to fix it
+      description: Impact and motivation — who is affected, what breaks, and why it matters.
+      placeholder: e.g. Go consumers cannot build the module; the release gate has a blind spot that lets broken specs ship.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Exact, copy-pasteable steps (commands, config, and/or a minimal spec) to reproduce the behavior.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual results
+      description: What actually happened — error output, exit codes, generated code, etc.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected results
+      description: What you expected apx to do instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: apx version
+      description: Output of `apx version`, or the installed release / GitHub Action version.
+      placeholder: e.g. v0.20.1
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS/arch, Go/Node versions, CI vs. local, and any toolchain versions (buf, oasdiff, spectral, oapi-codegen).
+      placeholder: e.g. macOS arm64, Go 1.26, oapi-codegen v2.4.1, GitHub Actions
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Links (Jira, related issues/PRs), logs, screenshots, or a proposed fix.
+    validations:
+      required: false
