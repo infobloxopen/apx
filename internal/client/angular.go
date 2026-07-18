@@ -26,6 +26,19 @@ type angularGenerator struct{}
 
 func (g *angularGenerator) Name() string { return "typescript-angular" }
 
+// ToolchainAvailable reports whether the Node toolchain (npx for ng-openapi-gen,
+// npm for the build) is on PATH. Implements ToolchainChecker, so client
+// verification skips this generator (rather than failing) where Node is absent.
+func (g *angularGenerator) ToolchainAvailable() (bool, string) {
+	if _, err := exec.LookPath("npx"); err != nil {
+		return false, "npx not found on PATH (install Node >=18)"
+	}
+	if _, err := exec.LookPath("npm"); err != nil {
+		return false, "npm not found on PATH (install Node >=18)"
+	}
+	return true, ""
+}
+
 func (g *angularGenerator) Generate(ctx context.Context, gc GenerateContext) (Result, error) {
 	// Preflight: the generator shells out to npx.
 	if _, err := exec.LookPath("npx"); err != nil {

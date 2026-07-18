@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -26,6 +25,7 @@ func newClientCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newClientGenerateCmd())
 	cmd.AddCommand(newClientPublishCmd())
+	cmd.AddCommand(newClientVerifyCmd())
 	return cmd
 }
 
@@ -73,6 +73,119 @@ func newClientPublishCmd() *cobra.Command {
 	cmd.Flags().Bool("dry-run", true, "validate + show the tarball without publishing (default); --dry-run=false to publish")
 	cmd.Flags().String("record", "", "append an npm-package artifact to this apx release record (optional)")
 	return cmd
+}
+
+func newClientVerifyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "verify [target]",
+		Short: "Generate and compile a client to prove a spec is buildable",
+		Long: fmt.Sprintf("Generate an API client for one or more generators and compile it, failing the\n"+
+			"command if any client does not build. This is the release gate that stops a spec\n"+
+			"which cannot produce a buildable client from being published (a valid OpenAPI\n"+
+			"spec can still generate Go that does not compile).\n\n"+
+			"By default it verifies the %s generators; TypeScript is skipped where its Node\n"+
+			"toolchain is absent. Use --generator to scope, and --warn-only to downgrade a\n"+
+			"generate/compile failure to a warning (exit 0) instead of failing the gate.\n\n"+
+			"Available generators: %s",
+			strings.Join(client.DefaultVerifyGenerators, ", "), strings.Join(client.Names(), ", ")),
+		Args: cobra.MaximumNArgs(1),
+		RunE: clientVerifyAction,
+	}
+	cmd.Flags().String("input", "", "OpenAPI spec path (overrides config/auto-detect)")
+	cmd.Flags().String("from", "", "api-id of an apx.lock dependency to source the spec from (unreleased override)")
+	cmd.Flags().StringSlice("generator", nil, "generator(s) to verify (repeatable); default: release.verify_clients.generators, else go + typescript-angular")
+	cmd.Flags().String("package", "", "package/module name stamped into the generated client")
+	cmd.Flags().String("scope", "", "npm scope for the package (e.g. @example)")
+	cmd.Flags().Bool("warn-only", false, "downgrade a generate/compile failure to a warning and exit 0 (default: fail the gate)")
+	return cmd
+}
+
+// clientVerifyAction resolves a spec and generator matrix, generates+compiles a
+// client per generator, and turns the aggregate result into an exit code: it
+// fails when any verified client does not build, unless --warn-only (or the
+// release.verify_clients.warn_only config default) downgrades that to a warning.
+func clientVerifyAction(cmd *cobra.Command, args []string) error {
+	target := ""
+	if len(args) > 0 {
+		target = args[0]
+	}
+	input, _ := cmd.Flags().GetString("input")
+	from, _ := cmd.Flags().GetString("from")
+	pkg, _ := cmd.Flags().GetString("package")
+	scope, _ := cmd.Flags().GetString("scope")
+	generators, _ := cmd.Flags().GetStringSlice("generator")
+
+	// Best-effort config load; a valid apx.yaml is not required (e.g. with --input).
+	cfg, _ := config.LoadRaw("")
+
+	var ct *config.ClientTarget
+	if target != "" {
+		ct = findClientTarget(cfg, target)
+		if ct == nil {
+			return fmt.Errorf("no client target %q found in apx.yaml", target)
+		}
+		if scope == "" {
+			scope = ct.Scope
+		}
+		if pkg == "" {
+			pkg = ct.Package
+		}
+	}
+
+	specPath, err := resolveClientSpec(input, from, ct, target)
+	if err != nil {
+		return err
+	}
+
+	// Generator matrix precedence: flag > config > built-in default (the empty
+	// slice is resolved to client.DefaultVerifyGenerators inside Verify).
+	if len(generators) == 0 && cfg != nil {
+		generators = cfg.Release.VerifyClients.Generators
+	}
+
+	// warn-only precedence: an explicit flag wins; otherwise the config default.
+	warnOnly, _ := cmd.Flags().GetBool("warn-only")
+	if !cmd.Flags().Changed("warn-only") && cfg != nil {
+		warnOnly = cfg.Release.VerifyClients.WarnOnly
+	}
+
+	ui.Info("Verifying client build for %s ...", specPath)
+	report, err := client.Verify(cmd.Context(), client.VerifyOptions{
+		SpecPath:    specPath,
+		Generators:  generators,
+		PackageName: pkg,
+		Scope:       scope,
+	})
+	if err != nil {
+		return fmt.Errorf("verifying client: %w", err)
+	}
+
+	for _, r := range report.Results {
+		switch {
+		case r.Skipped:
+			ui.Warning("  %s: skipped (%s)", r.Generator, r.Reason)
+		case r.OK:
+			ui.Success("  %s: ok", r.Generator)
+		default:
+			ui.Error("  %s: FAILED — %v", r.Generator, r.Err)
+		}
+	}
+
+	if report.Ran() == 0 {
+		ui.Warning("No generators were verified (all skipped). Install the required toolchain(s) to run the gate.")
+		return nil
+	}
+
+	if report.Failed() {
+		if warnOnly {
+			ui.Warning("Client verification failed, but --warn-only is set — not failing the gate.")
+			return nil
+		}
+		return fmt.Errorf("client verification failed: one or more generated clients did not build")
+	}
+
+	ui.Success("All verified clients built successfully")
+	return nil
 }
 
 // resolveClientContext applies the shared target/flag/spec resolution and
@@ -175,7 +288,7 @@ func clientGenerateAction(cmd *cobra.Command, args []string) error {
 	}
 
 	if doBuild {
-		if err := buildClient(cmd.Context(), gen, res); err != nil {
+		if err := client.Build(cmd.Context(), gen, res); err != nil {
 			return fmt.Errorf("building client package: %w", err)
 		}
 	}
@@ -203,7 +316,7 @@ func clientPublishAction(cmd *cobra.Command, args []string) error {
 
 	// Build first: a Builder-aware generator (e.g. go) compile-verifies; the npm
 	// path builds dist/ which `npm publish` needs.
-	if err := buildClient(cmd.Context(), gen, res); err != nil {
+	if err := client.Build(cmd.Context(), gen, res); err != nil {
 		return fmt.Errorf("building client package: %w", err)
 	}
 
@@ -363,45 +476,6 @@ func defaultPackageName(specPath string) string {
 		base = "api"
 	}
 	return base + "-client"
-}
-
-// buildClient compile-verifies the generated package. A Builder-aware generator
-// (e.g. the go generator: `go mod tidy` + `go build`) supplies its own build;
-// generators without a Builder (e.g. typescript-angular) use the npm build path.
-func buildClient(ctx context.Context, gen client.Generator, res client.Result) error {
-	if b, ok := gen.(client.Builder); ok {
-		return b.Build(ctx, res)
-	}
-	return buildClientPackage(res.PackageDir)
-}
-
-// buildClientPackage runs npm install then npm run build in dir to prove the
-// generated package compiles.
-func buildClientPackage(dir string) error {
-	if _, err := exec.LookPath("npm"); err != nil {
-		return fmt.Errorf("npm required for --build; install Node >=18: %w", err)
-	}
-
-	ui.Info("Running npm install in %s ...", dir)
-	install := exec.Command("npm", "install")
-	install.Dir = dir
-	install.Env = os.Environ()
-	install.Stdout = os.Stdout
-	install.Stderr = os.Stderr
-	if err := install.Run(); err != nil {
-		return fmt.Errorf("npm install failed: %w", err)
-	}
-
-	ui.Info("Running npm run build in %s ...", dir)
-	build := exec.Command("npm", "run", "build")
-	build.Dir = dir
-	build.Env = os.Environ()
-	build.Stdout = os.Stdout
-	build.Stderr = os.Stderr
-	if err := build.Run(); err != nil {
-		return fmt.Errorf("npm run build failed: %w", err)
-	}
-	return nil
 }
 
 // publishClientPackage runs `npm publish` (or `npm publish --dry-run`) in dir.

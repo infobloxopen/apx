@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info:
+  title: apx client-verify regression fixture
+  version: 0.0.0
+  description: >
+    Reproduces two patterns that pass `apx lint`/`apx breaking` but produce a Go
+    client that does not compile — the gap the generate-and-compile gate closes.
+    Both constructs are valid OpenAPI 3:
+
+    (A) An operation exposing redundant pagination query params: `_limit`+`limit`
+        and `_offset`+`offset`. oapi-codegen strips the leading underscore, so
+        each pair normalizes to the same Go field -> `Limit`/`Offset` redeclared.
+
+    (B) An operation with a path parameter named `url`. oapi-codegen emits a
+        `url` argument that shadows the `net/url` import, so the generated
+        client's `url.Parse(...)` fails to compile.
+paths:
+  /labels:
+    get:
+      operationId: listLabels
+      summary: Pattern A — redundant pagination params collide to one Go field.
+      parameters:
+        - name: _limit
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: _offset
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /verify/{url}:
+    get:
+      operationId: verifyUrl
+      summary: Pattern B — path param named `url` shadows the net/url import.
+      parameters:
+        - name: url
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object

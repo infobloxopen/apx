@@ -74,6 +74,9 @@ version: 1
 | `release` | struct | no |  |  | Release configuration |
 | `release.tag_format` | string | no | `{subdir}/v{version}` |  | Tag pattern; must contain {version} |
 | `release.ci_only` | boolean | no | `true` |  | Restrict releasing to CI environments |
+| `release.verify_clients` | struct | no |  |  | Generate-and-compile gate (`apx client verify`) |
+| `release.verify_clients.generators` | list | no |  |  | Generators to verify; empty means the default matrix (go, typescript-angular) |
+| `release.verify_clients.warn_only` | boolean | no | `false` |  | Downgrade a generate/compile failure to a warning instead of failing the gate (overridden by `--warn-only`) |
 | `tools` | struct | no |  |  | Pinned tool versions |
 | `tools.buf` | struct | no |  |  | Buf CLI settings |
 | `tools.buf.version` | string | no |  |  | Buf CLI version |
@@ -382,6 +385,30 @@ Available generators:
 
 - `typescript-angular` (default) — orchestrates `ng-openapi-gen`, emits an npm package; built/published with `npm`.
 - `go` — orchestrates [`oapi-codegen`](https://github.com/oapi-codegen/oapi-codegen), emits a buildable Go module (typed client + models). For this generator `--package` is the Go **module path** (e.g. `github.com/you/your-client`) and `--scope` is ignored. `apx client generate --generator go --build` compile-verifies with `go build`; `apx client publish --generator go` records a `go-module` release artifact (Go modules are published by git tag in their own repo). The generated types honor the enriched OpenAPI contract from devedge-sdk (`enum`, `required`, `readOnly`/`writeOnly`); `x-aip-*` vendor extensions are ignored by the tool.
+
+#### `apx client verify` — the generate-and-compile gate
+
+`apx client verify` generates a client and **compiles** it, failing when any generated client does not build. A spec can be valid OpenAPI 3 and pass `apx lint`/`apx breaking` yet still produce a client that does not compile — e.g. redundant `_limit`/`limit` query params that normalize to the same Go field, or a path parameter named `url` that shadows the `net/url` import. This gate catches those before a module is released.
+
+```bash
+# Verify the auto-detected spec across the default matrix (go + typescript-angular):
+apx client verify
+
+# Scope to one generator (typical in release CI):
+apx client verify --generator go --input openapi/notesd.openapi.yaml
+
+# Soft-launch: report failures without failing the build:
+apx client verify --warn-only
+```
+
+Each generator runs in a throwaway directory. A generator whose toolchain is absent is **skipped** (not failed), so a bare `apx client verify` covers Go always and TypeScript where Node is present. The command exits non-zero when any verified client fails to build, unless `--warn-only` (or [`release.verify_clients.warn_only`](#release)) downgrades that to a warning. Configure the matrix and default policy under `release.verify_clients`:
+
+```yaml
+release:
+  verify_clients:
+    generators: [go, typescript-angular]  # empty => default matrix
+    warn_only: false                       # gate by default; --warn-only overrides
+```
 
 ### `external_apis`
 

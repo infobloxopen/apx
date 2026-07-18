@@ -313,6 +313,25 @@ func buildV1Schema() SchemaVersion {
 					Description: "Restrict releasing to CI environments",
 					Default:     true,
 				},
+				"verify_clients": {
+					Name:        "verify_clients",
+					Type:        TypeStruct,
+					Description: "Generate-and-compile gate: generate a client and build it so a spec that cannot produce a buildable client is caught before release (apx client verify)",
+					Children: map[string]FieldDef{
+						"generators": {
+							Name:        "generators",
+							Type:        TypeList,
+							Description: "Generators to verify; empty means the default matrix (go, typescript-angular)",
+							ItemDef:     &FieldDef{Name: "generator", Type: TypeString},
+						},
+						"warn_only": {
+							Name:        "warn_only",
+							Type:        TypeBool,
+							Description: "Downgrade a generate/compile failure to a warning instead of failing the gate (overridden by --warn-only)",
+							Default:     false,
+						},
+					},
+				},
 			},
 		},
 		"tools": {

@@ -104,8 +104,22 @@ type Policy struct {
 
 // ReleaseConfig represents release configuration
 type ReleaseConfig struct {
-	TagFormat string `yaml:"tag_format"`
-	CIOnly    bool   `yaml:"ci_only"`
+	TagFormat     string              `yaml:"tag_format"`
+	CIOnly        bool                `yaml:"ci_only"`
+	VerifyClients VerifyClientsConfig `yaml:"verify_clients,omitempty"`
+}
+
+// VerifyClientsConfig configures the `apx client verify` release gate, which
+// generates a client and compiles it so a spec that cannot produce a buildable
+// client is caught before release. Absent/omitted, the gate still runs with the
+// built-in default generator matrix when `apx client verify` is invoked.
+type VerifyClientsConfig struct {
+	// Generators lists the generators to verify. Empty means the built-in
+	// default matrix (go + typescript-angular).
+	Generators []string `yaml:"generators,omitempty"`
+	// WarnOnly downgrades a generate/compile failure to a warning (exit 0)
+	// instead of failing the gate. The --warn-only flag overrides this.
+	WarnOnly bool `yaml:"warn_only,omitempty"`
 }
 
 // Tools represents tool configuration
