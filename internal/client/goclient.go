@@ -37,6 +37,15 @@ type goGenerator struct{}
 
 func (g *goGenerator) Name() string { return "go" }
 
+// ToolchainAvailable reports whether the Go toolchain (needed for oapi-codegen
+// via `go run` and for `go build`) is on PATH. Implements ToolchainChecker.
+func (g *goGenerator) ToolchainAvailable() (bool, string) {
+	if _, err := exec.LookPath("go"); err != nil {
+		return false, "Go toolchain not found on PATH (install Go >=1.22)"
+	}
+	return true, ""
+}
+
 func (g *goGenerator) Generate(ctx context.Context, gc GenerateContext) (Result, error) {
 	// Preflight: the generator shells out to `go run` for oapi-codegen.
 	if _, err := exec.LookPath("go"); err != nil {

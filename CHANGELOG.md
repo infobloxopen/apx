@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`apx client verify`** — a generate-and-compile release gate. It generates an
+  API client and **compiles** it, failing when any generated client does not
+  build, so a spec that is valid OpenAPI 3 and passes `apx lint`/`apx breaking`
+  but produces a non-compiling client (e.g. redundant `_limit`/`limit` query
+  params that normalize to the same Go field, or a path parameter named `url`
+  that shadows the `net/url` import) is caught before release. Each generator
+  runs in a throwaway directory; a generator whose toolchain is absent is skipped
+  (not failed), so the gate covers Go always and TypeScript where Node is
+  present. `--warn-only` (or `release.verify_clients.warn_only`) downgrades a
+  failure to a warning for staged rollout; `release.verify_clients.generators`
+  sets the matrix. The Builder-or-npm build dispatch is now centralized in
+  `internal/client` and shared by `generate --build`, `publish`, and `verify`.
+
 ### Fixed
 
 - **Setup APX action** now installs `spectral` so the OpenAPI lint re-validation

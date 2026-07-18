@@ -76,6 +76,11 @@ policy:
 release:
   tag_format: "{subdir}/v{version}"
   ci_only: true
+  # Generate-and-compile gate (apx client verify): generate a client and build
+  # it so a spec that cannot produce a buildable client is caught before release.
+  verify_clients:
+    generators: [go, typescript-angular]  # empty => default matrix
+    warn_only: false                       # gate by default; --warn-only overrides
 tools:
   buf:
     version: v1.66.1
