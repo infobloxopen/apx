@@ -12,6 +12,13 @@ If you find specs/ files modified, run: `git checkout -- specs/`
 ### Commit Messages
 **NEVER add any Claude/Anthropic attribution to commit messages.** No `Co-Authored-By: Claude`, no `Generated with Claude Code`, nothing referencing Claude or Anthropic. Commit messages should only describe the change.
 
+### No Internal / Non-GitHub Ticket References
+`infobloxopen/apx` is a **public** repository. **NEVER reference internal or non-GitHub trackers** in anything that lands here or in a GitHub artifact — commit messages, PR/issue titles and bodies, code comments, and docs. Internal ticket IDs and tracker URLs (e.g. Jira `CICD-1234`, `https://*.atlassian.net/...`) leak corporate information.
+
+- Only reference tickets that are **GitHub issues/PRs of `infobloxopen/apx` or of an APX dependency** (e.g. `infobloxopen/apx#40`, `oapi-codegen/oapi-codegen#123`).
+- When an internal ticket tracks the work, put the link in the **internal** tracker pointing OUT to the GitHub issue — never the reverse.
+- Do not name private repos, internal hostnames, or product/customer details beyond what the technical description strictly requires.
+
 ### Build
 ```bash
 GOTOOLCHAIN=go1.26.1 go build ./...
