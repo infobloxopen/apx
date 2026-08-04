@@ -5,6 +5,9 @@ Get up and running with APX in under 5 minutes. This guide sets up the two repos
 !!! tip "Prerequisites"
     [Install APX](installation.md) and have Git and a GitHub organization ready.
 
+!!! tip "Onboarding an existing service?"
+    If your service already has proto or OpenAPI files in a non-standard layout (alongside generated code, not following the `internal/apis/proto/...` convention), use the **[Brownfield Onboarding](brownfield-onboarding.md)** guide instead. The steps below assume a new service starting from scratch.
+
 ## What You're Building
 
 APX uses two types of repos:
@@ -63,6 +66,19 @@ This creates:
                   └── ledger.proto
 ```
 
+Add the following to your `.gitignore`:
+
+```text
+# APX toolchain cache
+.apx-tools/
+
+# APX release manifest (ephemeral, written by apx release prepare)
+.apx-release.yaml
+
+# APX publish-on-change artifacts
+build/apx-modules/
+```
+
 ## 3. Validate Your Setup
 
 Fetch the pinned toolchain and run lint to confirm everything is wired correctly:
@@ -93,6 +109,14 @@ If `apx lint` passes with no errors, you're ready to start authoring schemas.
     Smart defaults, interactive prompts, CLI flags, and team onboarding scripts for `apx init`.
 
     [:octicons-arrow-right-24: Initialization details](initialization.md)
+
+-   :material-transfer: **Brownfield Onboarding**
+
+    ---
+
+    Onboarding an existing service with protos in a non-standard layout using the publish-on-change workflow.
+
+    [:octicons-arrow-right-24: Brownfield guide](brownfield-onboarding.md)
 
 -   :material-console: **CLI Reference**
 
