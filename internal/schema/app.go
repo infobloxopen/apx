@@ -345,6 +345,15 @@ node_modules/
 coverage.out
 *.test
 
+# APX toolchain cache
+.apx-tools/
+
+# APX release manifest (ephemeral, written by apx release prepare)
+.apx-release.yaml
+
+# APX publish-on-change artifacts
+build/apx-modules/
+
 # APX lock file (commit this)
 # apx.lock
 `
