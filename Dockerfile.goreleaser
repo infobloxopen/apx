@@ -1,5 +1,5 @@
 ## Stage 1: Build Go-based tools with the official Go toolchain
-FROM golang:1.26-alpine AS tools
+FROM golang:1.27-alpine AS tools
 
 RUN apk --no-cache add git && \
     go install github.com/bufbuild/buf/cmd/buf@latest && \
