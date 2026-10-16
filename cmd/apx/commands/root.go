@@ -52,6 +52,7 @@ func NewRootCmd(version string) *cobra.Command {
 	// Register all subcommands
 	cmd.AddCommand(
 		newInitCmd(),
+		newOnboardCmd(),
 		newLintCmd(),
 		newBreakingCmd(),
 		newPathlintCmd(),

@@ -105,6 +105,7 @@ nav:
     - Quick Start: getting-started/quickstart.md
     - Tutorial: getting-started/tutorial.md
     - Initialization Guide: getting-started/initialization.md
+    - Brownfield Onboarding: getting-started/brownfield-onboarding.md
   - Concepts:
     - Multi-Language Strategy: concepts/multi-language-strategy.md
     - CRD Format: concepts/crd-format.md

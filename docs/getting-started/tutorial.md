@@ -256,6 +256,13 @@ apx release prepare proto/payments/ledger/v1 \
 && apx release submit
 ```
 
+!!! note "Write access to the canonical repo is required"
+    `apx release submit` pushes a feature branch and opens a PR on the canonical repo.
+    Your token must have `contents:write` + `pull_requests:write` on `github.com/<org>/apis`.
+    If your personal token lacks write access, set `GITHUB_TOKEN` to a PAT or a GitHub App
+    installation token scoped to that repo. In CI, the org-level `APX_SUBMIT_APP_*` secrets
+    provide this automatically.
+
 APX will:
 1. Shallow-clone the canonical repo
 2. Copy your module files into `proto/payments/ledger/v1/`
