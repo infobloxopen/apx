@@ -278,7 +278,9 @@ main() {
     # ── Extract ──
     info "Extracting…"
     if [[ "$ext" == "tar.gz" ]]; then
-        tar -xzf "${tmpdir}/${archive_name}" -C "$tmpdir"
+        # Release archives may contain build-time ownership metadata. Ignore it
+        # so unprivileged installs work across containers and Linux distros.
+        tar --no-same-owner -xzf "${tmpdir}/${archive_name}" -C "$tmpdir"
     else
         # Windows zip — requires unzip.
         need_cmd unzip
