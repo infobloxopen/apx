@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,6 +13,15 @@ import (
 // OpenAPIValidator handles OpenAPI schema validation
 type OpenAPIValidator struct {
 	resolver *ToolchainResolver
+	// skipOperationIDs turns off the built-in operationId checks of Lint and
+	// Breaking. The zero value keeps them on.
+	skipOperationIDs bool
+}
+
+// SetOperationIDChecks turns the built-in operationId checks of Lint and
+// Breaking on or off. They are on by default.
+func (v *OpenAPIValidator) SetOperationIDChecks(enabled bool) {
+	v.skipOperationIDs = !enabled
 }
 
 // NewOpenAPIValidator creates a new OpenAPI validator
@@ -19,19 +29,32 @@ func NewOpenAPIValidator(resolver *ToolchainResolver) *OpenAPIValidator {
 	return &OpenAPIValidator{resolver: resolver}
 }
 
-// Lint runs spectral lint on OpenAPI specs
+// Lint checks an OpenAPI spec in two independent steps and reports the
+// failures of both:
+//
+//  1. the built-in operationId check (CheckOperationIDs), which needs no
+//     external tool and no ruleset;
+//  2. spectral lint, with the ruleset that spectral finds.
 func (v *OpenAPIValidator) Lint(path string) error {
-	spectralPath, err := v.resolver.ResolveTool("spectral", "v6.15.0")
-	if err != nil {
-		return fmt.Errorf("failed to resolve spectral: %w", err)
-	}
-
 	// finalize passes the module DIRECTORY; spectral does not glob a bare
 	// directory ("No files found to lint"), so resolve it to the spec file
 	// first (WS-035 G4 directory-glob shim).
 	specPath, err := resolveOpenAPISpecFile(path)
 	if err != nil {
 		return err
+	}
+	var idErr error
+	if !v.skipOperationIDs {
+		idErr = CheckOperationIDs(specPath)
+	}
+	return errors.Join(idErr, v.spectralLint(specPath))
+}
+
+// spectralLint runs spectral lint on one spec file.
+func (v *OpenAPIValidator) spectralLint(specPath string) error {
+	spectralPath, err := v.resolver.ResolveTool("spectral", "v6.15.0")
+	if err != nil {
+		return fmt.Errorf("failed to resolve spectral: %w", err)
 	}
 	absPath, err := filepath.Abs(specPath)
 	if err != nil {
@@ -61,6 +84,11 @@ func (v *OpenAPIValidator) Lint(path string) error {
 // misreads as "breaking detected" and which blocks every second release on a
 // module line. The comparison RESULT is left unchanged (the no-op-severity
 // behavior is the separate G7 issue).
+//
+// oasdiff rates a renamed or removed operationId as INFO
+// (api-operation-id-removed), so "breaking --fail-on ERR" exits 0 for it.
+// Breaking therefore also runs CompareOperationIDs on the same two files and
+// reports its findings as breaking.
 func (v *OpenAPIValidator) Breaking(revPath, against string) error {
 	oasdiffPath, err := v.resolver.ResolveTool("oasdiff", "v1.9.6")
 	if err != nil {
@@ -96,11 +124,14 @@ func (v *OpenAPIValidator) Breaking(revPath, against string) error {
 	// fails the check and drives the semver bump.
 	cmd := exec.Command(oasdiffPath, "breaking", "--fail-on", "ERR", baseArg, absRev)
 	output, err := cmd.CombinedOutput()
+	var diffErr, idErr error
 	if err != nil {
-		return fmt.Errorf("oasdiff breaking failed: %w\nOutput: %s", err, string(output))
+		diffErr = fmt.Errorf("oasdiff breaking failed: %w\nOutput: %s", err, string(output))
 	}
-
-	return nil
+	if !v.skipOperationIDs {
+		idErr = CompareOperationIDs(baseArg, absRev)
+	}
+	return errors.Join(diffErr, idErr)
 }
 
 // resolveOpenAPISpecFile returns the OpenAPI spec file at p. When p is a module

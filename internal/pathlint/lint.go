@@ -23,12 +23,31 @@ type Report struct {
 	Unreachable  int
 }
 
+// SpecInput is one spec file with the external prefixes that replace its base
+// path. With no prefix, the base path of the document applies (servers[0].url
+// or basePath).
+type SpecInput struct {
+	Path             string
+	ExternalPrefixes []string
+}
+
 // Analyze loads every ingress source and spec file, computes coverage, and
 // returns a Report. releaseName is used when an --ingress argument is a chart
 // directory (rendered via `helm template`); rendered-manifest files need no
 // helm binary.
 func Analyze(ingressInputs, specInputs, helmSets []string, releaseName string) (*Report, error) {
-	r := &Report{IngressInputs: ingressInputs, SpecInputs: specInputs}
+	specs := make([]SpecInput, 0, len(specInputs))
+	for _, sp := range specInputs {
+		specs = append(specs, SpecInput{Path: sp})
+	}
+	return AnalyzeSpecs(ingressInputs, specs, helmSets, releaseName)
+}
+
+// AnalyzeSpecs is Analyze with an optional external prefix for each spec. An
+// external prefix replaces the base path of the spec: use it when the client
+// path does not start with that base path.
+func AnalyzeSpecs(ingressInputs []string, specs []SpecInput, helmSets []string, releaseName string) (*Report, error) {
+	r := &Report{IngressInputs: ingressInputs}
 
 	for _, in := range ingressInputs {
 		rs, err := loadIngressInput(in, releaseName, helmSets)
@@ -37,8 +56,9 @@ func Analyze(ingressInputs, specInputs, helmSets []string, releaseName string) (
 		}
 		r.Rules = append(r.Rules, rs...)
 	}
-	for _, sp := range specInputs {
-		ps, err := loadSpec(sp)
+	for _, sp := range specs {
+		r.SpecInputs = append(r.SpecInputs, sp.Path)
+		ps, err := loadSpec(sp.Path, sp.ExternalPrefixes...)
 		if err != nil {
 			return nil, err
 		}

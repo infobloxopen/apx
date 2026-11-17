@@ -1,0 +1,47 @@
+{
+  "swagger": "2.0",
+  "info": {"title": "Dashboards", "version": "1.0.0"},
+  "basePath": "/api/v1",
+  "produces": ["application/json"],
+  "paths": {
+    "/dashboards": {
+      "get": {
+        "operationId": "listDashboards",
+        "responses": {"200": {"description": "ok"}}
+      },
+      "post": {
+        "operationId": "importDashboard",
+        "responses": {"200": {"description": "ok"}}
+      }
+    },
+    "/dashboards/{id}": {
+      "parameters": [{"name": "id", "in": "path", "required": true, "type": "string"}],
+      "get": {
+        "operationId": "getDashboard",
+        "responses": {"200": {"description": "ok"}}
+      },
+      "head": {
+        "responses": {"200": {"description": "ok"}}
+      }
+    },
+    "/dashboards/{id}/rows": {
+      "get": {
+        "operationId": "streamRows",
+        "produces": ["application/x-ndjson"],
+        "responses": {"200": {"description": "ok"}}
+      }
+    },
+    "/dashboards/{id}:export": {
+      "get": {
+        "operationId": "exportDashboard",
+        "x-streaming": true,
+        "responses": {"200": {"description": "ok"}}
+      }
+    },
+    "/healthz": {
+      "get": {
+        "responses": {"200": {"description": "ok"}}
+      }
+    }
+  }
+}

@@ -43,6 +43,10 @@ type ReleaseManifest struct {
 	// into the catalog and the annotated release tag at finalize (WS-035 F-33).
 	Tags []string `yaml:"tags,omitempty" json:"tags,omitempty"`
 
+	// Audience is "public" or "internal". It is optional. It travels into the
+	// annotated release tag and the catalog entry at finalize.
+	Audience string `yaml:"audience,omitempty" json:"audience,omitempty"`
+
 	// Canonical destination
 	CanonicalRepo string `yaml:"canonical_repo" json:"canonical_repo"`
 	CanonicalPath string `yaml:"canonical_path" json:"canonical_path"`
@@ -208,6 +212,9 @@ func FormatManifestReport(m *ReleaseManifest) string {
 	lines = append(lines, fmt.Sprintf("Line:        %s", m.Line))
 	if m.Lifecycle != "" {
 		lines = append(lines, fmt.Sprintf("Lifecycle:   %s", m.Lifecycle))
+	}
+	if m.Audience != "" {
+		lines = append(lines, fmt.Sprintf("Audience:    %s", m.Audience))
 	}
 	lines = append(lines, fmt.Sprintf("Version:     %s", m.RequestedVersion))
 	lines = append(lines, fmt.Sprintf("Tag:         %s", m.Tag))

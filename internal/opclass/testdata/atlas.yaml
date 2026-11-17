@@ -1,0 +1,77 @@
+# Atlas-style ids in the published Service_Method form.
+openapi: 3.0.3
+info:
+  title: Identity
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/api/identity/v1/
+paths:
+  /accounts/{id}/users:
+    get:
+      operationId: Accounts_AccountListUsers
+      responses:
+        '200':
+          description: ok
+  /groups:
+    get:
+      operationId: AccountOrganizationGroups_List
+      x-aip-method: Custom
+      responses:
+        '200':
+          description: ok
+    post:
+      operationId: AccountOrganizationGroups_Create
+      responses:
+        '201':
+          description: created
+  /groups/{id}:
+    get:
+      operationId: AccountOrganizationGroups_Read
+      responses:
+        '200':
+          description: ok
+    put:
+      operationId: AccountOrganizationGroups_Update
+      responses:
+        '200':
+          description: ok
+    patch:
+      operationId: AccountOrganizationGroups_Patch
+      responses:
+        '200':
+          description: ok
+    delete:
+      operationId: AccountOrganizationGroups_Delete
+      responses:
+        '204':
+          description: gone
+  /blacklist:
+    get:
+      operationId: Security_Blacklist
+      responses:
+        '200':
+          description: ok
+  /session/verify:
+    options:
+      operationId: Sessions_Verify
+      responses:
+        '204':
+          description: ok
+  /events:
+    get:
+      operationId: Events_Watch
+      x-operation-class: custom
+      responses:
+        '200':
+          description: a stream
+          content:
+            text/event-stream; charset=utf-8:
+              schema:
+                type: string
+  /books/{id}:
+    get:
+      operationId: Library_Fetch
+      x-aip-method: Get
+      responses:
+        '200':
+          description: ok

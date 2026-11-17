@@ -31,6 +31,9 @@ type Module struct {
 	Path             string   `yaml:"path"`
 	Tags             []string `yaml:"tags,omitempty"`
 	Owners           []string `yaml:"owners,omitempty"`
+	// Audience is "public" or "internal" (see ValidateAudience). It is optional:
+	// a module that was released without an audience has none in the catalog.
+	Audience string `yaml:"audience,omitempty"`
 	// ResourceTypes lists the AIP-122 resource types this module declares
 	// (read from google.api.resource annotations in its protos at catalog
 	// generation). It is the key that type→module resolution reads.
@@ -449,6 +452,8 @@ type apiAccum struct {
 	LatestPrerelease string            // empty if none
 	lifecycleByVer   map[string]string // recorded lifecycle per version (from the tag annotation)
 	tags             []string          // union of recorded tags across all versions
+	audience         string            // audience recorded on the highest version that has one
+	audienceVer      string            // the version that recorded audience
 }
 
 // GenerateFromTags builds a Catalog from a list of git tag names, deriving
@@ -473,6 +478,8 @@ func GenerateFromTags(tags []string, org, repo string) *Catalog {
 // falls back to the semver-derived heuristic. This is what makes a module cut
 // with `--lifecycle deprecated` show as deprecated rather than stable (F-32).
 // Recorded first-party tags are unioned across the module's versions (F-33).
+// The audience is the one recorded on the highest version that has one; a
+// module whose tags record no audience gets none.
 func GenerateFromTagRecords(records []TagRecord, org, repo string) *Catalog {
 	apis := make(map[string]*apiAccum)
 
@@ -499,6 +506,9 @@ func GenerateFromTagRecords(records []TagRecord, org, repo string) *Catalog {
 			acc.lifecycleByVer[version] = rec.Lifecycle
 		}
 		acc.tags = UnionTags(acc.tags, rec.Tags)
+		if rec.Audience != "" && (acc.audienceVer == "" || semver.Compare(version, acc.audienceVer) > 0) {
+			acc.audience, acc.audienceVer = rec.Audience, version
+		}
 
 		if isStableVersion(version) {
 			if acc.LatestStable == "" || semver.Compare(version, acc.LatestStable) > 0 {
@@ -529,6 +539,8 @@ func GenerateFromTagRecords(records []TagRecord, org, repo string) *Catalog {
 			APILine: acc.APILine,
 			Path:    acc.Path,
 			Tags:    acc.tags,
+			// The audience of the highest version whose release tag records one.
+			Audience: acc.audience,
 		}
 		if acc.LatestStable != "" {
 			m.LatestStable = acc.LatestStable

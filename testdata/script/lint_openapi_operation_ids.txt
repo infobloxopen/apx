@@ -1,0 +1,49 @@
+# Test: apx lint for OpenAPI has a built-in operationId check.
+# The check is native Go. It does not need spectral, so each assertion below
+# holds with and without spectral on the PATH. The opt-out
+# (--operation-ids=false) has its test in internal/validator.
+
+# A missing operationId fails
+! exec apx lint --format openapi missing.yaml
+stderr 'GET /widgets/\{id\}: operationId is missing'
+
+# A repeated operationId fails
+! exec apx lint --format openapi duplicate.yaml
+stderr 'operationId "widgets" is not unique: GET /widgets, GET /widgets/\{id\}'
+
+-- missing.yaml --
+openapi: 3.0.3
+info:
+  title: Widgets
+  version: 1.0.0
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      responses:
+        '200':
+          description: ok
+  /widgets/{id}:
+    get:
+      summary: Get one widget
+      responses:
+        '200':
+          description: ok
+-- duplicate.yaml --
+openapi: 3.0.3
+info:
+  title: Widgets
+  version: 1.0.0
+paths:
+  /widgets:
+    get:
+      operationId: widgets
+      responses:
+        '200':
+          description: ok
+  /widgets/{id}:
+    get:
+      operationId: widgets
+      responses:
+        '200':
+          description: ok

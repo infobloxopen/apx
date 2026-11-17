@@ -267,3 +267,26 @@ func TestNewManifest_WithAllCoords(t *testing.T) {
 	assert.Contains(t, report, "npm:")
 	assert.Contains(t, report, "@acme/payments-ledger-v1-proto")
 }
+
+// The audience is optional: it round-trips when set, and a manifest without
+// one has no audience key.
+func TestWriteReadManifest_Audience(t *testing.T) {
+	api := &config.APIIdentity{ID: "openapi/payments/ledger/v1", Format: "openapi", Domain: "payments", Name: "ledger", Line: "v1"}
+	source := &config.SourceIdentity{Repo: "github.com/acme/apis", Path: "openapi/payments/ledger/v1"}
+	dir := t.TempDir()
+
+	with := NewManifest(api, source, nil, "v1.0.0", "github.com/acme/apis")
+	with.Audience = "internal"
+	path := filepath.Join(dir, "with.yaml")
+	require.NoError(t, WriteManifest(with, path))
+	got, err := ReadManifest(path)
+	require.NoError(t, err)
+	assert.Equal(t, "internal", got.Audience)
+	assert.Contains(t, FormatManifestReport(got), "Audience:    internal")
+
+	without := NewManifest(api, source, nil, "v1.0.0", "github.com/acme/apis")
+	data, err := MarshalManifest(without)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "audience")
+	assert.NotContains(t, FormatManifestReport(without), "Audience")
+}

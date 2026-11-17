@@ -221,6 +221,13 @@ func (v *Validator) Breaking(path, against string, format SchemaFormat) error {
 	}
 }
 
+// SetOperationIDChecks turns the built-in operationId checks for OpenAPI on or
+// off: the missing or repeated operationId check of Lint, and the renamed or
+// removed operationId comparison of Breaking. They are on by default.
+func (v *Validator) SetOperationIDChecks(enabled bool) {
+	v.oasValidator.SetOperationIDChecks(enabled)
+}
+
 // SetAvroCompatibilityMode sets the Avro compatibility checking mode
 func (v *Validator) SetAvroCompatibilityMode(mode string) {
 	v.avroValidator.SetCompatibilityMode(mode)

@@ -1,0 +1,26 @@
+# A synthetic internal contract. It repeats the public paths and adds its own.
+swagger: "2.0"
+info:
+  title: Identity internal API
+  version: "2"
+basePath: /v2
+paths:
+  /accounts:
+    get:
+      operationId: Accounts_List
+      responses:
+        "200": {description: ok}
+    post:
+      operationId: Accounts_Create
+      responses:
+        "201": {description: created}
+  /accounts/{account_id}:
+    get:
+      operationId: Accounts_Read
+      responses:
+        "200": {description: ok}
+  /accounts/groups:
+    get:
+      operationId: AccountGroups_List
+      responses:
+        "200": {description: ok}

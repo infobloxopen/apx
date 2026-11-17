@@ -216,6 +216,34 @@ apx breaking internal/apis/proto/payments
 apx breaking --format=openapi
 ```
 
+#### `apx opclass <spec>`
+
+Classify the operations of an OpenAPI spec as `read`, `list`, `write` or `custom`.
+
+```bash
+apx opclass ledger.yaml                   # Print the operation table
+apx opclass ledger.yaml --format json     # JSON output
+apx opclass ledger.yaml --write           # Add x-operation-class where it is missing
+```
+
+#### `apx optable render`
+
+Write one operation-table ConfigMap for each API of a `RouteAPIBinding`, and optionally the route table.
+
+```bash
+apx optable render --binding binding.yaml --spec openapi/payments/ledger/v1=ledger.yaml --out chart/files
+apx optable render --binding helm/payments --specs-dir ../apis --out rendered --route-table
+```
+
+#### `apx pathlint`
+
+Compare the ingress paths of a chart with the paths of its OpenAPI specs.
+
+```bash
+apx pathlint --ingress rendered.yaml --spec spec.yaml --warn-only
+apx pathlint --ingress rendered.yaml --spec spec.yaml --external-prefix /api/v2
+```
+
 ### Releasing
 
 APX uses a structured multi-step release pipeline (`prepare` -> `submit` -> `finalize` -> `promote`)

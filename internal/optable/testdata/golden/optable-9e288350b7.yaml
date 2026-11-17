@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: optable-9e288350b7
+  labels:
+    apx.infoblox.com/operation-table: "true"
+  annotations:
+    apx.infoblox.com/api: openapi/reports/server/v1
+    apx.infoblox.com/api-version: v1.0.0
+data:
+  operations.json: |
+    {
+      "schema": "apx.infoblox.com/operation-table/v1",
+      "api": "openapi/reports/server/v1",
+      "version": "v1.0.0",
+      "audience": "internal",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboards",
+          "operationId": "listDashboards",
+          "class": "list",
+          "streaming": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/dashboards",
+          "operationId": "createDashboard",
+          "class": "write",
+          "streaming": false
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/v1/dashboards/{dashboardId}",
+          "operationId": "deleteDashboard",
+          "class": "write",
+          "streaming": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboards/{dashboardId}",
+          "operationId": "getDashboard",
+          "class": "read",
+          "streaming": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/events",
+          "operationId": "watchEvents",
+          "class": "custom",
+          "streaming": true
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/query",
+          "operationId": "runQuery",
+          "class": "read",
+          "streaming": false
+        },
+        {
+          "method": "GET",
+          "path": "/healthz",
+          "operationId": "getHealth",
+          "class": "read",
+          "streaming": false
+        }
+      ]
+    }

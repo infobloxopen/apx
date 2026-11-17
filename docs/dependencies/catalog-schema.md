@@ -6,9 +6,9 @@ The `catalog/catalog.yaml` file is the organization-wide index of released API s
 
 `catalog/catalog.yaml` is the single source of truth. `apx catalog generate`, `apx release finalize`, and `apx release promote` all read and write this same path — there is no separate root-level `catalog.yaml`. `catalog generate` rebuilds the index from the repo's release tags and then preserves the fields tags cannot express: a lifecycle that has been advanced in place (see below), plus curated `tags`, `owners`, and `description`.
 
-## Recorded lifecycle and tags
+## Recorded lifecycle, tags and audience
 
-A module's `lifecycle` and first-party `tags` are recorded on the annotated release tag by `finalize` (from `--lifecycle` and repeatable `--tag` flags) and reflected in the catalog. This means:
+A module's `lifecycle`, first-party `tags` and `audience` are recorded on the annotated release tag by `finalize` (from the `--lifecycle`, repeatable `--tag` and `--audience` flags) and reflected in the catalog. This means:
 
 - A module released `--lifecycle deprecated` shows `deprecated` in the generated catalog rather than a lifecycle re-derived from its semver.
 - `apx release promote <api-id> --to deprecated` (or `--to sunset`) with no `--version` performs an **in-place** lifecycle change: it updates the module's `lifecycle` in `catalog/catalog.yaml` without minting a new version. `catalog generate` preserves that further-along lifecycle on subsequent runs. Commit the catalog change to publish it.
@@ -32,6 +32,7 @@ modules:
     latest_prerelease: v1.3.0-beta.1
     path: proto/payments/ledger/v1
     tags: [payments, internal]
+    audience: internal
     owners: [payments-team]
     resource_types:
       - payments.acme.com/Ledger
@@ -86,6 +87,14 @@ Each entry in `modules` describes a single released API line.
 |-------|------|-------------|
 | `tags` | list of strings | Searchable tags (e.g. `["payments", "public"]`) |
 | `owners` | list of strings | Team or individual owners (e.g. `["payments-team"]`) |
+| `audience` | string | Who can call the API: `public` or `internal`. Optional. |
+
+`audience` is a field of its own, not a tag. Set it with `apx release prepare --audience public` (or `--audience internal`). The release manifest carries it, `finalize` writes it to the annotated release tag (`Audience: internal`) and to the catalog entry, and `apx catalog generate` reads it back from the tags. The rules are:
+
+- A module that was never released with `--audience` has no `audience` key. APX does not apply a default.
+- A later release without `--audience` keeps the audience of the entry.
+- `catalog generate` uses the audience of the highest version whose tag records one, and keeps the audience of the committed catalog when no tag records one.
+- Any value other than `public` or `internal` is an error at `prepare` and `finalize`.
 
 ### Resource Types
 

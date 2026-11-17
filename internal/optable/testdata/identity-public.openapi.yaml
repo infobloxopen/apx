@@ -1,0 +1,19 @@
+# A synthetic public contract. Each path is also in the internal contract with
+# the same operationId.
+openapi: 3.0.3
+info:
+  title: Identity API
+  version: "2"
+servers:
+  - url: https://api.example.com/v2/
+paths:
+  /accounts:
+    get:
+      operationId: Accounts_List
+      responses:
+        "200": {description: ok}
+  /accounts/{id}:
+    get:
+      operationId: Accounts_Read
+      responses:
+        "200": {description: ok}

@@ -1,0 +1,30 @@
+# Test: apx release prepare --audience records the audience in the manifest
+
+mkdir app-repo
+cd app-repo
+exec git init
+exec git config user.name 'Test User'
+exec git config user.email 'test@example.com'
+exec apx init app --org=myorg --repo=app-repo --non-interactive internal/apis/proto/payments/ledger/v1
+exec git add .
+exec git commit -m 'Add ledger API'
+
+# Without the flag the manifest has no audience key
+exec apx release prepare proto/payments/ledger/v1 --version=v1.0.0 --canonical-repo=github.com/myorg/apis
+exists .apx-release.yaml
+! grep 'audience' .apx-release.yaml
+
+# With the flag the manifest carries the audience
+exec apx release prepare proto/payments/ledger/v1 --version=v1.0.0 --canonical-repo=github.com/myorg/apis --audience internal
+grep '^audience: internal$' .apx-release.yaml
+
+exec apx release prepare proto/payments/ledger/v1 --version=v1.0.0 --canonical-repo=github.com/myorg/apis --audience public
+grep '^audience: public$' .apx-release.yaml
+
+# An unknown audience fails
+! exec apx release prepare proto/payments/ledger/v1 --version=v1.0.0 --canonical-repo=github.com/myorg/apis --audience device
+stderr 'invalid audience "device"'
+
+# The finalize CI mode validates the flag too
+! exec apx release finalize --api proto/payments/ledger/v1 --version v1.0.0 --audience device
+stderr 'invalid audience "device"'

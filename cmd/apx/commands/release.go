@@ -357,6 +357,7 @@ Examples:
 	cmd.Flags().Bool("force", false, "Override sunset block")
 	cmd.Flags().Bool("dry-run", false, "Show what would be prepared without writing the manifest")
 	cmd.Flags().StringSlice("tag", nil, "Catalog tag to record on the module (repeatable; e.g. --tag audience:internal --tag product:ddi)")
+	cmd.Flags().String("audience", "", "Audience of the API to record in the manifest and the catalog entry: public or internal (default: none)")
 	// ARCH-271 branch routing + pre-release mechanics.
 	cmd.Flags().String("source-branch", "", "Service-repo source branch driving this release (default: $GITHUB_REF_NAME, then the current branch). Resolved through branch_targets to the PR base branch.")
 	cmd.Flags().String("base-branch", "", "Canonical-repo base branch the PR targets, overriding branch_targets resolution")
@@ -431,6 +432,10 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	force, _ := cmd.Flags().GetBool("force")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	tagsFlag, _ := cmd.Flags().GetStringSlice("tag")
+	audience, _ := cmd.Flags().GetString("audience")
+	if err := catalog.ValidateAudience(audience); err != nil {
+		return err
+	}
 	encodeHash, _ := cmd.Flags().GetBool("encode-commit-hash")
 	commitHashFlag, _ := cmd.Flags().GetString("commit-hash")
 	canonicalDir, _ := cmd.Flags().GetString("canonical-dir")
@@ -579,6 +584,7 @@ func releasePrepareAction(cmd *cobra.Command, args []string) error {
 	// Create manifest
 	manifest := publisher.NewManifest(api, source, langs, version, sourceRepo)
 	manifest.Tags = catalog.UnionTags(nil, tagsFlag)
+	manifest.Audience = audience
 	manifest.BaseBranch = baseBranch
 
 	// --- State: validated (run validations) ---
@@ -1237,6 +1243,8 @@ Examples:
 	cmd.Flags().String("commit", "", "Commit to tag in CI mode (default: HEAD)")
 	cmd.Flags().Bool("local", false, "Run the CI-mode finalize locally for a ci_only repo (requires a token with contents:write and a tag-ruleset bypass)")
 	cmd.Flags().StringSlice("tag", nil, "Catalog tag to record on the module in CI mode (repeatable); ignored when a local manifest already carries tags")
+	cmd.Flags().String("audience", "", "Audience to record on the module in CI mode (public or internal); ignored when a local manifest already carries an audience")
+	cmd.Flags().Bool("operation-ids", true, "OpenAPI re-validation: fail on a missing or repeated operationId (lint) and on a renamed or removed operationId (breaking); opt out with --operation-ids=false")
 	cmd.Flags().String("base-ref", "", "Base branch the release PR merges into; finalize verifies the module landed there before tagging (default: the manifest's base_branch, then auto-detect origin/HEAD, then main/master)")
 	cmd.Flags().Bool("allow-not-landed", false, "Skip the landed-on-base-branch check (escape hatch; the tag+catalog would otherwise be minted for content not on the base branch)")
 	// ARCH-271: branch routing for CI-mode finalize (no local manifest). The base
@@ -1303,11 +1311,67 @@ func buildFinalizeManifest(cmd *cobra.Command, apiID, version string) (*publishe
 	if tags, _ := cmd.Flags().GetStringSlice("tag"); len(tags) > 0 {
 		manifest.Tags = catalog.UnionTags(nil, tags)
 	}
+	audience, _ := cmd.Flags().GetString("audience")
+	if err := catalog.ValidateAudience(audience); err != nil {
+		return nil, err
+	}
+	manifest.Audience = audience
 	// ARCH-271: record the base branch this release landed on so the landed-check
 	// and catalog write are branch-aware even without a local manifest.
 	cfg, _ := loadConfig(cmd)
 	manifest.BaseBranch, _ = resolveTargetBaseBranch(cmd, cfg)
 	return manifest, nil
+}
+
+// releaseTagMessage is the body of the annotated release tag. It records the
+// facts that `apx catalog generate` reads back from git alone: the lifecycle,
+// the first-party tags and the audience. The Tags and Audience
+// lines are absent when the release has none.
+func releaseTagMessage(manifest *publisher.ReleaseManifest) string {
+	message := fmt.Sprintf("Release %s %s\n\nLifecycle: %s\nSource: %s/%s",
+		manifest.APIID, manifest.RequestedVersion,
+		manifest.Lifecycle, manifest.SourceRepo, manifest.SourcePath)
+	if len(manifest.Tags) > 0 {
+		message += "\nTags: " + catalog.FormatTagList(manifest.Tags)
+	}
+	if manifest.Audience != "" {
+		message += "\nAudience: " + manifest.Audience
+	}
+	return message
+}
+
+// upsertCatalogModule finds or creates the catalog entry of the released
+// module and records the release on it. Tags are a union, so a re-release does
+// not drop curated tags. A release without an audience keeps the
+// audience of an existing entry and sets none on a new one.
+func upsertCatalogModule(cat *catalog.Catalog, manifest *publisher.ReleaseManifest) {
+	for i, mod := range cat.Modules {
+		if mod.ID == manifest.APIID || mod.DisplayName() == manifest.APIID {
+			cat.Modules[i].Version = manifest.RequestedVersion
+			cat.Modules[i].Lifecycle = manifest.Lifecycle
+			cat.Modules[i].LatestStable = updateLatestStable(cat.Modules[i].LatestStable, manifest.RequestedVersion, manifest.Lifecycle)
+			cat.Modules[i].LatestPrerelease = updateLatestPrerelease(cat.Modules[i].LatestPrerelease, manifest.RequestedVersion, manifest.Lifecycle)
+			cat.Modules[i].Tags = catalog.UnionTags(cat.Modules[i].Tags, manifest.Tags)
+			if manifest.Audience != "" {
+				cat.Modules[i].Audience = manifest.Audience
+			}
+			return
+		}
+	}
+	mod := catalog.Module{
+		ID:        manifest.APIID,
+		Format:    manifest.Format,
+		Domain:    manifest.Domain,
+		APILine:   manifest.Line,
+		Version:   manifest.RequestedVersion,
+		Lifecycle: manifest.Lifecycle,
+		Path:      manifest.CanonicalPath,
+		Tags:      catalog.UnionTags(nil, manifest.Tags),
+		Audience:  manifest.Audience,
+	}
+	mod.LatestStable = updateLatestStable("", manifest.RequestedVersion, manifest.Lifecycle)
+	mod.LatestPrerelease = updateLatestPrerelease("", manifest.RequestedVersion, manifest.Lifecycle)
+	cat.Modules = append(cat.Modules, mod)
 }
 
 func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
@@ -1344,6 +1408,9 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 			publisher.ErrCodeMissingConfig,
 			"no release manifest found — run 'apx release prepare' and 'apx release submit' first",
 		).WithHint("In canonical CI, use 'apx release finalize --api <api-id> --version <version>'")
+	}
+	if err := catalog.ValidateAudience(manifest.Audience); err != nil {
+		return fmt.Errorf("release manifest: %w", err)
 	}
 
 	// Verify state: must be submitted or canonical-pr-open
@@ -1400,6 +1467,9 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 	// Create a validator instance for re-validation
 	resolver := validator.NewToolchainResolver()
 	v := validator.NewValidator(resolver)
+	if on, _ := cmd.Flags().GetBool("operation-ids"); !on {
+		v.SetOperationIDChecks(false)
+	}
 	schemaFormat := validator.SchemaFormat(manifest.Format)
 
 	// Re-run lint
@@ -1522,14 +1592,7 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 		if manifest.SourceCommit != "" {
 			commitHash = manifest.SourceCommit
 		}
-		message := fmt.Sprintf("Release %s %s\n\nLifecycle: %s\nSource: %s/%s",
-			manifest.APIID, manifest.RequestedVersion,
-			manifest.Lifecycle, manifest.SourceRepo, manifest.SourcePath)
-		// Record first-party tags in the annotation so `apx catalog generate` can
-		// round-trip them from git alone (WS-035 F-33).
-		if len(manifest.Tags) > 0 {
-			message += "\nTags: " + catalog.FormatTagList(manifest.Tags)
-		}
+		message := releaseTagMessage(manifest)
 		if err := tm.CreateTag(manifest.Tag, message, commitHash); err != nil {
 			manifest.Fail(string(publisher.ErrCodePushFailed), err.Error(), "finalize")
 			_ = publisher.WriteManifest(manifest, ".apx-release.yaml")
@@ -1589,36 +1652,7 @@ func releaseFinalizeAction(cmd *cobra.Command, _ []string) error {
 			}
 		}
 
-		// Find or create the module entry
-		found := false
-		for i, mod := range cat.Modules {
-			if mod.ID == manifest.APIID || mod.DisplayName() == manifest.APIID {
-				cat.Modules[i].Version = manifest.RequestedVersion
-				cat.Modules[i].Lifecycle = manifest.Lifecycle
-				cat.Modules[i].LatestStable = updateLatestStable(cat.Modules[i].LatestStable, manifest.RequestedVersion, manifest.Lifecycle)
-				cat.Modules[i].LatestPrerelease = updateLatestPrerelease(cat.Modules[i].LatestPrerelease, manifest.RequestedVersion, manifest.Lifecycle)
-				// Carry first-party tags recorded at release into the catalog
-				// (WS-035 F-33). Union so a re-release does not drop curated tags.
-				cat.Modules[i].Tags = catalog.UnionTags(cat.Modules[i].Tags, manifest.Tags)
-				found = true
-				break
-			}
-		}
-		if !found {
-			mod := catalog.Module{
-				ID:        manifest.APIID,
-				Format:    manifest.Format,
-				Domain:    manifest.Domain,
-				APILine:   manifest.Line,
-				Version:   manifest.RequestedVersion,
-				Lifecycle: manifest.Lifecycle,
-				Path:      manifest.CanonicalPath,
-				Tags:      catalog.UnionTags(nil, manifest.Tags),
-			}
-			mod.LatestStable = updateLatestStable("", manifest.RequestedVersion, manifest.Lifecycle)
-			mod.LatestPrerelease = updateLatestPrerelease("", manifest.RequestedVersion, manifest.Lifecycle)
-			cat.Modules = append(cat.Modules, mod)
-		}
+		upsertCatalogModule(cat, manifest)
 
 		if saveErr := gen.Save(cat); saveErr != nil {
 			ui.Warning("Catalog update failed: %v", saveErr)
