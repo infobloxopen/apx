@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"gopkg.in/yaml.v3"
@@ -27,6 +28,16 @@ const (
 	RouteTableFile = "route-table.json"
 	// RouteTableDataKey is the binaryData key of a route-table ConfigMap.
 	RouteTableDataKey = "route-table.json.gz"
+	// LabelDescriptorSet marks the ConfigMap of the descriptor set of a gRPC API.
+	LabelDescriptorSet = "apx.infoblox.com/descriptor-set"
+	// AnnotationDescriptorDigest holds the SHA-256 digest of the descriptor set
+	// before gzip.
+	AnnotationDescriptorDigest = "apx.infoblox.com/descriptor-digest"
+	// DescriptorDataKey is the binaryData key of a descriptor ConfigMap.
+	DescriptorDataKey = "descriptors.binpb.gz"
+	// MaxDescriptorGzipBytes is the largest gzip descriptor set of one API. A
+	// ConfigMap holds at most 1 MiB, and base64 adds a third.
+	MaxDescriptorGzipBytes = 700 * 1024
 )
 
 // ConfigMapName returns the name of the operation-table ConfigMap of an API:
@@ -34,6 +45,12 @@ const (
 func ConfigMapName(apiID string) string {
 	sum := sha256.Sum256([]byte(apiID))
 	return "optable-" + hex.EncodeToString(sum[:])[:10]
+}
+
+// DescriptorConfigMapName returns the name of the descriptor ConfigMap of a
+// gRPC API: the operation-table ConfigMap name and "-descriptors".
+func DescriptorConfigMapName(apiID string) string {
+	return ConfigMapName(apiID) + "-descriptors"
 }
 
 // JSON encodes the table as the value of the data key operations.json.
@@ -76,6 +93,46 @@ func (t *Table) ConfigMap(namespace string) ([]byte, error) {
 		str("kind"), str("ConfigMap"),
 		str("metadata"), mapping(meta...),
 		str("data"), mapping(str(TableDataKey), literal(string(data))),
+	))
+}
+
+// DescriptorConfigMap returns the ConfigMap manifest that holds the descriptor
+// set of a gRPC API as gzip data under the binaryData key descriptors.binpb.gz.
+// set must be the set that t.Descriptor names (the digest must match), and the
+// gzip bytes must be at most MaxDescriptorGzipBytes. namespace is optional.
+func (t *Table) DescriptorConfigMap(set []byte, namespace string) ([]byte, error) {
+	if t.Descriptor == nil {
+		return nil, fmt.Errorf("API %s has no descriptor set", t.API)
+	}
+	sum := sha256.Sum256(set)
+	if got := "sha256:" + hex.EncodeToString(sum[:]); got != t.Descriptor.Digest {
+		return nil, fmt.Errorf("API %s: the descriptor set has the digest %s, not %s", t.API, got, t.Descriptor.Digest)
+	}
+	zipped, err := Gzip(set)
+	if err != nil {
+		return nil, err
+	}
+	if len(zipped) > MaxDescriptorGzipBytes {
+		return nil, fmt.Errorf("API %s: the descriptor set has %d KiB after gzip, more than the limit of %d KiB of a ConfigMap",
+			t.API, (len(zipped)+1023)/1024, MaxDescriptorGzipBytes/1024)
+	}
+	meta := []*yaml.Node{str("name"), str(t.Descriptor.ConfigMap)}
+	if namespace != "" {
+		meta = append(meta, str("namespace"), str(namespace))
+	}
+	meta = append(meta,
+		str("labels"), mapping(str(LabelDescriptorSet), quoted("true")),
+		str("annotations"), mapping(
+			str(AnnotationAPI), str(t.API),
+			str(AnnotationAPIVersion), str(t.Version),
+			str(AnnotationDescriptorDigest), str(t.Descriptor.Digest),
+		),
+	)
+	return encodeYAML(mapping(
+		str("apiVersion"), str("v1"),
+		str("kind"), str("ConfigMap"),
+		str("metadata"), mapping(meta...),
+		str("binaryData"), mapping(str(t.Descriptor.Key), str(base64.StdEncoding.EncodeToString(zipped))),
 	))
 }
 

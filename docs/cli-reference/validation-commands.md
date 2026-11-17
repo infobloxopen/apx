@@ -272,8 +272,8 @@ The validation is strict:
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--binding` | string (repeatable) | required | A YAML file with one or more `RouteAPIBinding` documents, or a Helm chart directory. A chart directory is rendered with `helm template`; a file needs no `helm` binary. |
-| `--spec` | string (repeatable) | | `<api-id>=<file>`: the OpenAPI 3.x or Swagger 2 file of one API |
-| `--specs-dir` | string | | A directory with the layout of an API repository. The contract of an API is the single OpenAPI file in `<dir>/<api-id>/`. |
+| `--spec` | string (repeatable) | | `<api-id>=<file>`: the OpenAPI 3.x or Swagger 2 file of one API, or the descriptor set of a `proto/` API (see [gRPC APIs](#grpc-apis)) |
+| `--specs-dir` | string | | A directory with the layout of an API repository. The contract of an OpenAPI API is the single OpenAPI file in `<dir>/<api-id>/`. A `proto/` API needs `--spec`. |
 | `--audience` | string (repeatable) | | `<api-id>=public` or `<api-id>=internal` |
 | `--catalog` | string | | Path or URL of a catalog file that gives the audience of each API |
 | `--out` | string | required | Output directory. The command creates it. |
@@ -289,6 +289,8 @@ The validation is strict:
 `--spec <api-id>=<file>` wins. Otherwise the contract is the single OpenAPI file in `<specs-dir>/<api-id>/`; when that directory has more than one OpenAPI file, pass `--spec`. The command does not download a release: check out `--specs-dir` at the version that the binding pins. The `version` of the binding goes into the output as written.
 
 Each operation must have an `operationId` (`apx lint` checks this).
+
+A `proto/` API needs `--spec <api-id>=<file>` with its descriptor set. The command does not compile `.proto` files. Build the set at the pinned version with `buf build`, for example `buf build --path proto/payments/ledger/v1 -o ledger.binpb`.
 
 ### Audience
 
@@ -307,6 +309,27 @@ The `path` of an operation in the output is the external path template: the path
 | | `/v2` | `/accounts/{id}` | `/v2/accounts/{id}` |
 | `/api/v2/` | `/internal/v2` | `/accounts/` | `/api/v2/accounts` |
 | `/` | `/v2` | `/accounts` | `/accounts` |
+
+### gRPC APIs
+
+The contract of a `proto/` API is a descriptor set: the output of `buf build -o <file>`. A file that ends in `.json` is the JSON form (`buf build -o <file>.json`); any other file is the binary form. A plain `google.protobuf.FileDescriptorSet` (`protoc --include_imports --descriptor_set_out`) is also accepted.
+
+Each method of each service is one operation:
+
+| Field | Value |
+|---|---|
+| `method` | `POST` |
+| `path` | `/<package>.<Service>/<Method>`, for example `/payments.ledger.v1.Ledger/GetEntry` |
+| `operationId` | `<Service>_<Method>`, for example `Ledger_GetEntry`: the form that a gRPC gateway gives to the same method in OpenAPI |
+| `class` | From the `operationId`, with the name rule of [`apx opclass`](#apx-opclass). A method that the name rule does not decide is `write`, because a gRPC call is a `POST`. |
+| `streaming` | `true` when the client or the server streams |
+
+The rules:
+
+- A Buf image marks the files that the API imports. Only the files that are not imports give operations. A plain descriptor set has no marks, so each service in it gives operations.
+- The set must be complete: each import of each file must be in the set. A reader of the set, such as a web application firewall, then can decode each request and response message of a call. A set that is not complete is an error.
+- A set with no service is an error.
+- A gRPC client always sends `/<package>.<Service>/<Method>`, so the path has no prefix. An `externalPrefix` other than `/` on a `proto/` API is an error.
 
 ### Precedence between APIs
 
@@ -360,6 +383,18 @@ data:
 
 `operations` is sorted by `path`, then by `method`. `class` and `streaming` come from the classifier of [`apx opclass`](#apx-opclass). When one API has two `externalPrefix` values, its table has the operations under each prefix.
 
+The table of a `proto/` API also has `descriptor`: the ConfigMap that holds the descriptor set, its `binaryData` key and the SHA-256 digest of the set.
+
+```json
+"descriptor": {
+  "configMap": "optable-4def501dd8-descriptors",
+  "key": "descriptors.binpb.gz",
+  "digest": "sha256:<64 hex digits>"
+}
+```
+
+**One descriptor ConfigMap for each `proto/` API**, in the file `optable-<hash>-descriptors.yaml`, with the name of the operation-table ConfigMap and `-descriptors`. It has the label `apx.infoblox.com/descriptor-set: "true"`, the annotations `apx.infoblox.com/api`, `apx.infoblox.com/api-version` and `apx.infoblox.com/descriptor-digest`, and the `binaryData` key `descriptors.binpb.gz`. The key holds the gzip bytes of the canonical set: a binary `google.protobuf.FileDescriptorSet` with the files sorted by name, without source code info and without the Buf marks. The digest is the SHA-256 of these bytes before gzip. A reader finds the set of a route operation by its `api`, and checks the digest.
+
 **`route-table.json`** (with `--route-table`): each route with its resolved operations. Each method and path is there one time for each route.
 
 ```json
@@ -403,6 +438,7 @@ The text summary has one line for each API, one line for each route and the list
       "audience": "internal",
       "spec": "reports.yaml",
       "configMap": "optable-9e288350b7",
+      "descriptor": "",
       "operations": 4,
       "classes": {"custom": 1, "list": 1, "read": 1, "write": 1}
     }
@@ -415,11 +451,13 @@ The text summary has one line for each API, one line for each route and the list
 }
 ```
 
-On a conflict, `conflicts` has one entry for each conflict (`namespace`, `route`, `method`, `path`, `api`, `otherApi`, `reason`), `files` is empty and the exit code is not zero.
+`descriptor` is the name of the descriptor ConfigMap of a `proto/` API, and empty for an OpenAPI API. On a conflict, `conflicts` has one entry for each conflict (`namespace`, `route`, `method`, `path`, `api`, `otherApi`, `reason`), `files` is empty and the exit code is not zero.
 
 ### Limits
 
-- OpenAPI only. gRPC operations are not in the table.
+- OpenAPI files and gRPC descriptor sets only. The command does not compile `.proto` files.
+- The gzip descriptor set of one API must be at most 700 KiB, because a ConfigMap holds at most 1 MiB.
+- The class of a gRPC method comes from its name only; no method option sets it.
 - The command does not fetch a pinned release from the catalog; see "Where the API contract comes from".
 - The route kind is `Ingress` only.
 
@@ -433,6 +471,11 @@ apx optable render --binding binding.yaml \
 # A chart, the contracts from a checkout of the API repository, with the route table
 apx optable render --binding helm/payments --specs-dir ../apis \
     --out rendered --route-table --namespace payments
+
+# A gRPC API: build its descriptor set, then render
+buf build --path proto/payments/ledger/v1 -o ledger.binpb
+apx optable render --binding binding.yaml \
+    --spec proto/payments/ledger/v1=ledger.binpb --out chart/files --route-table
 
 # The route table as a gzip ConfigMap, and a JSON summary
 apx optable render --binding binding.yaml --specs-dir ../apis \
