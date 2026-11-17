@@ -1,0 +1,355 @@
+# Test: apx optable render with a gRPC API: the operations come from a Buf
+# image (the JSON form of 'buf build -o ledger.json'), and the descriptor set
+# goes into its own ConfigMap (native Go, no external tools)
+
+# The Buf image marks timestamp.proto and ops.proto as imports: only the five
+# Ledger methods are operations
+exec apx optable render --binding binding.yaml --spec proto/acme/ledger/v1=ledger.json --out out --route-table
+stdout 'proto/acme/ledger/v1 v1.0.0 \(internal\): 5 operations: read=1 list=1 write=3 custom=0 -> optable-78c049294f, optable-78c049294f-descriptors'
+stdout 'route ledger/ledger: 5 operations, default API proto/acme/ledger/v1'
+stdout 'wrote 3 file\(s\) to out: optable-78c049294f.yaml, optable-78c049294f-descriptors.yaml, route-table.json'
+grep '"path": "/acme.ledger.v1.Ledger/GetEntry"' out/optable-78c049294f.yaml
+grep '"operationId": "Ledger_ListEntries"' out/optable-78c049294f.yaml
+grep '"method": "POST"' out/optable-78c049294f.yaml
+grep '"descriptor": \{' out/optable-78c049294f.yaml
+grep '"configMap": "optable-78c049294f-descriptors"' out/optable-78c049294f.yaml
+grep '"key": "descriptors.binpb.gz"' out/optable-78c049294f.yaml
+grep '"digest": "sha256:[0-9a-f]{64}"' out/optable-78c049294f.yaml
+! grep 'acme.ops.v1' out/optable-78c049294f.yaml
+
+grep '^kind: ConfigMap$' out/optable-78c049294f-descriptors.yaml
+grep '^  name: optable-78c049294f-descriptors$' out/optable-78c049294f-descriptors.yaml
+grep '^    apx.infoblox.com/descriptor-set: "true"$' out/optable-78c049294f-descriptors.yaml
+grep '^    apx.infoblox.com/api: proto/acme/ledger/v1$' out/optable-78c049294f-descriptors.yaml
+grep '^    apx.infoblox.com/api-version: v1.0.0$' out/optable-78c049294f-descriptors.yaml
+grep '^    apx.infoblox.com/descriptor-digest: sha256:[0-9a-f]{64}$' out/optable-78c049294f-descriptors.yaml
+grep '^binaryData:$' out/optable-78c049294f-descriptors.yaml
+grep '^  descriptors.binpb.gz: ' out/optable-78c049294f-descriptors.yaml
+
+grep '"path": "/acme.ledger.v1.Ledger/SyncEntries"' out/route-table.json
+grep '"operation": "Ledger_UploadEntries"' out/route-table.json
+grep '"streaming": true' out/route-table.json
+! grep 'acme.ops.v1' out/route-table.json
+
+# A second render gives the same bytes
+exec apx optable render --binding binding.yaml --spec proto/acme/ledger/v1=ledger.json --out again --route-table
+cmp again/optable-78c049294f.yaml out/optable-78c049294f.yaml
+cmp again/optable-78c049294f-descriptors.yaml out/optable-78c049294f-descriptors.yaml
+
+# The JSON summary names the descriptor ConfigMap
+exec apx optable render --binding binding.yaml --spec proto/acme/ledger/v1=ledger.json --out json --format json
+stdout '"descriptor": "optable-78c049294f-descriptors"'
+stdout '"configMap": "optable-78c049294f"'
+stdout '"optable-78c049294f-descriptors.yaml"'
+
+# A gRPC API needs --spec: --specs-dir does not compile .proto files
+! exec apx optable render --binding binding.yaml --specs-dir apis --out none
+stderr 'API proto/acme/ledger/v1: a gRPC API needs --spec proto/acme/ledger/v1=<descriptor set>'
+! exists none
+
+# A set without an import of its files is an error
+! exec apx optable render --binding binding.yaml --spec proto/acme/ledger/v1=incomplete.json --out none
+stderr 'not complete'
+! exists none
+
+# An externalPrefix other than / on a gRPC API is an error
+! exec apx optable render --binding prefixed.yaml --spec proto/acme/ledger/v1=ledger.json --out none
+stderr 'externalPrefix "/api": a gRPC path has no prefix'
+! exists none
+
+-- binding.yaml --
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteAPIBinding
+metadata:
+  name: ledger
+  namespace: ledger
+spec:
+  apis:
+    - ref: proto/acme/ledger/v1
+      version: v1.0.0
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: ledger}
+-- prefixed.yaml --
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteAPIBinding
+metadata:
+  name: ledger
+  namespace: ledger
+spec:
+  apis:
+    - ref: proto/acme/ledger/v1
+      version: v1.0.0
+      externalPrefix: /api
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: ledger}
+-- apis/proto/acme/ledger/v1/ledger.proto --
+syntax = "proto3";
+package acme.ledger.v1;
+-- ledger.json --
+{
+  "file": [
+    {
+      "bufExtension": {
+        "isImport": true
+      },
+      "messageType": [
+        {
+          "field": [
+            {
+              "jsonName": "seconds",
+              "label": "LABEL_OPTIONAL",
+              "name": "seconds",
+              "number": 1,
+              "type": "TYPE_INT64"
+            },
+            {
+              "jsonName": "nanos",
+              "label": "LABEL_OPTIONAL",
+              "name": "nanos",
+              "number": 2,
+              "type": "TYPE_INT32"
+            }
+          ],
+          "name": "Timestamp"
+        }
+      ],
+      "name": "google/protobuf/timestamp.proto",
+      "options": {
+        "ccEnableArenas": true,
+        "csharpNamespace": "Google.Protobuf.WellKnownTypes",
+        "goPackage": "google.golang.org/protobuf/types/known/timestamppb",
+        "javaMultipleFiles": true,
+        "javaOuterClassname": "TimestampProto",
+        "javaPackage": "com.google.protobuf",
+        "objcClassPrefix": "GPB"
+      },
+      "package": "google.protobuf",
+      "syntax": "proto3"
+    },
+    {
+      "bufExtension": {
+        "isImport": true
+      },
+      "messageType": [
+        {
+          "name": "Op"
+        }
+      ],
+      "name": "acme/ops/v1/ops.proto",
+      "package": "acme.ops.v1",
+      "service": [
+        {
+          "method": [
+            {
+              "inputType": ".acme.ops.v1.Op",
+              "name": "GetOp",
+              "outputType": ".acme.ops.v1.Op"
+            }
+          ],
+          "name": "Operations"
+        }
+      ],
+      "syntax": "proto3"
+    },
+    {
+      "bufExtension": {
+        "isImport": false
+      },
+      "dependency": [
+        "google/protobuf/timestamp.proto",
+        "acme/ops/v1/ops.proto"
+      ],
+      "messageType": [
+        {
+          "field": [
+            {
+              "jsonName": "id",
+              "label": "LABEL_OPTIONAL",
+              "name": "id",
+              "number": 1,
+              "type": "TYPE_STRING"
+            },
+            {
+              "jsonName": "posted_at",
+              "label": "LABEL_OPTIONAL",
+              "name": "posted_at",
+              "number": 2,
+              "type": "TYPE_MESSAGE",
+              "typeName": ".google.protobuf.Timestamp"
+            }
+          ],
+          "name": "Entry"
+        },
+        {
+          "field": [
+            {
+              "jsonName": "id",
+              "label": "LABEL_OPTIONAL",
+              "name": "id",
+              "number": 1,
+              "type": "TYPE_STRING"
+            }
+          ],
+          "name": "GetEntryRequest"
+        },
+        {
+          "name": "ListEntriesRequest"
+        }
+      ],
+      "name": "acme/ledger/v1/ledger.proto",
+      "package": "acme.ledger.v1",
+      "service": [
+        {
+          "method": [
+            {
+              "inputType": ".acme.ledger.v1.GetEntryRequest",
+              "name": "GetEntry",
+              "outputType": ".acme.ledger.v1.Entry"
+            },
+            {
+              "inputType": ".acme.ledger.v1.ListEntriesRequest",
+              "name": "ListEntries",
+              "outputType": ".acme.ledger.v1.Entry",
+              "serverStreaming": true
+            },
+            {
+              "inputType": ".acme.ledger.v1.Entry",
+              "name": "CreateEntry",
+              "outputType": ".acme.ledger.v1.Entry"
+            },
+            {
+              "clientStreaming": true,
+              "inputType": ".acme.ledger.v1.Entry",
+              "name": "UploadEntries",
+              "outputType": ".acme.ledger.v1.Entry"
+            },
+            {
+              "clientStreaming": true,
+              "inputType": ".acme.ledger.v1.Entry",
+              "name": "SyncEntries",
+              "outputType": ".acme.ledger.v1.Entry",
+              "serverStreaming": true
+            }
+          ],
+          "name": "Ledger"
+        }
+      ],
+      "syntax": "proto3"
+    }
+  ]
+}
+-- incomplete.json --
+{
+  "file": [
+    {
+      "bufExtension": {
+        "isImport": true
+      },
+      "messageType": [
+        {
+          "name": "Op"
+        }
+      ],
+      "name": "acme/ops/v1/ops.proto",
+      "package": "acme.ops.v1",
+      "service": [
+        {
+          "method": [
+            {
+              "inputType": ".acme.ops.v1.Op",
+              "name": "GetOp",
+              "outputType": ".acme.ops.v1.Op"
+            }
+          ],
+          "name": "Operations"
+        }
+      ],
+      "syntax": "proto3"
+    },
+    {
+      "bufExtension": {
+        "isImport": false
+      },
+      "dependency": [
+        "google/protobuf/timestamp.proto",
+        "acme/ops/v1/ops.proto"
+      ],
+      "messageType": [
+        {
+          "field": [
+            {
+              "jsonName": "id",
+              "label": "LABEL_OPTIONAL",
+              "name": "id",
+              "number": 1,
+              "type": "TYPE_STRING"
+            },
+            {
+              "jsonName": "posted_at",
+              "label": "LABEL_OPTIONAL",
+              "name": "posted_at",
+              "number": 2,
+              "type": "TYPE_MESSAGE",
+              "typeName": ".google.protobuf.Timestamp"
+            }
+          ],
+          "name": "Entry"
+        },
+        {
+          "field": [
+            {
+              "jsonName": "id",
+              "label": "LABEL_OPTIONAL",
+              "name": "id",
+              "number": 1,
+              "type": "TYPE_STRING"
+            }
+          ],
+          "name": "GetEntryRequest"
+        },
+        {
+          "name": "ListEntriesRequest"
+        }
+      ],
+      "name": "acme/ledger/v1/ledger.proto",
+      "package": "acme.ledger.v1",
+      "service": [
+        {
+          "method": [
+            {
+              "inputType": ".acme.ledger.v1.GetEntryRequest",
+              "name": "GetEntry",
+              "outputType": ".acme.ledger.v1.Entry"
+            },
+            {
+              "inputType": ".acme.ledger.v1.ListEntriesRequest",
+              "name": "ListEntries",
+              "outputType": ".acme.ledger.v1.Entry",
+              "serverStreaming": true
+            },
+            {
+              "inputType": ".acme.ledger.v1.Entry",
+              "name": "CreateEntry",
+              "outputType": ".acme.ledger.v1.Entry"
+            },
+            {
+              "clientStreaming": true,
+              "inputType": ".acme.ledger.v1.Entry",
+              "name": "UploadEntries",
+              "outputType": ".acme.ledger.v1.Entry"
+            },
+            {
+              "clientStreaming": true,
+              "inputType": ".acme.ledger.v1.Entry",
+              "name": "SyncEntries",
+              "outputType": ".acme.ledger.v1.Entry",
+              "serverStreaming": true
+            }
+          ],
+          "name": "Ledger"
+        }
+      ],
+      "syntax": "proto3"
+    }
+  ]
+}

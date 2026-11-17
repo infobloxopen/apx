@@ -27,7 +27,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the command fail. The audience comes from `--audience`, then from the catalog
   entry, then defaults to `internal`. `--format json` prints a summary. The
   output is deterministic. The package is `internal/optable`. The command does
-  not download a pinned release, and gRPC operations are not in the table.
+  not download a pinned release.
+- **`apx optable render`: gRPC APIs.** The contract of a `proto/` API is its
+  descriptor set, from `--spec <api-id>=<file>`: the output of
+  `buf build -o <file>` (binary, or JSON for a `.json` file), or a plain
+  `FileDescriptorSet`. Each method is one operation: `POST
+  /<package>.<Service>/<Method>`, `operationId` `<Service>_<Method>`, the class
+  from the name rule of `apx opclass` (else `write`), and `streaming` when the
+  client or the server streams. The files that a Buf image marks as imports give
+  no operations. The set must be complete, and an `externalPrefix` other than
+  `/` on a `proto/` API is an error. For each `proto/` API the command also
+  writes `optable-<hash>-descriptors.yaml`, a ConfigMap (label
+  `apx.infoblox.com/descriptor-set: "true"`, annotation
+  `apx.infoblox.com/descriptor-digest`) whose `binaryData` key
+  `descriptors.binpb.gz` holds the canonical set: files sorted by name, no
+  source code info, no Buf marks. The operation table of the API gets
+  `descriptor` (the ConfigMap, the key and the SHA-256 digest of the set). A
+  reader of the route table, such as a web application firewall, finds the set
+  of an operation by its `api` and can decode its messages. The package is
+  `internal/protoset`. The command does not compile `.proto` files.
 - **`apx pathlint`: external prefix and JSON report.** `--external-prefix
   <prefix>` replaces the base path of every spec, and `--binding <file|chart>`
   takes the `externalPrefix` of the matching API from a `RouteAPIBinding`

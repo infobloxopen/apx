@@ -40,6 +40,16 @@ type Table struct {
 	Version    string      `json:"version"`
 	Audience   string      `json:"audience"`
 	Operations []Operation `json:"operations"`
+	// Descriptor is set for a gRPC API only: where its descriptor set is.
+	Descriptor *TableDescriptor `json:"descriptor,omitempty"`
+}
+
+// TableDescriptor names the descriptor set of a gRPC API: the ConfigMap, its
+// binaryData key and the SHA-256 digest of the set before gzip.
+type TableDescriptor struct {
+	ConfigMap string `json:"configMap"`
+	Key       string `json:"key"`
+	Digest    string `json:"digest"`
 }
 
 // Counts returns the number of operations in each class.
@@ -124,6 +134,15 @@ type API struct {
 	Document *opclass.Document
 	// Audience is "public" or "internal". Empty means internal.
 	Audience string
+	// Descriptor is set for a gRPC API only (package protoset gives it).
+	Descriptor *Descriptor
+}
+
+// Descriptor is the canonical descriptor set of a gRPC API and its digest
+// ("sha256:" and the hex SHA-256 of Set).
+type Descriptor struct {
+	Set    []byte
+	Digest string
 }
 
 // Result is the output of Build.
@@ -185,6 +204,11 @@ func Build(bindings []*Binding, apis map[string]API, defaultNamespace string) (*
 				continue
 			}
 			prefix := entry.ExternalPrefix
+			if api.Descriptor != nil && prefix != "" && JoinPath(prefix, "") != "/" {
+				// A gRPC client always sends /<package>.<Service>/<Method>.
+				errs = append(errs, fmt.Errorf("API %s: externalPrefix %q: a gRPC path has no prefix (use \"/\" or no externalPrefix)", entry.Ref, entry.ExternalPrefix))
+				continue
+			}
 			if prefix == "" {
 				prefix = api.Document.BasePath
 			}
@@ -223,6 +247,9 @@ func Build(bindings []*Binding, apis map[string]API, defaultNamespace string) (*
 	sort.Strings(sorted)
 	for _, id := range sorted {
 		t := Table{Schema: TableSchema, API: id, Version: versions[id], Audience: audienceOf(apis[id]), Operations: []Operation{}}
+		if d := apis[id].Descriptor; d != nil {
+			t.Descriptor = &TableDescriptor{ConfigMap: DescriptorConfigMapName(id), Key: DescriptorDataKey, Digest: d.Digest}
+		}
 		seen := map[string]bool{}
 		for _, prefix := range prefixes[id] {
 			for _, op := range apis[id].Document.Operations {

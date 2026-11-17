@@ -12,6 +12,7 @@ import (
 	"github.com/infobloxopen/apx/internal/catalog"
 	"github.com/infobloxopen/apx/internal/opclass"
 	"github.com/infobloxopen/apx/internal/optable"
+	"github.com/infobloxopen/apx/internal/protoset"
 	"github.com/spf13/cobra"
 )
 
@@ -32,10 +33,11 @@ func newOptableRenderCmd() *cobra.Command {
 		Use:   "render",
 		Short: "Write one operation-table ConfigMap for each API of a RouteAPIBinding",
 		Long: `Render reads one or more RouteAPIBinding documents
-(apiVersion traefik.infoblox.com/v1alpha1) and the OpenAPI contract of each API
-that they pin. For each API it writes a Kubernetes ConfigMap manifest with the
-operation table. With --route-table it also writes the route table of the
-routes that the bindings target.
+(apiVersion traefik.infoblox.com/v1alpha1) and the contract of each API that
+they pin. For each API it writes a Kubernetes ConfigMap manifest with the
+operation table. For a gRPC API (a proto/ API id) it also writes a ConfigMap
+with the descriptor set. With --route-table it also writes the route table of
+the routes that the bindings target.
 
 A --binding argument is a YAML file or a Helm chart directory. A chart
 directory is rendered with 'helm template'; a file needs no helm binary.
@@ -45,6 +47,12 @@ The contract of each API comes from --spec <api-id>=<file>, or from
 --specs-dir, a directory with the layout of an API repository: the single
 OpenAPI file in <dir>/<api-id>/. Check out that directory at the pinned
 version; render does not download a release.
+
+The contract of a proto/ API is its descriptor set, from --spec only: the
+output of 'buf build -o <file>' (a .json file is the JSON form). Each method
+is one operation: POST /<package>.<Service>/<Method>, operationId
+<Service>_<Method>. The files that the Buf image marks as imports give no
+operations. render does not compile .proto files.
 
 The external path template of an operation is the externalPrefix of the
 binding entry when it is set, otherwise the base path of the contract, joined
@@ -65,12 +73,14 @@ Examples:
   apx optable render --binding helm/payments --specs-dir ../apis \
       --out rendered --route-table --namespace payments
   apx optable render --binding binding.yaml --specs-dir ../apis \
-      --out rendered --route-table-configmap route-table --format json`,
+      --out rendered --route-table-configmap route-table --format json
+  apx optable render --binding binding.yaml \
+      --spec proto/payments/ledger/v1=ledger.binpb --out chart/files`,
 		Args: cobra.NoArgs,
 		RunE: optableRenderAction,
 	}
 	cmd.Flags().StringArray("binding", nil, "RouteAPIBinding YAML file or chart directory (repeatable, required)")
-	cmd.Flags().StringArray("spec", nil, "<api-id>=<file>: the OpenAPI file of one API (repeatable)")
+	cmd.Flags().StringArray("spec", nil, "<api-id>=<file>: the OpenAPI file of one API, or the descriptor set of a proto/ API (repeatable)")
 	cmd.Flags().String("specs-dir", "", "directory with the layout of an API repository; the contract of an API is in <dir>/<api-id>/")
 	cmd.Flags().StringArray("audience", nil, "<api-id>=public|internal: the audience of one API (repeatable)")
 	cmd.Flags().String("catalog", "", "path or URL of a catalog file that gives the audience of each API")
@@ -101,6 +111,7 @@ type optableAPISummary struct {
 	Audience   string         `json:"audience"`
 	Spec       string         `json:"spec"`
 	ConfigMap  string         `json:"configMap"`
+	Descriptor string         `json:"descriptor"`
 	Operations int            `json:"operations"`
 	Classes    map[string]int `json:"classes"`
 }
@@ -171,24 +182,19 @@ func optableRenderAction(cmd *cobra.Command, _ []string) error {
 			if _, done := apis[entry.Ref]; done {
 				continue
 			}
-			specPath, findErr := optableSpecPath(entry.Ref, specFiles, specsDir)
-			if findErr != nil {
-				errs = append(errs, findErr)
-				continue
-			}
-			doc, loadErr := opclass.Load(specPath)
+			api, specPath, loadErr := optableLoadAPI(entry.Ref, specFiles, specsDir)
 			if loadErr != nil {
-				errs = append(errs, fmt.Errorf("API %s: %w", entry.Ref, loadErr))
+				errs = append(errs, loadErr)
 				continue
 			}
-			audience := audiences[entry.Ref]
-			if audience == "" {
-				audience = catalogAudiences[entry.Ref]
+			api.Audience = audiences[entry.Ref]
+			if api.Audience == "" {
+				api.Audience = catalogAudiences[entry.Ref]
 			}
-			if audience == "" {
-				audience = optable.AudienceInternal
+			if api.Audience == "" {
+				api.Audience = optable.AudienceInternal
 			}
-			apis[entry.Ref] = optable.API{Document: doc, Audience: audience}
+			apis[entry.Ref] = api
 			specOf[entry.Ref] = filepath.ToSlash(specPath)
 		}
 	}
@@ -224,9 +230,13 @@ func optableRenderAction(cmd *cobra.Command, _ []string) error {
 		for _, c := range opclass.Classes() {
 			classes[string(c)] = counts[c]
 		}
+		descriptor := ""
+		if t.Descriptor != nil {
+			descriptor = t.Descriptor.ConfigMap
+		}
 		summary.APIs = append(summary.APIs, optableAPISummary{
 			API: t.API, Version: t.Version, Audience: t.Audience, Spec: specOf[t.API],
-			ConfigMap: optable.ConfigMapName(t.API), Operations: len(t.Operations), Classes: classes,
+			ConfigMap: optable.ConfigMapName(t.API), Descriptor: descriptor, Operations: len(t.Operations), Classes: classes,
 		})
 	}
 	for _, r := range res.RouteTable.Routes {
@@ -264,6 +274,15 @@ func optableRenderAction(cmd *cobra.Command, _ []string) error {
 		}
 		if err := write(optable.ConfigMapName(t.API)+".yaml", data); err != nil {
 			return err
+		}
+		if t.Descriptor != nil {
+			data, encErr = t.DescriptorConfigMap(apis[t.API].Descriptor.Set, namespace)
+			if encErr != nil {
+				return encErr
+			}
+			if err := write(t.Descriptor.ConfigMap+".yaml", data); err != nil {
+				return err
+			}
 		}
 	}
 	if routeTable {
@@ -304,8 +323,12 @@ func writeOptableText(out io.Writer, summary optableSummary, outDir string) {
 		for _, c := range opclass.Classes() {
 			parts = append(parts, fmt.Sprintf("%s=%d", c, a.Classes[string(c)]))
 		}
+		target := a.ConfigMap
+		if a.Descriptor != "" {
+			target += ", " + a.Descriptor
+		}
 		fmt.Fprintf(out, "%s %s (%s): %d operations: %s -> %s\n",
-			a.API, a.Version, a.Audience, a.Operations, strings.Join(parts, " "), a.ConfigMap)
+			a.API, a.Version, a.Audience, a.Operations, strings.Join(parts, " "), target)
 	}
 	for _, r := range summary.Routes {
 		name := r.Name
@@ -332,6 +355,32 @@ func parseAPIPairs(flag string, values []string) (map[string]string, error) {
 		out[id] = value
 	}
 	return out, nil
+}
+
+// optableLoadAPI reads the contract of one API: the descriptor set of a proto/
+// API (from --spec only), else the OpenAPI file that optableSpecPath finds. It
+// returns the API without its audience, and the path of the contract.
+func optableLoadAPI(apiID string, specFiles map[string]string, specsDir string) (optable.API, string, error) {
+	if strings.HasPrefix(apiID, "proto/") {
+		path, ok := specFiles[apiID]
+		if !ok {
+			return optable.API{}, "", fmt.Errorf("API %s: a gRPC API needs --spec %s=<descriptor set> (build it with 'buf build -o <file>'; render does not compile .proto files)", apiID, apiID)
+		}
+		set, err := protoset.Load(path)
+		if err != nil {
+			return optable.API{}, "", fmt.Errorf("API %s: %w", apiID, err)
+		}
+		return optable.API{Document: set.Document, Descriptor: &optable.Descriptor{Set: set.Canonical, Digest: set.Digest}}, path, nil
+	}
+	path, err := optableSpecPath(apiID, specFiles, specsDir)
+	if err != nil {
+		return optable.API{}, "", err
+	}
+	doc, err := opclass.Load(path)
+	if err != nil {
+		return optable.API{}, "", fmt.Errorf("API %s: %w", apiID, err)
+	}
+	return optable.API{Document: doc}, path, nil
 }
 
 // optableSpecPath finds the OpenAPI file of an API: the --spec value, else the
