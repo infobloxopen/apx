@@ -14,6 +14,7 @@ import (
 //
 //	Lifecycle: deprecated
 //	Tags: audience:device, product:universal-ddi
+//	Audience: internal
 //	Source: github.com/org/repo/openapi/...
 //
 // Reading it back at `apx catalog generate` is what lets a module released
@@ -25,6 +26,7 @@ type TagRecord struct {
 	Tag       string
 	Lifecycle string   // recorded lifecycle from the annotation ("" if none/lightweight)
 	Tags      []string // recorded catalog tags from the annotation
+	Audience  string   // recorded audience, "public" or "internal" ("" if none)
 }
 
 // ReadTagRecords lists the repo's tags and, for each, reads the metadata
@@ -55,7 +57,7 @@ func ReadTagRecords(repoDir string) ([]TagRecord, error) {
 			continue
 		}
 		lifecycle, tags := parseAnnotationMeta(body)
-		records = append(records, TagRecord{Tag: name, Lifecycle: lifecycle, Tags: tags})
+		records = append(records, TagRecord{Tag: name, Lifecycle: lifecycle, Tags: tags, Audience: parseAnnotationAudience(body)})
 	}
 	return records, nil
 }
@@ -73,6 +75,22 @@ func parseAnnotationMeta(body string) (lifecycle string, tags []string) {
 		}
 	}
 	return lifecycle, tags
+}
+
+// parseAnnotationAudience extracts the "Audience:" field from an annotated-tag
+// body. A value that is not a valid audience is ignored, so a hand-written tag
+// cannot put an unknown audience into the catalog.
+func parseAnnotationAudience(body string) string {
+	audience := ""
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if v, ok := strings.CutPrefix(line, "Audience:"); ok {
+			if v = strings.TrimSpace(v); v != "" && ValidateAudience(v) == nil {
+				audience = v
+			}
+		}
+	}
+	return audience
 }
 
 // SplitTags parses a comma-separated tag list into a trimmed, non-empty slice.
@@ -136,6 +154,7 @@ func lifecycleRank(lc string) int {
 //     writing the state to the catalog without minting a new version — and have
 //     it survive the next `apx catalog generate` (WS-035 F-32).
 //   - Tags: the union, so curated first-party tags are never dropped (F-33).
+//   - Audience: taken from the existing catalog when no release tag records one.
 //   - Owners / Description: taken from the existing catalog when the tag-derived
 //     module lacks them.
 //
@@ -161,6 +180,9 @@ func PreserveCuratedFields(cat *Catalog, path string) {
 			cat.Modules[i].Lifecycle = prev.Lifecycle
 		}
 		cat.Modules[i].Tags = UnionTags(cat.Modules[i].Tags, prev.Tags)
+		if cat.Modules[i].Audience == "" {
+			cat.Modules[i].Audience = prev.Audience
+		}
 		if len(cat.Modules[i].Owners) == 0 {
 			cat.Modules[i].Owners = prev.Owners
 		}

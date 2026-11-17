@@ -231,7 +231,7 @@ func TestDocParity_AllCommandsExist(t *testing.T) {
 	root := NewRootCmd("test")
 	commands := [][]string{
 		{"init"}, {"init", "canonical"}, {"init", "app"},
-		{"lint"}, {"breaking"},
+		{"lint"}, {"breaking"}, {"opclass"},
 		{"semver"},
 		{"gen"}, {"policy"}, {"policy", "check"},
 		{"catalog"},
@@ -266,13 +266,16 @@ func TestDocParity_AllFlagsExist(t *testing.T) {
 
 	root := NewRootCmd("test")
 	documentedFlags := []flagSpec{
-		{[]string{"breaking"}, []string{"against", "format"}},
+		{[]string{"breaking"}, []string{"against", "format", "advisory", "operation-ids"}},
+		{[]string{"opclass"}, []string{"format", "write"}},
+		{[]string{"release", "prepare"}, []string{"tag", "audience"}},
+		{[]string{"release", "finalize"}, []string{"tag", "audience", "operation-ids"}},
 		{[]string{"semver"}, []string{"against"}},
 		{[]string{"gen"}, []string{"out", "clean", "manifest"}},
 		{[]string{"catalog", "search"}, []string{"format", "catalog", "lifecycle", "domain", "api-line", "origin", "tag"}},
 		{[]string{"sync"}, []string{"clean", "dry-run"}},
 		{[]string{"fetch"}, []string{"config", "output", "verify"}},
-		{[]string{"lint"}, []string{"format"}},
+		{[]string{"lint"}, []string{"format", "operation-ids"}},
 		{[]string{"init", "canonical"}, []string{"org", "repo", "skip-git", "non-interactive"}},
 		{[]string{"init", "app"}, []string{"org", "repo", "non-interactive"}},
 	}

@@ -64,6 +64,7 @@ type showCatalog struct {
 	Lifecycle string   `json:"lifecycle,omitempty"`
 	Owners    []string `json:"owners,omitempty"`
 	Tags      []string `json:"tags,omitempty"`
+	Audience  string   `json:"audience,omitempty"`
 	Version   string   `json:"version,omitempty"`
 }
 
@@ -145,6 +146,7 @@ func showAction(cmd *cobra.Command, args []string) error {
 					Lifecycle: m.Lifecycle,
 					Owners:    m.Owners,
 					Tags:      m.Tags,
+					Audience:  m.Audience,
 					Version:   m.Version,
 				}
 
@@ -276,6 +278,11 @@ func printShowText(info *showInfo, catalogFound bool) {
 	// Tags from catalog
 	if info.Catalog != nil && len(info.Catalog.Tags) > 0 {
 		ui.Info("Tags:       %s", strings.Join(info.Catalog.Tags, ", "))
+	}
+
+	// Audience from catalog
+	if info.Catalog != nil && info.Catalog.Audience != "" {
+		ui.Info("Audience:   %s", info.Catalog.Audience)
 	}
 
 	if !catalogFound {

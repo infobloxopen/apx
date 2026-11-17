@@ -42,6 +42,7 @@ type APIEntry struct {
 	Lifecycle        string                     `json:"lifecycle,omitempty"`
 	Compatibility    *CompatibilityInfo         `json:"compatibility,omitempty"`
 	Tags             []string                   `json:"tags,omitempty"`
+	Audience         string                     `json:"audience,omitempty"`
 	Owners           []string                   `json:"owners,omitempty"`
 	Origin           string                     `json:"origin,omitempty"`
 	Languages        map[string][]LanguageCoord `json:"languages,omitempty"`
@@ -111,6 +112,7 @@ func buildAPIEntry(m catalog.Module, sourceRepo, importRoot, org string) *APIEnt
 		LatestPrerelease: m.LatestPrerelease,
 		Lifecycle:        config.NormalizeLifecycle(m.Lifecycle),
 		Tags:             m.Tags,
+		Audience:         m.Audience,
 		Owners:           m.Owners,
 		Origin:           m.Origin,
 	}

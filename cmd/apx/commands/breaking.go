@@ -21,6 +21,7 @@ func newBreakingCmd() *cobra.Command {
 	cmd.Flags().String("against", "", "git reference or path to compare against (required)")
 	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet, crd)")
 	cmd.Flags().Bool("advisory", false, "Report breaking changes without failing (exit 0). Lets CI gate blocking vs advisory declaratively instead of shell '|| true'.")
+	cmd.Flags().Bool("operation-ids", true, "OpenAPI: report a renamed or removed operationId as a breaking change (opt out with --operation-ids=false)")
 	return cmd
 }
 
@@ -56,6 +57,9 @@ func breakingAction(cmd *cobra.Command, args []string) error {
 
 	resolver := validator.NewToolchainResolver()
 	v := validator.NewValidator(resolver)
+	if on, _ := cmd.Flags().GetBool("operation-ids"); !on {
+		v.SetOperationIDChecks(false)
+	}
 
 	var format validator.SchemaFormat
 	if formatStr, _ := cmd.Flags().GetString("format"); formatStr != "" {

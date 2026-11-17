@@ -40,6 +40,7 @@ APX commands are organized into logical categories:
 
     - `apx lint` - Schema validation
     - `apx breaking` - Breaking changes
+    - `apx opclass` - Operation classes for OpenAPI
     - `apx policy` - Policy enforcement
 
 -   **Utilities**

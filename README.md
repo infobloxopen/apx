@@ -216,6 +216,16 @@ apx breaking internal/apis/proto/payments
 apx breaking --format=openapi
 ```
 
+#### `apx opclass <spec>`
+
+Classify the operations of an OpenAPI spec as `read`, `list`, `write` or `custom`.
+
+```bash
+apx opclass ledger.yaml                   # Print the operation table
+apx opclass ledger.yaml --format json     # JSON output
+apx opclass ledger.yaml --write           # Add x-operation-class where it is missing
+```
+
 ### Releasing
 
 APX uses a structured multi-step release pipeline (`prepare` -> `submit` -> `finalize` -> `promote`)

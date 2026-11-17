@@ -9,6 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`apx opclass <spec>`** — classifies each operation of an OpenAPI 3.x or
+  Swagger 2 document as `read`, `list`, `write` or `custom` and prints the table
+  (text, or JSON with `--format json`). The class is the new extension
+  `x-operation-class`; an explicit value on an operation always wins and is
+  validated. Without it, a tolerant classifier applies, in order: `x-aip-method`
+  (when it is not `Custom`), a verb word at the start or the end of the
+  `operationId` (`List`, `Read`, `Get`, `Create`, `Update`, `Patch`, `Delete`,
+  also in the `Service_Method` form), the HTTP verb with the path shape, and then
+  `custom`. The table also has a `streaming` flag (`text/event-stream`,
+  `application/x-ndjson` or `x-streaming: true`). `--write` adds
+  `x-operation-class` to the operations that lack it by inserting text, so
+  comments, key order, quoting and line endings stay as they are.
+  `x-aip-method` keeps its strict meaning and is never changed. The classifier
+  is the package `internal/opclass`.
+- **`apx lint` (OpenAPI): built-in `operationId` check.** Lint now fails when an
+  operation has no `operationId` or when an `operationId` repeats inside one
+  document. The check is native Go; it does not depend on Spectral or on a
+  ruleset, and it also runs when Spectral is not installed. It is on by default;
+  opt out with `--operation-ids=false` (also on `apx release finalize`, which
+  re-runs lint).
+- **`apx breaking` (OpenAPI): a renamed or removed `operationId` is a breaking
+  change.** `oasdiff breaking --fail-on ERR` rates this change as information
+  (`api-operation-id-removed`) and exits 0, so APX now compares the
+  `operationId` of each operation (matched by method and path) of the baseline
+  with the revision. `--advisory` reports the finding and exits 0;
+  `--operation-ids=false` turns the comparison off (also on
+  `apx release finalize`).
+- **`audience` is a first-class catalog field.** `apx release prepare --audience
+  public|internal` records the audience in the release manifest; `finalize`
+  writes it to the annotated release tag and to the module's entry in
+  `catalog/catalog.yaml` (CI mode: `apx release finalize --audience`), and
+  `apx catalog generate` reads it back. The field is optional and has no
+  default: a module released without it has no `audience` key. `apx show` and the
+  catalog site data include it when it is set.
+
 - **`apx client verify`** — a generate-and-compile release gate. It generates an
   API client and **compiles** it, failing when any generated client does not
   build, so a spec that is valid OpenAPI 3 and passes `apx lint`/`apx breaking`

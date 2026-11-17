@@ -55,6 +55,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newLintCmd(),
 		newBreakingCmd(),
 		newPathlintCmd(),
+		newOpclassCmd(),
 		newSemverCmd(),
 		newGenCmd(),
 		newClientCmd(),

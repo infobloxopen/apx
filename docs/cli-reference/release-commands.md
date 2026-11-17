@@ -64,6 +64,8 @@ apx release prepare proto/payments/ledger/v1 --version v2.0.0 --force
 | `--skip-gomod` | bool | false | Skip `go.mod` validation |
 | `--force` | bool | false | Override lifecycle and policy checks |
 | `--dry-run` | bool | false | Show what would be prepared without writing the manifest |
+| `--tag` | string (repeatable) | none | Catalog tag to record on the module |
+| `--audience` | string | none | Audience of the API: `public` or `internal`. Recorded in the manifest, the release tag and the catalog entry. |
 
 ### What Happens
 
@@ -164,6 +166,9 @@ apx release finalize --skip-catalog
 | `--skip-packages` | bool | false | Skip recording Go module artifact metadata |
 | `--skip-catalog` | bool | false | Skip catalog update |
 | `--record-path` | string | `.apx-release-record.yaml` | Path to write the release record |
+| `--tag` | string (repeatable) | none | CI mode (`--api`/`--version`): catalog tag to record on the module |
+| `--audience` | string | none | CI mode (`--api`/`--version`): audience of the API, `public` or `internal`. With a local manifest, the audience of the manifest is used. |
+| `--operation-ids` | bool | true | OpenAPI re-validation: fail on a missing or repeated `operationId` (lint) and on a renamed or removed `operationId` (breaking). Opt out with `--operation-ids=false`. See [Validation Commands](validation-commands.md). |
 
 ### What Happens
 
@@ -295,6 +300,7 @@ a release through the state machine.  It records:
 - **Identity** — API ID, format, domain, name, line
 - **Source provenance** — repo, path, commit SHA
 - **Version & tag** — requested version, derived tag
+- **Catalog facts** — catalog tags and the audience (`public` or `internal`), when the release sets them
 - **Go coordinates** — module path, import path
 - **Validation results** — lint, breaking, policy, go\_package, go.mod
 - **Timestamps** — created, last-updated

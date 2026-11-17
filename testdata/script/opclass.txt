@@ -1,0 +1,114 @@
+# Test: apx opclass classifies the operations of an OpenAPI spec
+# (native Go, no external tools)
+
+# The text table, sorted by path and then by method
+exec apx opclass spec.yaml
+stdout 'METHOD +PATH +OPERATION ID +CLASS +STREAMING +RULE'
+stdout 'GET +/groups +AccountOrganizationGroups_List +list +false +name'
+stdout 'GET +/groups/\{id\} +AccountOrganizationGroups_Read +read +false +name'
+stdout 'POST +/groups +- +write +false +shape'
+stdout 'GET +/events +watchEvents +custom +true +explicit'
+stdout '4 operations: read=1 list=1 write=1 custom=1'
+
+# JSON output
+exec apx opclass spec.yaml --format json
+stdout '"operationId": "AccountOrganizationGroups_Read"'
+stdout '"class": "read"'
+stdout '"basePath": "/api/v1"'
+stdout '"list": 1'
+
+# The global --json flag gives the same format
+exec apx --json opclass spec.yaml
+stdout '"streaming": true'
+
+# --write adds the extension where it is missing and keeps the other lines
+exec apx opclass spec.yaml --write
+stdout '4 operations: read=1 list=1 write=1 custom=1'
+cmp spec.yaml want.yaml
+
+# A second --write changes nothing
+exec apx opclass spec.yaml --write
+cmp spec.yaml want.yaml
+
+# An invalid explicit class fails
+! exec apx opclass bad.yaml
+stderr 'invalid x-operation-class "fast"'
+
+# An unknown output format fails
+! exec apx opclass spec.yaml --format xml
+stderr 'invalid --format'
+
+# A missing file fails
+! exec apx opclass missing.yaml
+
+-- spec.yaml --
+openapi: 3.0.3
+info:
+  title: Groups   # a comment that stays
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/api/v1
+paths:
+  /groups:
+    get:
+      operationId: AccountOrganizationGroups_List
+      responses:
+        '200': {description: ok}
+    post:
+      summary: no operationId
+      responses:
+        '201': {description: created}
+  /groups/{id}:
+    get:
+      operationId: AccountOrganizationGroups_Read
+      responses:
+        '200': {description: ok}
+  /events:
+    get:
+      operationId: watchEvents
+      x-operation-class: custom
+      responses:
+        '200':
+          description: a stream
+          content:
+            text/event-stream: {}
+-- want.yaml --
+openapi: 3.0.3
+info:
+  title: Groups   # a comment that stays
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/api/v1
+paths:
+  /groups:
+    get:
+      operationId: AccountOrganizationGroups_List
+      x-operation-class: list
+      responses:
+        '200': {description: ok}
+    post:
+      x-operation-class: write
+      summary: no operationId
+      responses:
+        '201': {description: created}
+  /groups/{id}:
+    get:
+      operationId: AccountOrganizationGroups_Read
+      x-operation-class: read
+      responses:
+        '200': {description: ok}
+  /events:
+    get:
+      operationId: watchEvents
+      x-operation-class: custom
+      responses:
+        '200':
+          description: a stream
+          content:
+            text/event-stream: {}
+-- bad.yaml --
+openapi: 3.0.3
+paths:
+  /a:
+    get:
+      x-operation-class: fast

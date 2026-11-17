@@ -19,6 +19,7 @@ func newLintCmd() *cobra.Command {
 		RunE:  lintAction,
 	}
 	cmd.Flags().StringP("format", "f", "", "Schema format (proto, openapi, avro, jsonschema, parquet, crd)")
+	cmd.Flags().Bool("operation-ids", true, "OpenAPI: fail when an operation has no operationId or an operationId repeats (opt out with --operation-ids=false)")
 	return cmd
 }
 
@@ -49,6 +50,9 @@ func lintAction(cmd *cobra.Command, args []string) error {
 
 	resolver := validator.NewToolchainResolver()
 	v := validator.NewValidator(resolver)
+	if on, _ := cmd.Flags().GetBool("operation-ids"); !on {
+		v.SetOperationIDChecks(false)
+	}
 
 	var format validator.SchemaFormat
 	if formatStr, _ := cmd.Flags().GetString("format"); formatStr != "" {
