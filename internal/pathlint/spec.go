@@ -13,8 +13,9 @@ import (
 // loadSpec reads one OpenAPI v3 or Swagger v2 document (JSON or YAML —
 // yaml.v3 parses both) and expands every path key into its full
 // external form: base (servers[0].url's path component, or basePath) +
-// the path key itself.
-func loadSpec(path string) ([]SpecPath, error) {
+// the path key itself. Each external prefix replaces that base; with more than
+// one prefix, every path is expanded under each of them.
+func loadSpec(path string, externalPrefixes ...string) ([]SpecPath, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -41,12 +42,18 @@ func loadSpec(path string) ([]SpecPath, error) {
 		return nil, fmt.Errorf("%s: no top-level \"paths\" object found", path)
 	}
 
+	bases := []string{base}
+	if len(externalPrefixes) > 0 {
+		bases = externalPrefixes
+	}
 	name := filepath.Base(path)
-	out := make([]SpecPath, 0, len(pathsRaw))
-	for p := range pathsRaw {
-		full := joinPath(base, p)
-		segs := splitClean(full)
-		out = append(out, SpecPath{Path: joinSegments(segs), Segments: segs, Spec: name, Base: base})
+	out := make([]SpecPath, 0, len(pathsRaw)*len(bases))
+	for _, b := range bases {
+		for p := range pathsRaw {
+			full := joinPath(b, p)
+			segs := splitClean(full)
+			out = append(out, SpecPath{Path: joinSegments(segs), Segments: segs, Spec: name, Base: b})
+		}
 	}
 	return out, nil
 }

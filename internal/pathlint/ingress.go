@@ -124,6 +124,13 @@ func renderHelmChart(dir, release string, sets []string) (string, error) {
 	return out.String(), nil
 }
 
+// RenderChart renders a Helm chart directory with "helm template" and returns
+// the manifest YAML. sets are passed as --set values. Other packages use it to
+// read a chart the same way as pathlint.
+func RenderChart(dir, release string, sets []string) (string, error) {
+	return renderHelmChart(dir, release, sets)
+}
+
 // loadIngressFromValuesFallback is a best-effort, template-free fallback
 // used only when `helm template` cannot render the chart (e.g. a
 // required value has no safe default and none was supplied via

@@ -1,0 +1,36 @@
+# Two bindings in one file, with a document of another kind between them.
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteAPIBinding
+metadata:
+  name: identity
+  namespace: identity
+  labels:
+    app.kubernetes.io/name: identity
+spec:
+  apis:
+    - ref: openapi/iam/identity-internal/v2
+      version: v2.3.0
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: identity-api}
+        - {group: networking.k8s.io, kind: Ingress, name: identity-internal}
+    - ref: openapi/iam/identity/v2
+      version: v2.1.0
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: identity-api}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity
+---
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteAPIBinding
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  apis:
+    - ref: openapi/reports/server/v1
+      version: v1.0.0
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: reports}

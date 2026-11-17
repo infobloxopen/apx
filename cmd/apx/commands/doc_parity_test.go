@@ -232,6 +232,7 @@ func TestDocParity_AllCommandsExist(t *testing.T) {
 	commands := [][]string{
 		{"init"}, {"init", "canonical"}, {"init", "app"},
 		{"lint"}, {"breaking"}, {"opclass"},
+		{"optable"}, {"optable", "render"}, {"pathlint"},
 		{"semver"},
 		{"gen"}, {"policy"}, {"policy", "check"},
 		{"catalog"},
@@ -268,6 +269,8 @@ func TestDocParity_AllFlagsExist(t *testing.T) {
 	documentedFlags := []flagSpec{
 		{[]string{"breaking"}, []string{"against", "format", "advisory", "operation-ids"}},
 		{[]string{"opclass"}, []string{"format", "write"}},
+		{[]string{"optable", "render"}, []string{"binding", "spec", "specs-dir", "audience", "catalog", "out", "route-table", "route-table-configmap", "namespace", "format", "helm-set", "release-name"}},
+		{[]string{"pathlint"}, []string{"ingress", "spec", "external-prefix", "binding", "format", "helm-set", "release-name", "warn-only", "out"}},
 		{[]string{"release", "prepare"}, []string{"tag", "audience"}},
 		{[]string{"release", "finalize"}, []string{"tag", "audience", "operation-ids"}},
 		{[]string{"semver"}, []string{"against"}},

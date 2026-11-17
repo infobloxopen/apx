@@ -1,0 +1,297 @@
+# Test: apx optable render writes the operation tables and the route table
+# (native Go, no external tools; the bindings are plain YAML files)
+
+# One API, the spec given with --spec; the audience defaults to internal
+exec apx optable render --binding binding.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stdout 'openapi/reports/server/v1 v1.0.0 \(internal\): 4 operations: read=1 list=1 write=1 custom=1 -> optable-9e288350b7'
+stdout 'route reports/reports: 4 operations, default API openapi/reports/server/v1'
+stdout 'wrote 1 file\(s\) to out: optable-9e288350b7.yaml'
+grep '^kind: ConfigMap$' out/optable-9e288350b7.yaml
+grep '^  name: optable-9e288350b7$' out/optable-9e288350b7.yaml
+grep '^    apx.infoblox.com/operation-table: "true"$' out/optable-9e288350b7.yaml
+grep '^    apx.infoblox.com/api: openapi/reports/server/v1$' out/optable-9e288350b7.yaml
+grep '^    apx.infoblox.com/api-version: v1.0.0$' out/optable-9e288350b7.yaml
+grep '^  operations.json: \|$' out/optable-9e288350b7.yaml
+grep '"schema": "apx.infoblox.com/operation-table/v1"' out/optable-9e288350b7.yaml
+grep '"audience": "internal"' out/optable-9e288350b7.yaml
+grep '"path": "/api/v1/dashboards/\{id\}"' out/optable-9e288350b7.yaml
+grep '"operationId": "getDashboard"' out/optable-9e288350b7.yaml
+grep '"streaming": true' out/optable-9e288350b7.yaml
+! grep 'namespace:' out/optable-9e288350b7.yaml
+! exists out/route-table.json
+
+# A second render gives the same bytes
+exec apx optable render --binding binding.yaml --spec openapi/reports/server/v1=reports.yaml --out again
+cmp again/optable-9e288350b7.yaml out/optable-9e288350b7.yaml
+
+# --route-table, --route-table-configmap, --namespace and the JSON summary
+exec apx optable render --binding binding.yaml --spec openapi/reports/server/v1=reports.yaml --audience openapi/reports/server/v1=public --out rt --route-table --route-table-configmap route-table --namespace traefik --format json
+stdout '"api": "openapi/reports/server/v1"'
+stdout '"audience": "public"'
+stdout '"configMap": "optable-9e288350b7"'
+stdout '"operations": 4'
+stdout '"list": 1'
+stdout '"defaultApi": "openapi/reports/server/v1"'
+stdout '"conflicts": \[\]'
+stdout '"route-table-configmap.yaml"'
+grep '"schema": "traefik.infoblox.com/route-table/v1"' rt/route-table.json
+grep '"namespace": "reports"' rt/route-table.json
+grep '"name": "reports"' rt/route-table.json
+grep '"operation": "watchEvents"' rt/route-table.json
+grep 'namespace: traefik' rt/optable-9e288350b7.yaml
+grep '"audience": "public"' rt/optable-9e288350b7.yaml
+grep 'name: route-table' rt/route-table-configmap.yaml
+grep 'route-table.json.gz: H4sI' rt/route-table-configmap.yaml
+
+# The global --json flag gives the same format
+exec apx --json optable render --binding binding.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stdout '"files": \['
+
+# externalPrefix replaces the base path of the contract
+exec apx optable render --binding prefix.yaml --spec openapi/reports/server/v1=reports.yaml --out prefixed
+grep '"path": "/edge/v1/dashboards/\{id\}"' prefixed/optable-9e288350b7.yaml
+! grep '"/api/v1/' prefixed/optable-9e288350b7.yaml
+
+# --specs-dir: the layout of an API repository, with the audience from its catalog
+exec apx optable render --binding identity.yaml --specs-dir apis --out identity --route-table
+stdout 'openapi/iam/identity-internal/v2 v2.3.0 \(internal\): 3 operations'
+stdout 'openapi/iam/identity/v2 v2.1.0 \(public\): 2 operations'
+stdout 'route identity/identity-api: 3 operations, default API openapi/iam/identity/v2'
+grep '"defaultApi": "openapi/iam/identity/v2"' identity/route-table.json
+grep '"path": "/v2/accounts/\{id\}"' identity/route-table.json
+! grep 'account_id' identity/route-table.json
+grep '"operation": "AccountGroups_List"' identity/route-table.json
+
+# Two APIs with the same audience on one path are a conflict; no file is written
+! exec apx optable render --binding identity.yaml --specs-dir apis --audience openapi/iam/identity/v2=internal --out conflict
+stderr 'route identity/identity-api: GET /v2/accounts: API openapi/iam/identity-internal/v2 and API openapi/iam/identity/v2 are in conflict: the two APIs have the same audience \(internal\)'
+! exists conflict
+
+# The JSON summary lists the conflicts
+! exec apx optable render --binding identity.yaml --specs-dir apis --audience openapi/iam/identity/v2=internal --out conflict --format json
+stdout '"reason": "the two APIs have the same audience \(internal\)"'
+stdout '"otherApi": "openapi/iam/identity/v2"'
+
+# A different operationId on one path is a conflict
+! exec apx optable render --binding identity.yaml --spec openapi/iam/identity/v2=renamed.yaml --specs-dir apis --out conflict
+stderr 'GET /v2/accounts: API openapi/iam/identity-internal/v2 and API openapi/iam/identity/v2 are in conflict: the operationId values are different \(Accounts_List and listAccounts\)'
+
+# Binding validation
+! exec apx optable render --binding bad-namespace.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stderr 'targetRefs\[0\]: a namespace field is not permitted'
+! exec apx optable render --binding bad-kind.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stderr 'no RouteAPIBinding found \(kinds in the input: RouteBinding\)'
+! exec apx optable render --binding bad-version.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stderr 'unsupported apiVersion "traefik.infoblox.com/v1"'
+! exec apx optable render --binding bad-target.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stderr 'kind "HTTPRoute" is not supported \(expected Ingress\)'
+
+# A binding without a namespace needs --namespace for the route table
+! exec apx optable render --binding no-namespace.yaml --spec openapi/reports/server/v1=reports.yaml --out nons --route-table
+stderr 'route reports has no namespace'
+exec apx optable render --binding no-namespace.yaml --spec openapi/reports/server/v1=reports.yaml --out nons --route-table --namespace reports
+grep '"namespace": "reports"' nons/route-table.json
+
+# Flag errors
+! exec apx optable render --binding binding.yaml --out out
+stderr 'API openapi/reports/server/v1: no API contract: pass --spec openapi/reports/server/v1=<file> or --specs-dir <dir>'
+! exec apx optable render --binding binding.yaml --spec reports.yaml --out out
+stderr 'invalid --spec "reports.yaml"'
+! exec apx optable render --binding binding.yaml --spec openapi/reports/server/v1=reports.yaml --audience openapi/reports/server/v1=partner --out out
+stderr 'invalid --audience'
+! exec apx optable render --binding binding.yaml --spec openapi/reports/server/v1=reports.yaml --out out --format xml
+stderr 'invalid --format'
+! exec apx optable render --binding missing.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+! exec apx optable render --binding binding.yaml --spec openapi/reports/server/v1=no-id.yaml --out out
+stderr 'API openapi/reports/server/v1: POST /things has no operationId'
+
+-- binding.yaml --
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteAPIBinding
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  apis:
+    - ref: openapi/reports/server/v1
+      version: v1.0.0
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: reports}
+-- prefix.yaml --
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteAPIBinding
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  apis:
+    - ref: openapi/reports/server/v1
+      version: v1.0.0
+      externalPrefix: /edge/v1/
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: reports}
+-- no-namespace.yaml --
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteAPIBinding
+metadata:
+  name: reports
+spec:
+  apis:
+    - ref: openapi/reports/server/v1
+      version: v1.0.0
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: reports}
+-- bad-namespace.yaml --
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteAPIBinding
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  apis:
+    - ref: openapi/reports/server/v1
+      version: v1.0.0
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: reports, namespace: other}
+-- bad-kind.yaml --
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteBinding
+metadata:
+  name: reports
+-- bad-version.yaml --
+apiVersion: traefik.infoblox.com/v1
+kind: RouteAPIBinding
+metadata:
+  name: reports
+-- bad-target.yaml --
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteAPIBinding
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  apis:
+    - ref: openapi/reports/server/v1
+      version: v1.0.0
+      targetRefs:
+        - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: reports}
+-- identity.yaml --
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteAPIBinding
+metadata:
+  name: identity
+  namespace: identity
+spec:
+  apis:
+    - ref: openapi/iam/identity-internal/v2
+      version: v2.3.0
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: identity-api}
+    - ref: openapi/iam/identity/v2
+      version: v2.1.0
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: identity-api}
+-- reports.yaml --
+openapi: 3.0.3
+info:
+  title: Reports
+  version: "1"
+servers:
+  - url: https://reports.example.com/api/v1
+paths:
+  /dashboards:
+    get:
+      operationId: listDashboards
+      responses:
+        '200': {description: ok}
+    post:
+      operationId: createDashboard
+      responses:
+        '201': {description: created}
+  /dashboards/{id}:
+    get:
+      operationId: getDashboard
+      responses:
+        '200': {description: ok}
+  /events:
+    get:
+      operationId: watchEvents
+      x-operation-class: custom
+      responses:
+        '200':
+          description: a stream
+          content:
+            text/event-stream: {}
+-- no-id.yaml --
+openapi: 3.0.3
+info:
+  title: Things
+  version: "1"
+paths:
+  /things:
+    post:
+      responses:
+        '201': {description: created}
+-- renamed.yaml --
+openapi: 3.0.3
+info:
+  title: Identity
+  version: "2"
+servers:
+  - url: /v2
+paths:
+  /accounts:
+    get:
+      operationId: listAccounts
+      responses:
+        '200': {description: ok}
+-- apis/catalog/catalog.yaml --
+version: 1
+org: example
+repo: apis
+modules:
+  - id: openapi/iam/identity/v2
+    format: openapi
+    path: openapi/iam/identity/v2
+    audience: public
+  - id: openapi/iam/identity-internal/v2
+    format: openapi
+    path: openapi/iam/identity-internal/v2
+    audience: internal
+-- apis/openapi/iam/identity/v2/identity.yaml --
+openapi: 3.0.3
+info:
+  title: Identity
+  version: "2"
+servers:
+  - url: https://api.example.com/v2
+paths:
+  /accounts:
+    get:
+      operationId: Accounts_List
+      responses:
+        '200': {description: ok}
+  /accounts/{id}:
+    get:
+      operationId: Accounts_Read
+      responses:
+        '200': {description: ok}
+-- apis/openapi/iam/identity/v2/README.yaml --
+note: a YAML file that is not an OpenAPI document
+-- apis/openapi/iam/identity-internal/v2/identity-internal.json --
+{
+  "swagger": "2.0",
+  "info": {"title": "Identity internal", "version": "2"},
+  "basePath": "/v2",
+  "paths": {
+    "/accounts": {
+      "get": {"operationId": "Accounts_List", "responses": {"200": {"description": "ok"}}}
+    },
+    "/accounts/{account_id}": {
+      "get": {"operationId": "Accounts_Read", "responses": {"200": {"description": "ok"}}}
+    },
+    "/accounts/groups": {
+      "get": {"operationId": "AccountGroups_List", "responses": {"200": {"description": "ok"}}}
+    }
+  }
+}

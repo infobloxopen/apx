@@ -1,0 +1,131 @@
+{
+  "schema": "traefik.infoblox.com/route-table/v1",
+  "routes": [
+    {
+      "namespace": "identity",
+      "name": "identity-api",
+      "defaultApi": "openapi/iam/identity/v2",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/v2/accounts",
+          "api": "openapi/iam/identity/v2",
+          "operation": "Accounts_List",
+          "streaming": false
+        },
+        {
+          "method": "POST",
+          "path": "/v2/accounts",
+          "api": "openapi/iam/identity-internal/v2",
+          "operation": "Accounts_Create",
+          "streaming": false
+        },
+        {
+          "method": "GET",
+          "path": "/v2/accounts/groups",
+          "api": "openapi/iam/identity-internal/v2",
+          "operation": "AccountGroups_List",
+          "streaming": false
+        },
+        {
+          "method": "GET",
+          "path": "/v2/accounts/{id}",
+          "api": "openapi/iam/identity/v2",
+          "operation": "Accounts_Read",
+          "streaming": false
+        }
+      ]
+    },
+    {
+      "namespace": "identity",
+      "name": "identity-internal",
+      "defaultApi": "openapi/iam/identity-internal/v2",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/v2/accounts",
+          "api": "openapi/iam/identity-internal/v2",
+          "operation": "Accounts_List",
+          "streaming": false
+        },
+        {
+          "method": "POST",
+          "path": "/v2/accounts",
+          "api": "openapi/iam/identity-internal/v2",
+          "operation": "Accounts_Create",
+          "streaming": false
+        },
+        {
+          "method": "GET",
+          "path": "/v2/accounts/groups",
+          "api": "openapi/iam/identity-internal/v2",
+          "operation": "AccountGroups_List",
+          "streaming": false
+        },
+        {
+          "method": "GET",
+          "path": "/v2/accounts/{account_id}",
+          "api": "openapi/iam/identity-internal/v2",
+          "operation": "Accounts_Read",
+          "streaming": false
+        }
+      ]
+    },
+    {
+      "namespace": "reports",
+      "name": "reports",
+      "defaultApi": "openapi/reports/server/v1",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboards",
+          "api": "openapi/reports/server/v1",
+          "operation": "listDashboards",
+          "streaming": false
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/dashboards",
+          "api": "openapi/reports/server/v1",
+          "operation": "createDashboard",
+          "streaming": false
+        },
+        {
+          "method": "DELETE",
+          "path": "/api/v1/dashboards/{dashboardId}",
+          "api": "openapi/reports/server/v1",
+          "operation": "deleteDashboard",
+          "streaming": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboards/{dashboardId}",
+          "api": "openapi/reports/server/v1",
+          "operation": "getDashboard",
+          "streaming": false
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/events",
+          "api": "openapi/reports/server/v1",
+          "operation": "watchEvents",
+          "streaming": true
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/query",
+          "api": "openapi/reports/server/v1",
+          "operation": "runQuery",
+          "streaming": false
+        },
+        {
+          "method": "GET",
+          "path": "/healthz",
+          "api": "openapi/reports/server/v1",
+          "operation": "getHealth",
+          "streaming": false
+        }
+      ]
+    }
+  ]
+}

@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`apx optable render`** — writes the operation table of each API that a
+  `RouteAPIBinding` (`traefik.infoblox.com/v1alpha1`) names. `--binding` is a
+  YAML file or a Helm chart directory; the contract of each API comes from
+  `--spec <api-id>=<file>` or from `--specs-dir`, a directory with the layout of
+  an API repository. For each API the command writes one ConfigMap manifest
+  `optable-<hash>.yaml` (label `apx.infoblox.com/operation-table: "true"`, data
+  key `operations.json`) with the method, the external path template, the
+  `operationId`, the operation class and the streaming flag of each operation.
+  The external path is the `externalPrefix` of the binding entry, or the base
+  path of the contract, joined with the operation path. `--route-table` also
+  writes `route-table.json` with the resolved operations of each route, and
+  `--route-table-configmap <name>` wraps it as gzip `binaryData` in a ConfigMap.
+  When more than one API is bound to one route, a literal segment wins over a
+  `{name}` segment and a public API wins over an internal API; any other
+  overlap, and one path with two `operationId` values, is a conflict that makes
+  the command fail. The audience comes from `--audience`, then from the catalog
+  entry, then defaults to `internal`. `--format json` prints a summary. The
+  output is deterministic. The package is `internal/optable`. The command does
+  not download a pinned release, and gRPC operations are not in the table.
+- **`apx pathlint`: external prefix and JSON report.** `--external-prefix
+  <prefix>` replaces the base path of every spec, and `--binding <file|chart>`
+  takes the `externalPrefix` of the matching API from a `RouteAPIBinding`
+  (write the spec as `<api-id>=<file>`). Use them when the client path does not
+  start with the base path of the spec. `--format json` prints the report as
+  JSON. Without these flags the behavior and the text report are the same as
+  before.
 - **`apx opclass <spec>`** — classifies each operation of an OpenAPI 3.x or
   Swagger 2 document as `read`, `list`, `write` or `custom` and prints the table
   (text, or JSON with `--format json`). The class is the new extension

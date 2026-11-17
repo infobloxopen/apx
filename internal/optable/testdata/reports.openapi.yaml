@@ -1,0 +1,47 @@
+# A synthetic contract for the tests. The server URL has no path, so the paths
+# are already the external paths.
+openapi: 3.0.3
+info:
+  title: Reports API
+  version: "1"
+servers:
+  - url: https://reports.example.com
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      responses:
+        "200": {description: ok}
+  /api/v1/dashboards:
+    get:
+      operationId: listDashboards
+      responses:
+        "200": {description: ok}
+    post:
+      operationId: createDashboard
+      responses:
+        "201": {description: created}
+  /api/v1/dashboards/{dashboardId}:
+    get:
+      operationId: getDashboard
+      responses:
+        "200": {description: ok}
+    delete:
+      operationId: deleteDashboard
+      responses:
+        "204": {description: deleted}
+  /api/v1/query:
+    post:
+      operationId: runQuery
+      x-operation-class: read
+      responses:
+        "200": {description: ok}
+  /api/v1/events:
+    get:
+      operationId: watchEvents
+      x-operation-class: custom
+      responses:
+        "200":
+          description: a stream of events
+          content:
+            text/event-stream: {}

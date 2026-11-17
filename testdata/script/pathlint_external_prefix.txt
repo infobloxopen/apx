@@ -1,0 +1,82 @@
+# Test: apx pathlint reads an external prefix from a flag or from a binding
+# (native Go, no external tools; the inputs are plain YAML files)
+
+# Without a prefix, the base path of the spec applies and the paths drift
+! exec apx pathlint --ingress ingress.yaml --spec spec.yaml
+stdout 'RESULT: FAIL \(undeclared=1 unreachable=1 matched_pairs=0\)'
+stdout '/internal/v2/things +spec=spec.yaml base="/internal/v2"'
+
+# --warn-only keeps the report and exits 0
+exec apx pathlint --ingress ingress.yaml --spec spec.yaml --warn-only
+stdout 'RESULT: WARN \(--warn-only\)'
+
+# --external-prefix replaces the base path
+exec apx pathlint --ingress ingress.yaml --spec spec.yaml --external-prefix /api/v2
+stdout 'RESULT: PASS \(undeclared=0 unreachable=0 matched_pairs=1\)'
+
+# --binding takes the prefix of the API; one API needs no id
+exec apx pathlint --ingress ingress.yaml --spec spec.yaml --binding binding.yaml
+stdout 'RESULT: PASS'
+
+# The spec can name its API
+exec apx pathlint --ingress ingress.yaml --spec openapi/things/v2=spec.yaml --binding binding.yaml
+stdout 'RESULT: PASS'
+
+# The JSON report
+exec apx pathlint --ingress ingress.yaml --spec spec.yaml --binding binding.yaml --format json
+stdout '"result": "PASS"'
+stdout '"matchedPairs": 1'
+stdout '"unreachable": \[\]'
+! exec apx pathlint --ingress ingress.yaml --spec spec.yaml --format json
+stdout '"result": "FAIL"'
+stdout '"base": "/internal/v2"'
+exec apx pathlint --ingress ingress.yaml --spec spec.yaml --format json --warn-only
+stdout '"result": "WARN"'
+
+# Errors
+! exec apx pathlint --ingress ingress.yaml --spec spec.yaml --binding binding.yaml --external-prefix /api/v2
+stderr 'cannot be used together'
+! exec apx pathlint --ingress ingress.yaml --spec openapi/other/v1=spec.yaml --binding binding.yaml
+stderr 'API openapi/other/v1 is not in the binding'
+! exec apx pathlint --ingress ingress.yaml --spec spec.yaml --external-prefix api
+stderr 'invalid --external-prefix'
+! exec apx pathlint --ingress ingress.yaml --spec spec.yaml --format xml
+stderr 'invalid --format'
+
+-- ingress.yaml --
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: things
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /api/v2
+            pathType: Prefix
+-- spec.yaml --
+openapi: 3.0.3
+info:
+  title: Things
+  version: "2"
+servers:
+  - url: https://things.example.com/internal/v2
+paths:
+  /things:
+    get:
+      operationId: listThings
+      responses:
+        '200': {description: ok}
+-- binding.yaml --
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteAPIBinding
+metadata:
+  name: things
+  namespace: things
+spec:
+  apis:
+    - ref: openapi/things/v2
+      version: v2.0.0
+      externalPrefix: /api/v2
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: things}

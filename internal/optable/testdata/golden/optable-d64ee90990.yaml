@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: optable-d64ee90990
+  labels:
+    apx.infoblox.com/operation-table: "true"
+  annotations:
+    apx.infoblox.com/api: openapi/iam/identity-internal/v2
+    apx.infoblox.com/api-version: v2.3.0
+data:
+  operations.json: |
+    {
+      "schema": "apx.infoblox.com/operation-table/v1",
+      "api": "openapi/iam/identity-internal/v2",
+      "version": "v2.3.0",
+      "audience": "internal",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/v2/accounts",
+          "operationId": "Accounts_List",
+          "class": "list",
+          "streaming": false
+        },
+        {
+          "method": "POST",
+          "path": "/v2/accounts",
+          "operationId": "Accounts_Create",
+          "class": "write",
+          "streaming": false
+        },
+        {
+          "method": "GET",
+          "path": "/v2/accounts/groups",
+          "operationId": "AccountGroups_List",
+          "class": "list",
+          "streaming": false
+        },
+        {
+          "method": "GET",
+          "path": "/v2/accounts/{account_id}",
+          "operationId": "Accounts_Read",
+          "class": "read",
+          "streaming": false
+        }
+      ]
+    }

@@ -235,6 +235,263 @@ apx opclass ledger.yaml --write
 
 ---
 
+## `apx optable render`
+
+Write the operation table of each API that a `RouteAPIBinding` names, and optionally the route table of the routes that the binding targets. Run it when you build a Helm chart: the chart then carries the tables to each cluster.
+
+```bash
+apx optable render --binding <file|chart> --out <dir> [flags]
+```
+
+### The binding
+
+A `RouteAPIBinding` links the routes of one namespace to the APIs that they serve. Each entry pins one release of one API.
+
+```yaml
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: RouteAPIBinding
+metadata: {name: ledger, namespace: payments}
+spec:
+  apis:
+    - ref: openapi/payments/ledger/v1      # the API id
+      version: v1.0.0                      # the pinned release
+      externalPrefix: /api/v1              # optional; replaces the base path of the API contract
+      targetRefs:
+        - {group: networking.k8s.io, kind: Ingress, name: ledger}
+```
+
+The validation is strict:
+
+- A document with another `apiVersion` is an error. Documents of other kinds in the input are skipped, so the rendered output of a chart is a valid input. An input with no `RouteAPIBinding` is an error.
+- `ref`, `version` and at least one `targetRefs` entry are required. An unknown field in `spec` is an error.
+- A `targetRefs` entry has `group: networking.k8s.io`, `kind: Ingress` and a `name`. It has no `namespace` field: the binding and its routes are in one namespace.
+- One API can be in two entries, each with its own routes and its own `externalPrefix`. The two entries must pin the same version.
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--binding` | string (repeatable) | required | A YAML file with one or more `RouteAPIBinding` documents, or a Helm chart directory. A chart directory is rendered with `helm template`; a file needs no `helm` binary. |
+| `--spec` | string (repeatable) | | `<api-id>=<file>`: the OpenAPI 3.x or Swagger 2 file of one API |
+| `--specs-dir` | string | | A directory with the layout of an API repository. The contract of an API is the single OpenAPI file in `<dir>/<api-id>/`. |
+| `--audience` | string (repeatable) | | `<api-id>=public` or `<api-id>=internal` |
+| `--catalog` | string | | Path or URL of a catalog file that gives the audience of each API |
+| `--out` | string | required | Output directory. The command creates it. |
+| `--route-table` | bool | `false` | Also write `route-table.json` |
+| `--route-table-configmap` | string | | Also write `route-table-configmap.yaml`, a ConfigMap with this name that holds the gzip route table. Implies `--route-table`. |
+| `--namespace` | string | | `metadata.namespace` of the manifests, and the namespace of a binding that has none |
+| `--format` | string | `text` | Output format of the summary: `text` or `json`. The global `--json` flag also selects `json`. |
+| `--helm-set` | string (repeatable) | | `key=value` passed to `helm template --set` for a chart directory |
+| `--release-name` | string | `optable` | Helm release name used when rendering a chart directory |
+
+### Where the API contract comes from
+
+`--spec <api-id>=<file>` wins. Otherwise the contract is the single OpenAPI file in `<specs-dir>/<api-id>/`; when that directory has more than one OpenAPI file, pass `--spec`. The command does not download a release: check out `--specs-dir` at the version that the binding pins. The `version` of the binding goes into the output as written.
+
+Each operation must have an `operationId` (`apx lint` checks this).
+
+### Audience
+
+The audience of an API is `public` or `internal`. The first source that has a value decides:
+
+1. `--audience <api-id>=public|internal`
+2. The `audience` of the catalog entry, from `--catalog`, or from `catalog/catalog.yaml` in `--specs-dir` when that file is there
+3. `internal`
+
+### External path
+
+The `path` of an operation in the output is the external path template: the path that the client sends. It is the `externalPrefix` of the binding entry when it is set, otherwise the base path of the contract (the path of `servers[0].url`, or the Swagger 2 `basePath`), joined with the path of the operation. The result has single slashes and no trailing slash, and `{name}` segments stay as written. Set `externalPrefix: /` when the client path has no prefix.
+
+| `externalPrefix` | Base path | Operation path | External path |
+|---|---|---|---|
+| | `/v2` | `/accounts/{id}` | `/v2/accounts/{id}` |
+| `/api/v2/` | `/internal/v2` | `/accounts/` | `/api/v2/accounts` |
+| `/` | `/v2` | `/accounts` | `/accounts` |
+
+### Precedence between APIs
+
+More than one API can be bound to one route. For each route, and for each method and path, the command selects one API:
+
+1. A literal segment wins over a `{name}` segment. `/accounts/groups` and `/accounts/{id}` are both kept; the reader of the route table prefers the literal segment, segment by segment from the left.
+2. A `public` API wins over an `internal` API, when the two operations have the same `operationId`.
+3. Any other overlap is a conflict: two APIs with the same audience on one method and path, or one method and path with different `operationId` values. Two templates that differ only in a variable name (`/accounts/{id}`, `/accounts/{account_id}`) are the same path.
+
+A conflict makes the command fail. The error names the route, the method, the path and the two APIs, and the command writes no file:
+
+```text
+Error: 1 operation conflict(s) between the APIs of the binding:
+  route identity/identity-api: GET /v2/accounts: API openapi/iam/identity-internal/v2 and API openapi/iam/identity/v2 are in conflict: the two APIs have the same audience (internal)
+```
+
+APIs that share no route are not compared.
+
+### Output files
+
+**One ConfigMap manifest for each API**, in the file `optable-<hash>.yaml`. The name is `optable-` and the first 10 hex digits of the SHA-256 of the API id.
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: optable-9e288350b7
+  labels:
+    apx.infoblox.com/operation-table: "true"
+  annotations:
+    apx.infoblox.com/api: openapi/reports/server/v1
+    apx.infoblox.com/api-version: v1.0.0
+data:
+  operations.json: |
+    {
+      "schema": "apx.infoblox.com/operation-table/v1",
+      "api": "openapi/reports/server/v1",
+      "version": "v1.0.0",
+      "audience": "internal",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboards/{id}",
+          "operationId": "getDashboard",
+          "class": "read",
+          "streaming": false
+        }
+      ]
+    }
+```
+
+`operations` is sorted by `path`, then by `method`. `class` and `streaming` come from the classifier of [`apx opclass`](#apx-opclass). When one API has two `externalPrefix` values, its table has the operations under each prefix.
+
+**`route-table.json`** (with `--route-table`): each route with its resolved operations. Each method and path is there one time for each route.
+
+```json
+{
+  "schema": "traefik.infoblox.com/route-table/v1",
+  "routes": [
+    {
+      "namespace": "reports",
+      "name": "reports",
+      "defaultApi": "openapi/reports/server/v1",
+      "operations": [
+        {
+          "method": "GET",
+          "path": "/api/v1/dashboards/{id}",
+          "api": "openapi/reports/server/v1",
+          "operation": "getDashboard",
+          "streaming": false
+        }
+      ]
+    }
+  ]
+}
+```
+
+A route is one Ingress. Its namespace is the `metadata.namespace` of the binding, or `--namespace` when the binding has none; the route table needs one of them. `defaultApi` is the API with the highest precedence on the route: the first `public` API in binding order, otherwise the first API. Routes are sorted by namespace, then by name.
+
+**`route-table-configmap.yaml`** (with `--route-table-configmap <name>`): a ConfigMap whose `binaryData` key `route-table.json.gz` holds the gzip bytes of `route-table.json`.
+
+The output is deterministic: the same inputs give the same bytes.
+
+### Summary
+
+The text summary has one line for each API, one line for each route and the list of files. `--format json` prints:
+
+```json
+{
+  "apis": [
+    {
+      "api": "openapi/reports/server/v1",
+      "version": "v1.0.0",
+      "audience": "internal",
+      "spec": "reports.yaml",
+      "configMap": "optable-9e288350b7",
+      "operations": 4,
+      "classes": {"custom": 1, "list": 1, "read": 1, "write": 1}
+    }
+  ],
+  "routes": [
+    {"namespace": "reports", "name": "reports", "defaultApi": "openapi/reports/server/v1", "operations": 4}
+  ],
+  "conflicts": [],
+  "files": ["optable-9e288350b7.yaml"]
+}
+```
+
+On a conflict, `conflicts` has one entry for each conflict (`namespace`, `route`, `method`, `path`, `api`, `otherApi`, `reason`), `files` is empty and the exit code is not zero.
+
+### Limits
+
+- OpenAPI only. gRPC operations are not in the table.
+- The command does not fetch a pinned release from the catalog; see "Where the API contract comes from".
+- The route kind is `Ingress` only.
+
+### Examples
+
+```bash
+# One API, the contract from a local file
+apx optable render --binding binding.yaml \
+    --spec openapi/payments/ledger/v1=ledger.yaml --out chart/files
+
+# A chart, the contracts from a checkout of the API repository, with the route table
+apx optable render --binding helm/payments --specs-dir ../apis \
+    --out rendered --route-table --namespace payments
+
+# The route table as a gzip ConfigMap, and a JSON summary
+apx optable render --binding binding.yaml --specs-dir ../apis \
+    --out rendered --route-table-configmap route-table --format json
+```
+
+---
+
+## `apx pathlint`
+
+Compare the HTTP paths that the Ingress objects of a chart serve with the paths that the OpenAPI specs declare.
+
+```bash
+apx pathlint --ingress <chart|manifest> --spec <file> [flags]
+```
+
+The report has three parts: ingress paths that no spec declares, spec paths that no ingress rule routes, and the matched pairs. The command exits non-zero when one of the first two parts is not empty. With `--warn-only` it always exits 0 and the report is the same.
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--ingress` | string (repeatable) | required | A chart directory (rendered with `helm template`) or a rendered manifest YAML file |
+| `--spec` | string (repeatable) | required | An OpenAPI 3.x or Swagger 2 file. With `--binding`, also `<api-id>=<file>`. |
+| `--external-prefix` | string | | An external path prefix that replaces the base path of every spec |
+| `--binding` | string | | A `RouteAPIBinding` YAML file or a chart directory. The `externalPrefix` of the matching API replaces the base path of its spec. |
+| `--format` | string | `text` | Output format of the report: `text` or `json` |
+| `--helm-set` | string (repeatable) | | `key=value` passed to `helm template --set` for a chart directory |
+| `--release-name` | string | `pathlint` | Helm release name used when rendering a chart directory |
+| `--warn-only` | bool | `false` | Print the report and always exit 0 |
+| `--out` | string | | Write the report to this file and not to stdout |
+
+### External prefix
+
+The external path of a spec path is the base path of the spec (the path of `servers[0].url`, or the Swagger 2 `basePath`) plus the path. Without `--external-prefix` and `--binding`, that base path applies.
+
+Use a prefix when the client path does not start with the base path of the spec, for example behind a rewrite rule:
+
+- `--external-prefix /api/v2` replaces the base path of every `--spec`.
+- `--binding <file|chart>` takes the `externalPrefix` of each API from a `RouteAPIBinding` (see [`apx optable render`](#apx-optable-render)). Write a spec as `<api-id>=<file>` to name its API. A plain file is accepted when the binding has one API. An API without `externalPrefix` keeps the base path of its spec. An API with two `externalPrefix` values is checked under each of them. An API that has one entry with `externalPrefix` and one entry without it is an error in `pathlint`.
+
+The two flags cannot be used together.
+
+### JSON report
+
+`--format json` prints `ingressInputs`, `specInputs`, `ingressRules`, `specPaths`, the lists `undeclared` (`path`, `kind`, `host`, `source`), `unreachable` (`path`, `spec`, `base`) and `matched` (`path`, `example`), `matchedPairs`, and `result`: `PASS`, `WARN` (drift with `--warn-only`) or `FAIL`.
+
+### Examples
+
+```bash
+apx pathlint --ingress rendered.yaml --spec identity.swagger.json
+apx pathlint --ingress helm/identity --spec v1.json --spec v2.json --warn-only
+apx pathlint --ingress rendered.yaml --spec spec.yaml --external-prefix /api/v2
+apx pathlint --ingress helm/identity --binding helm/identity \
+    --spec openapi/iam/identity/v2=identity.yaml --format json
+```
+
+---
+
 ## `apx semver`
 
 Suggest a semantic version bump based on schema changes.

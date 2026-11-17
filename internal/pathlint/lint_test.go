@@ -139,3 +139,90 @@ paths:
 		t.Errorf("Drifted() = true, want false (undeclared=%d unreachable=%d)", r.Undeclared, r.Unreachable)
 	}
 }
+
+const prefixIngressYAML = `apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rewritten
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /api/v2
+            pathType: Prefix
+`
+
+const prefixSpecYAML = `openapi: 3.0.3
+info: {title: t, version: v2}
+servers:
+  - url: https://svc.example.com/internal/v2
+paths:
+  /things:
+    get:
+      responses:
+        "200":
+          description: ok
+`
+
+func TestAnalyzeSpecsExternalPrefix(t *testing.T) {
+	dir := t.TempDir()
+	ingress := writeFile(t, dir, "ingress.yaml", prefixIngressYAML)
+	spec := writeFile(t, dir, "spec.yaml", prefixSpecYAML)
+
+	tests := []struct {
+		name      string
+		prefixes  []string
+		wantPaths []string
+		wantDrift bool
+	}{
+		{"base path of the spec", nil, []string{"/internal/v2/things"}, true},
+		{"prefix replaces the base path", []string{"/api/v2"}, []string{"/api/v2/things"}, false},
+		{"prefix with a trailing slash", []string{"/api/v2/"}, []string{"/api/v2/things"}, false},
+		{"root prefix", []string{"/"}, []string{"/things"}, true},
+		{"two prefixes", []string{"/api/v2", "/legacy"}, []string{"/api/v2/things", "/legacy/things"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, err := AnalyzeSpecs([]string{ingress}, []SpecInput{{Path: spec, ExternalPrefixes: tt.prefixes}}, nil, "test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []string
+			for _, sp := range r.Specs {
+				got = append(got, sp.Path)
+			}
+			if strings.Join(got, " ") != strings.Join(tt.wantPaths, " ") {
+				t.Errorf("spec paths = %v, want %v", got, tt.wantPaths)
+			}
+			if r.Drifted() != tt.wantDrift {
+				t.Errorf("Drifted() = %v, want %v", r.Drifted(), tt.wantDrift)
+			}
+		})
+	}
+}
+
+func TestReportJSON(t *testing.T) {
+	dir := t.TempDir()
+	ingress := writeFile(t, dir, "ingress.yaml", ingressYAML)
+	spec := writeFile(t, dir, "spec.yaml", specYAML)
+	r, err := Analyze([]string{ingress}, []string{spec}, nil, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := r.JSON(false)
+	if got.Result != "FAIL" || got.IngressRules != 2 || got.SpecPaths != 2 || got.MatchedPairs != 1 {
+		t.Errorf("report = %+v", got)
+	}
+	if len(got.Undeclared) != 1 || got.Undeclared[0].Path != "/undeclared" || got.Undeclared[0].Kind != "exact" {
+		t.Errorf("undeclared = %+v", got.Undeclared)
+	}
+	if len(got.Unreachable) != 1 || got.Unreachable[0].Path != "/unreachable" || got.Unreachable[0].Spec != "spec.yaml" {
+		t.Errorf("unreachable = %+v", got.Unreachable)
+	}
+	if len(got.Matched) != 1 || got.Matched[0].Path != "/matched" {
+		t.Errorf("matched = %+v", got.Matched)
+	}
+	if w := r.JSON(true); w.Result != "WARN" {
+		t.Errorf("warn-only result = %q, want WARN", w.Result)
+	}
+}
