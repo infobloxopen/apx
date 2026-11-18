@@ -228,12 +228,12 @@ apx opclass ledger.yaml --write           # Add x-operation-class where it is mi
 
 #### `apx optable render`
 
-Write one operation-table ConfigMap for each API of a `RouteAPIBinding`, and optionally the route table. A gRPC API also gets a ConfigMap with its descriptor set.
+Write one operation-table ConfigMap for each API that an `AppContract` binds to routes (the `routes` object of `spec.provides.apis[]`), and optionally the route table. A gRPC API also gets a ConfigMap with its descriptor set.
 
 ```bash
-apx optable render --binding binding.yaml --spec openapi/payments/ledger/v1=ledger.yaml --out chart/files
+apx optable render --binding appcontract.yaml --spec openapi/payments/ledger/v1=ledger.yaml --out chart/files
 apx optable render --binding helm/payments --specs-dir ../apis --out rendered --route-table
-apx optable render --binding binding.yaml --spec proto/payments/ledger/v1=ledger.binpb --out chart/files
+apx optable render --binding appcontract.yaml --spec proto/payments/ledger/v1=ledger.binpb --out chart/files
 ```
 
 #### `apx pathlint`

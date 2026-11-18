@@ -1,18 +1,19 @@
-// Package optable renders the operation table of each API that a
-// RouteAPIBinding names, and the route table of the routes that the binding
-// targets.
+// Package optable renders the operation table of each API that an AppContract
+// binds to routes, and the route table of the routes that the binding targets.
 //
 // # Inputs
 //
-// A RouteAPIBinding (apiVersion traefik.infoblox.com/v1alpha1) lists APIs. Each
-// entry pins one release of one API and names the routes that serve it. The
-// OpenAPI document of each API gives the operations; the package opclass reads
-// it.
+// An AppContract (apiVersion appkit.infoblox.dev/v1alpha1 or
+// appkit.platform.infoblox.com/v1alpha1) lists APIs in spec.provides.apis. The
+// route binding is the optional routes object of an entry. The ref of the
+// entry, apx://<api-id>@<version>, pins one release of one API; routes names
+// the routes that serve it. An entry without routes is skipped. The OpenAPI
+// document of each API gives the operations; the package opclass reads it.
 //
 // # External path
 //
 // The external path template of an operation is the path that the client
-// sends: the externalPrefix of the binding entry when it is set, otherwise the
+// sends: the externalPrefix of the routes object when it is set, otherwise the
 // base path of the document, joined with the path of the operation. JoinPath
 // normalizes the result: single slashes, no trailing slash except for the
 // root, and "{name}" segments kept as written. A segment is a variable only

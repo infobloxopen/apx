@@ -58,30 +58,36 @@ stderr 'externalPrefix "/api": a gRPC path has no prefix'
 ! exists none
 
 -- binding.yaml --
-apiVersion: traefik.infoblox.com/v1alpha1
-kind: RouteAPIBinding
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
 metadata:
   name: ledger
   namespace: ledger
 spec:
-  apis:
-    - ref: proto/acme/ledger/v1
-      version: v1.0.0
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: ledger}
+  provides:
+    apis:
+      - name: ledger
+        ref: apx://proto/acme/ledger/v1@v1.0.0
+        serviceName: ledger
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: ledger}
 -- prefixed.yaml --
-apiVersion: traefik.infoblox.com/v1alpha1
-kind: RouteAPIBinding
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
 metadata:
   name: ledger
   namespace: ledger
 spec:
-  apis:
-    - ref: proto/acme/ledger/v1
-      version: v1.0.0
-      externalPrefix: /api
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: ledger}
+  provides:
+    apis:
+      - name: ledger
+        ref: apx://proto/acme/ledger/v1@v1.0.0
+        serviceName: ledger
+        routes:
+          externalPrefix: /api
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: ledger}
 -- apis/proto/acme/ledger/v1/ledger.proto --
 syntax = "proto3";
 package acme.ledger.v1;

@@ -41,7 +41,7 @@ APX commands are organized into logical categories:
     - `apx lint` - Schema validation
     - `apx breaking` - Breaking changes
     - `apx opclass` - Operation classes for OpenAPI
-    - `apx optable render` - Operation tables and the route table of a route binding
+    - `apx optable render` - Operation tables and the route table of the APIs that an AppContract binds to routes
     - `apx pathlint` - Ingress paths against spec paths
     - `apx policy` - Policy enforcement
 

@@ -7,25 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: the `--binding` input of `apx optable render` and `apx pathlint`
+  is an `AppContract`.** The kind `RouteAPIBinding` is removed. The binding is
+  now the optional `routes` object of each entry of `spec.provides.apis` of an
+  `AppContract` (`appkit.infoblox.dev/v1alpha1` or
+  `appkit.platform.infoblox.com/v1alpha1`). The `ref` of the entry pins the
+  API: `apx://<api-id>@<version>`. `routes` holds `targetRefs` (1 to 16
+  Ingress objects), the optional `externalPrefix` and the optional `audience`
+  (`public` or `internal`). The fields `profile`, `operationProfiles` and
+  `tableRef` are read and ignored. An unknown field in `routes` is an error;
+  the other fields of the contract are not checked. An entry without `routes`
+  is skipped. A `RouteAPIBinding` document is an error. The audience of an API
+  is now `--audience`, then `routes.audience`, then the catalog entry, then
+  `internal`. To migrate, move each entry of `spec.apis` of a
+  `RouteAPIBinding` to the `routes` object of the matching entry of the
+  `AppContract`, and write `ref` and `version` as one `ref`. The output files
+  do not change.
+
 ### Added
 
-- **`apx optable render`** — writes the operation table of each API that a
-  `RouteAPIBinding` (`traefik.infoblox.com/v1alpha1`) names. `--binding` is a
+- **`apx optable render`** — writes the operation table of each API that an
+  `AppContract` binds to routes. `--binding` is a
   YAML file or a Helm chart directory; the contract of each API comes from
   `--spec <api-id>=<file>` or from `--specs-dir`, a directory with the layout of
   an API repository. For each API the command writes one ConfigMap manifest
   `optable-<hash>.yaml` (label `apx.infoblox.com/operation-table: "true"`, data
   key `operations.json`) with the method, the external path template, the
   `operationId`, the operation class and the streaming flag of each operation.
-  The external path is the `externalPrefix` of the binding entry, or the base
+  The external path is the `externalPrefix` of the `routes` object, or the base
   path of the contract, joined with the operation path. `--route-table` also
   writes `route-table.json` with the resolved operations of each route, and
   `--route-table-configmap <name>` wraps it as gzip `binaryData` in a ConfigMap.
   When more than one API is bound to one route, a literal segment wins over a
   `{name}` segment and a public API wins over an internal API; any other
   overlap, and one path with two `operationId` values, is a conflict that makes
-  the command fail. The audience comes from `--audience`, then from the catalog
-  entry, then defaults to `internal`. `--format json` prints a summary. The
+  the command fail. The audience comes from `--audience`, then from
+  `routes.audience`, then from the catalog entry, then defaults to `internal`. `--format json` prints a summary. The
   output is deterministic. The package is `internal/optable`. The command does
   not download a pinned release.
 - **`apx optable render`: gRPC APIs.** The contract of a `proto/` API is its
@@ -48,7 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `internal/protoset`. The command does not compile `.proto` files.
 - **`apx pathlint`: external prefix and JSON report.** `--external-prefix
   <prefix>` replaces the base path of every spec, and `--binding <file|chart>`
-  takes the `externalPrefix` of the matching API from a `RouteAPIBinding`
+  takes the `externalPrefix` of the matching API from the `routes` object of an
+  `AppContract`
   (write the spec as `<api-id>=<file>`). Use them when the client path does not
   start with the base path of the spec. `--format json` prints the report as
   JSON. Without these flags the behavior and the text report are the same as
