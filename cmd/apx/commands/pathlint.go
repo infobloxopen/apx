@@ -35,10 +35,10 @@ or an already-rendered manifest YAML file (no helm binary required).
 The external path of a spec path is the base path of the spec (servers[0].url
 or basePath) plus the path. When the client path does not start with that base
 path, replace it: --external-prefix sets one prefix for every spec, and
---binding takes the externalPrefix of the matching API from a RouteAPIBinding
-(a YAML file or a chart directory). With --binding, write a spec as
-<api-id>=<file>; a plain file is accepted when the binding has one API. An API
-without externalPrefix keeps the base path of its spec.
+--binding takes the externalPrefix of the matching API from the routes object
+of an AppContract (a YAML file or a chart directory). With --binding, write a
+spec as <api-id>=<file>; a plain file is accepted when the binding has one API.
+An API without externalPrefix keeps the base path of its spec.
 
 Examples:
   apx pathlint --ingress rendered.yaml --spec identity.swagger.json
@@ -52,7 +52,7 @@ Examples:
 	cmd.Flags().StringArray("ingress", nil, "chart directory or rendered manifest YAML (repeatable, required)")
 	cmd.Flags().StringArray("spec", nil, "OpenAPI v3 or Swagger v2 spec file, or <api-id>=<file> with --binding (repeatable, required)")
 	cmd.Flags().String("external-prefix", "", "external path prefix that replaces the base path of every spec")
-	cmd.Flags().String("binding", "", "RouteAPIBinding YAML file or chart directory; the externalPrefix of the matching API replaces the base path of its spec")
+	cmd.Flags().String("binding", "", "AppContract YAML file or chart directory; the externalPrefix of the matching API replaces the base path of its spec")
 	cmd.Flags().String("format", "text", "Output format of the report: text or json")
 	cmd.Flags().StringArray("helm-set", nil, "key=value passed to 'helm template --set' for chart-directory inputs (repeatable)")
 	cmd.Flags().String("release-name", "pathlint", "helm release name used when rendering a chart directory")

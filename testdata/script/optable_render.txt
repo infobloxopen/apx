@@ -1,5 +1,5 @@
 # Test: apx optable render writes the operation tables and the route table
-# (native Go, no external tools; the bindings are plain YAML files)
+# (native Go, no external tools; the AppContract inputs are plain YAML files)
 
 # One API, the spec given with --spec; the audience defaults to internal
 exec apx optable render --binding binding.yaml --spec openapi/reports/server/v1=reports.yaml --out out
@@ -78,15 +78,57 @@ stderr 'GET /v2/accounts: API openapi/iam/identity-internal/v2 and API openapi/i
 
 # Binding validation
 ! exec apx optable render --binding bad-namespace.yaml --spec openapi/reports/server/v1=reports.yaml --out out
-stderr 'targetRefs\[0\]: a namespace field is not permitted'
+stderr 'spec\.provides\.apis\[0\]\.routes\.targetRefs\[0\]: a namespace field is not permitted'
 ! exec apx optable render --binding bad-kind.yaml --spec openapi/reports/server/v1=reports.yaml --out out
-stderr 'no RouteAPIBinding found \(kinds in the input: RouteBinding\)'
+stderr 'no AppContract with a routes object found \(kinds in the input: RouteBinding\)'
 ! exec apx optable render --binding bad-version.yaml --spec openapi/reports/server/v1=reports.yaml --out out
-stderr 'unsupported apiVersion "traefik.infoblox.com/v1"'
+stderr 'unsupported apiVersion "appkit.infoblox.dev/v1" \(expected appkit.infoblox.dev/v1alpha1 or appkit.platform.infoblox.com/v1alpha1\)'
+! exec apx optable render --binding bad-group.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stderr 'AppContract "reports": unsupported apiVersion "traefik.infoblox.com/v1alpha1"'
 ! exec apx optable render --binding bad-target.yaml --spec openapi/reports/server/v1=reports.yaml --out out
 stderr 'kind "HTTPRoute" is not supported \(expected Ingress\)'
+! exec apx optable render --binding no-pin.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stderr 'AppContract "reports": spec\.provides\.apis\[0\]: ref "apx://openapi/reports/server/v1": routes needs a pinned ref'
+! exec apx optable render --binding no-scheme.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stderr 'routes needs a ref with the apx:// scheme'
+! exec apx optable render --binding unknown-field.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stderr 'spec\.provides\.apis\[0\]\.routes: unknown field "timeout"'
 
-# A binding without a namespace needs --namespace for the route table
+# A RouteAPIBinding document is an error; the routes object replaces that kind
+! exec apx optable render --binding old-kind.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stderr 'RouteAPIBinding is replaced by the routes object of an AppContract \(spec\.provides\.apis\[\]\.routes\)'
+! exec apx optable render --binding binding.yaml --binding old-kind.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stderr 'RouteAPIBinding is replaced by the routes object of an AppContract'
+
+# An AppContract where no entry has routes gives no binding
+! exec apx optable render --binding no-routes.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stderr 'no AppContract with a routes object found \(kinds in the input: AppContract\)'
+
+# The second API group is accepted. Fields outside routes are not checked, and
+# profile, operationProfiles and tableRef are read and ignored: same bytes
+exec apx optable render --binding extra-fields.yaml --spec openapi/reports/server/v1=reports.yaml --out extra
+cmp extra/optable-9e288350b7.yaml out/optable-9e288350b7.yaml
+exec apx optable render --binding second-group.yaml --spec openapi/reports/server/v1=reports.yaml --out second
+cmp second/optable-9e288350b7.yaml out/optable-9e288350b7.yaml
+
+# Audience precedence: --audience, then routes.audience, then the catalog
+exec apx optable render --binding public.yaml --spec openapi/reports/server/v1=reports.yaml --out aud1
+stdout 'openapi/reports/server/v1 v1.0.0 \(public\)'
+exec apx optable render --binding public.yaml --spec openapi/reports/server/v1=reports.yaml --audience openapi/reports/server/v1=internal --out aud2
+stdout 'openapi/reports/server/v1 v1.0.0 \(internal\)'
+cmp aud2/optable-9e288350b7.yaml out/optable-9e288350b7.yaml
+# routes.audience wins over the catalog: the catalog says public, so the two
+# APIs get the same audience and are in conflict
+! exec apx optable render --binding identity-routes-audience.yaml --specs-dir apis --out conflict
+stderr 'the two APIs have the same audience \(internal\)'
+# --audience wins over routes.audience
+exec apx optable render --binding identity-routes-audience.yaml --specs-dir apis --audience openapi/iam/identity/v2=public --out aud3
+stdout 'openapi/iam/identity/v2 v2.1.0 \(public\): 2 operations'
+# Two routes.audience values for one API are an error, also in two inputs
+! exec apx optable render --binding public.yaml --binding public-again.yaml --spec openapi/reports/server/v1=reports.yaml --out out
+stderr 'AppContract "reports-edge": spec\.provides\.apis\[0\]\.routes\.audience: API openapi/reports/server/v1 has two audiences \(public and internal\)'
+
+# An AppContract without a namespace needs --namespace for the route table
 ! exec apx optable render --binding no-namespace.yaml --spec openapi/reports/server/v1=reports.yaml --out nons --route-table
 stderr 'route reports has no namespace'
 exec apx optable render --binding no-namespace.yaml --spec openapi/reports/server/v1=reports.yaml --out nons --route-table --namespace reports
@@ -106,64 +148,116 @@ stderr 'invalid --format'
 stderr 'API openapi/reports/server/v1: POST /things has no operationId'
 
 -- binding.yaml --
-apiVersion: traefik.infoblox.com/v1alpha1
-kind: RouteAPIBinding
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
 metadata:
   name: reports
   namespace: reports
 spec:
-  apis:
-    - ref: openapi/reports/server/v1
-      version: v1.0.0
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: reports}
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports}
 -- prefix.yaml --
-apiVersion: traefik.infoblox.com/v1alpha1
-kind: RouteAPIBinding
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
 metadata:
   name: reports
   namespace: reports
 spec:
-  apis:
-    - ref: openapi/reports/server/v1
-      version: v1.0.0
-      externalPrefix: /edge/v1/
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: reports}
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          externalPrefix: /edge/v1/
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports}
 -- no-namespace.yaml --
-apiVersion: traefik.infoblox.com/v1alpha1
-kind: RouteAPIBinding
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
 metadata:
   name: reports
 spec:
-  apis:
-    - ref: openapi/reports/server/v1
-      version: v1.0.0
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: reports}
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports}
 -- bad-namespace.yaml --
-apiVersion: traefik.infoblox.com/v1alpha1
-kind: RouteAPIBinding
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
 metadata:
   name: reports
   namespace: reports
 spec:
-  apis:
-    - ref: openapi/reports/server/v1
-      version: v1.0.0
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: reports, namespace: other}
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports, namespace: other}
 -- bad-kind.yaml --
-apiVersion: traefik.infoblox.com/v1alpha1
+apiVersion: appkit.infoblox.dev/v1alpha1
 kind: RouteBinding
 metadata:
   name: reports
 -- bad-version.yaml --
-apiVersion: traefik.infoblox.com/v1
-kind: RouteAPIBinding
+apiVersion: appkit.infoblox.dev/v1
+kind: AppContract
 metadata:
   name: reports
+  namespace: reports
+spec:
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports}
+-- bad-group.yaml --
+apiVersion: traefik.infoblox.com/v1alpha1
+kind: AppContract
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports}
 -- bad-target.yaml --
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          targetRefs:
+            - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: reports}
+-- old-kind.yaml --
 apiVersion: traefik.infoblox.com/v1alpha1
 kind: RouteAPIBinding
 metadata:
@@ -174,23 +268,180 @@ spec:
     - ref: openapi/reports/server/v1
       version: v1.0.0
       targetRefs:
-        - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: reports}
+        - {group: networking.k8s.io, kind: Ingress, name: reports}
+-- no-routes.yaml --
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+-- no-pin.yaml --
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1
+        serviceName: reports
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports}
+-- no-scheme.yaml --
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  provides:
+    apis:
+      - name: reports
+        ref: openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports}
+-- unknown-field.yaml --
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          timeout: 5s
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports}
+-- extra-fields.yaml --
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  owner: reports-team
+  requires:
+    databases:
+      - name: reports-db
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        port: 8080
+        routes:
+          profile: default
+          operationProfiles: {watchEvents: slow}
+          tableRef: {name: optable-9e288350b7}
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports}
+status:
+  phase: Ready
+-- public.yaml --
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          audience: public
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports}
+-- public-again.yaml --
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
+metadata:
+  name: reports-edge
+  namespace: reports
+spec:
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          audience: internal
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports-edge}
 -- identity.yaml --
-apiVersion: traefik.infoblox.com/v1alpha1
-kind: RouteAPIBinding
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
 metadata:
   name: identity
   namespace: identity
 spec:
-  apis:
-    - ref: openapi/iam/identity-internal/v2
-      version: v2.3.0
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: identity-api}
-    - ref: openapi/iam/identity/v2
-      version: v2.1.0
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: identity-api}
+  provides:
+    apis:
+      - name: identity-internal
+        ref: apx://openapi/iam/identity-internal/v2@v2.3.0
+        serviceName: identity-internal
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: identity-api}
+      - name: identity
+        ref: apx://openapi/iam/identity/v2@v2.1.0
+        serviceName: identity
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: identity-api}
+-- identity-routes-audience.yaml --
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
+metadata:
+  name: identity
+  namespace: identity
+spec:
+  provides:
+    apis:
+      - name: identity-internal
+        ref: apx://openapi/iam/identity-internal/v2@v2.3.0
+        serviceName: identity-internal
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: identity-api}
+      - name: identity
+        ref: apx://openapi/iam/identity/v2@v2.1.0
+        serviceName: identity
+        routes:
+          audience: internal
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: identity-api}
+-- second-group.yaml --
+apiVersion: appkit.platform.infoblox.com/v1alpha1
+kind: AppContract
+metadata:
+  name: reports
+  namespace: reports
+spec:
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports}
 -- reports.yaml --
 openapi: 3.0.3
 info:

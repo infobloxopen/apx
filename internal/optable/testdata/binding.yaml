@@ -1,36 +1,57 @@
-# Two bindings in one file, with a document of another kind between them.
-apiVersion: traefik.infoblox.com/v1alpha1
-kind: RouteAPIBinding
+# Two contracts in one file, with a document of another kind between them.
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
 metadata:
   name: identity
   namespace: identity
   labels:
     app.kubernetes.io/name: identity
 spec:
-  apis:
-    - ref: openapi/iam/identity-internal/v2
-      version: v2.3.0
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: identity-api}
-        - {group: networking.k8s.io, kind: Ingress, name: identity-internal}
-    - ref: openapi/iam/identity/v2
-      version: v2.1.0
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: identity-api}
+  owner: iam
+  requires:
+    databases:
+      - name: identity-db
+  provides:
+    apis:
+      - name: identity-internal
+        ref: apx://openapi/iam/identity-internal/v2@v2.3.0
+        serviceName: identity
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: identity-api}
+            - {group: networking.k8s.io, kind: Ingress, name: identity-internal}
+          profile: default
+          operationProfiles: {Accounts_List: slow}
+          tableRef: {name: optable-687672a1fe}
+      # An entry without routes is skipped.
+      - name: identity-events
+        ref: apx://proto/iam/events/v1
+        serviceName: identity
+      - name: identity
+        ref: apx://openapi/iam/identity/v2@v2.1.0
+        serviceName: identity
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: identity-api}
+status:
+  phase: Ready
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: identity
 ---
-apiVersion: traefik.infoblox.com/v1alpha1
-kind: RouteAPIBinding
+apiVersion: appkit.platform.infoblox.com/v1alpha1
+kind: AppContract
 metadata:
   name: reports
   namespace: reports
 spec:
-  apis:
-    - ref: openapi/reports/server/v1
-      version: v1.0.0
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: reports}
+  provides:
+    apis:
+      - name: reports
+        ref: apx://openapi/reports/server/v1@v1.0.0
+        serviceName: reports
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: reports}

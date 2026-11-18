@@ -19,7 +19,7 @@ import (
 func newOptableCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "optable",
-		Short: "Render the operation tables of the APIs that a route binding names",
+		Short: "Render the operation tables of the APIs that an AppContract binds to routes",
 		Long: `Optable works with the operation table of an API: the list of its operations
 with the external path template, the operationId, the operation class and the
 streaming flag of each one.`,
@@ -31,17 +31,25 @@ streaming flag of each one.`,
 func newOptableRenderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "render",
-		Short: "Write one operation-table ConfigMap for each API of a RouteAPIBinding",
-		Long: `Render reads one or more RouteAPIBinding documents
-(apiVersion traefik.infoblox.com/v1alpha1) and the contract of each API that
-they pin. For each API it writes a Kubernetes ConfigMap manifest with the
-operation table. For a gRPC API (a proto/ API id) it also writes a ConfigMap
-with the descriptor set. With --route-table it also writes the route table of
-the routes that the bindings target.
+		Short: "Write one operation-table ConfigMap for each API that an AppContract binds to routes",
+		Long: `Render reads one or more AppContract documents (apiVersion
+appkit.infoblox.dev/v1alpha1 or appkit.platform.infoblox.com/v1alpha1) and the
+contract of each API that they bind to routes. For each API it writes a
+Kubernetes ConfigMap manifest with the operation table. For a gRPC API (a
+proto/ API id) it also writes a ConfigMap with the descriptor set. With
+--route-table it also writes the route table of the routes that the bindings
+target.
+
+The binding is the optional routes object of an entry of spec.provides.apis.
+The ref of the entry pins the API: apx://<api-id>@<version>. routes.targetRefs
+names the Ingress objects that serve the API. An entry without routes is
+skipped. An unknown field in routes is an error; the other fields of the
+AppContract are not checked.
 
 A --binding argument is a YAML file or a Helm chart directory. A chart
 directory is rendered with 'helm template'; a file needs no helm binary.
-Documents of other kinds in the input are skipped.
+Documents of other kinds in the input are skipped. A RouteAPIBinding document
+is an error: the routes object replaces that kind.
 
 The contract of each API comes from --spec <api-id>=<file>, or from
 --specs-dir, a directory with the layout of an API repository: the single
@@ -54,13 +62,13 @@ is one operation: POST /<package>.<Service>/<Method>, operationId
 <Service>_<Method>. The files that the Buf image marks as imports give no
 operations. render does not compile .proto files.
 
-The external path template of an operation is the externalPrefix of the
-binding entry when it is set, otherwise the base path of the contract, joined
-with the path of the operation.
+The external path template of an operation is routes.externalPrefix when it
+is set, otherwise the base path of the contract, joined with the path of the
+operation.
 
-The audience of an API is --audience <api-id>=public|internal, otherwise the
-audience of the catalog entry (--catalog, or catalog/catalog.yaml in
---specs-dir), otherwise internal.
+The audience of an API is --audience <api-id>=public|internal, otherwise
+routes.audience, otherwise the audience of the catalog entry (--catalog, or
+catalog/catalog.yaml in --specs-dir), otherwise internal.
 
 More than one API can be bound to one route. For each method and path, a
 literal segment wins over a {name} segment, then a public API wins over an
@@ -68,26 +76,26 @@ internal API. Any other overlap is a conflict, and so is one path with two
 operationId values. A conflict makes the command fail and no file is written.
 
 Examples:
-  apx optable render --binding binding.yaml \
+  apx optable render --binding appcontract.yaml \
       --spec openapi/payments/ledger/v1=ledger.yaml --out chart/files
   apx optable render --binding helm/payments --specs-dir ../apis \
       --out rendered --route-table --namespace payments
-  apx optable render --binding binding.yaml --specs-dir ../apis \
+  apx optable render --binding appcontract.yaml --specs-dir ../apis \
       --out rendered --route-table-configmap route-table --format json
-  apx optable render --binding binding.yaml \
+  apx optable render --binding appcontract.yaml \
       --spec proto/payments/ledger/v1=ledger.binpb --out chart/files`,
 		Args: cobra.NoArgs,
 		RunE: optableRenderAction,
 	}
-	cmd.Flags().StringArray("binding", nil, "RouteAPIBinding YAML file or chart directory (repeatable, required)")
+	cmd.Flags().StringArray("binding", nil, "AppContract YAML file or chart directory (repeatable, required)")
 	cmd.Flags().StringArray("spec", nil, "<api-id>=<file>: the OpenAPI file of one API, or the descriptor set of a proto/ API (repeatable)")
 	cmd.Flags().String("specs-dir", "", "directory with the layout of an API repository; the contract of an API is in <dir>/<api-id>/")
-	cmd.Flags().StringArray("audience", nil, "<api-id>=public|internal: the audience of one API (repeatable)")
+	cmd.Flags().StringArray("audience", nil, "<api-id>=public|internal: the audience of one API; it wins over routes.audience and the catalog (repeatable)")
 	cmd.Flags().String("catalog", "", "path or URL of a catalog file that gives the audience of each API")
 	cmd.Flags().String("out", "", "output directory (required)")
 	cmd.Flags().Bool("route-table", false, "also write route-table.json")
 	cmd.Flags().String("route-table-configmap", "", "also write a ConfigMap with this name that holds the gzip route table (implies --route-table)")
-	cmd.Flags().String("namespace", "", "metadata.namespace of the manifests, and the namespace of a binding that has none")
+	cmd.Flags().String("namespace", "", "metadata.namespace of the manifests, and the namespace of an AppContract that has none")
 	cmd.Flags().String("format", "text", "Output format of the summary: text or json")
 	cmd.Flags().StringArray("helm-set", nil, "key=value passed to 'helm template --set' for a chart directory (repeatable)")
 	cmd.Flags().String("release-name", "optable", "helm release name used when rendering a chart directory")
@@ -169,6 +177,12 @@ func optableRenderAction(cmd *cobra.Command, _ []string) error {
 		bindings = append(bindings, bs...)
 	}
 
+	// The audience of an API: --audience, then routes.audience, then the
+	// catalog, then internal.
+	routeAudiences, err := optable.RouteAudiences(bindings)
+	if err != nil {
+		return err
+	}
 	catalogAudiences, err := optableCatalogAudiences(catalogFlag, specsDir)
 	if err != nil {
 		return err
@@ -188,6 +202,9 @@ func optableRenderAction(cmd *cobra.Command, _ []string) error {
 				continue
 			}
 			api.Audience = audiences[entry.Ref]
+			if api.Audience == "" {
+				api.Audience = routeAudiences[entry.Ref]
+			}
 			if api.Audience == "" {
 				api.Audience = catalogAudiences[entry.Ref]
 			}
@@ -209,7 +226,7 @@ func optableRenderAction(cmd *cobra.Command, _ []string) error {
 	if routeTable {
 		for _, r := range res.RouteTable.Routes {
 			if r.Namespace == "" {
-				return fmt.Errorf("route %s has no namespace: set metadata.namespace on the binding or pass --namespace", r.Name)
+				return fmt.Errorf("route %s has no namespace: set metadata.namespace on the AppContract or pass --namespace", r.Name)
 			}
 		}
 	}

@@ -68,15 +68,18 @@ paths:
       responses:
         '200': {description: ok}
 -- binding.yaml --
-apiVersion: traefik.infoblox.com/v1alpha1
-kind: RouteAPIBinding
+apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
 metadata:
   name: things
   namespace: things
 spec:
-  apis:
-    - ref: openapi/things/v2
-      version: v2.0.0
-      externalPrefix: /api/v2
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: things}
+  provides:
+    apis:
+      - name: things
+        ref: apx://openapi/things/v2@v2.0.0
+        serviceName: things
+        routes:
+          externalPrefix: /api/v2
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: things}

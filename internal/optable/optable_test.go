@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -366,26 +367,89 @@ func TestBuildErrors(t *testing.T) {
 }
 
 func TestParseBinding(t *testing.T) {
-	const good = `apiVersion: traefik.infoblox.com/v1alpha1
-kind: RouteAPIBinding
+	const good = `apiVersion: appkit.infoblox.dev/v1alpha1
+kind: AppContract
 metadata: {name: eor, namespace: eor-prod, labels: {a: b}}
 spec:
-  apis:
-    - ref: openapi/eor/bi-server/v1
-      version: v1.0.0
-      externalPrefix: /api/v1
-      targetRefs:
-        - {group: networking.k8s.io, kind: Ingress, name: eor}
+  provides:
+    apis:
+      - name: bi-server
+        ref: apx://openapi/eor/bi-server/v1@v1.0.0
+        serviceName: bi-server
+        routes:
+          targetRefs:
+            - {group: networking.k8s.io, kind: Ingress, name: eor}
+          externalPrefix: /api/v1
+          audience: internal
+          profile: default
+          operationProfiles: {exportAll: slow}
+          tableRef: {name: optable-3f9a1c2e}
 `
+	const target = "            - {group: networking.k8s.io, kind: Ingress, name: eor}\n"
 	b, err := ParseBinding([]byte(good))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b.Metadata.Name != "eor" || b.Metadata.Namespace != "eor-prod" || len(b.Spec.APIs) != 1 {
+	if b.Kind != BindingKind || b.Metadata.Name != "eor" || b.Metadata.Namespace != "eor-prod" || len(b.Spec.APIs) != 1 {
 		t.Fatalf("binding = %+v", b)
 	}
-	if a := b.Spec.APIs[0]; a.Ref != "openapi/eor/bi-server/v1" || a.Version != "v1.0.0" || a.ExternalPrefix != "/api/v1" || a.TargetRefs[0] != ingress("eor") {
+	if a := b.Spec.APIs[0]; a.Ref != "openapi/eor/bi-server/v1" || a.Version != "v1.0.0" || a.ExternalPrefix != "/api/v1" ||
+		a.Audience != AudienceInternal || len(a.TargetRefs) != 1 || a.TargetRefs[0] != ingress("eor") {
 		t.Errorf("api = %+v", a)
+	}
+
+	targets := func(n int) string {
+		var sb strings.Builder
+		for i := 0; i < n; i++ {
+			fmt.Fprintf(&sb, "            - {group: networking.k8s.io, kind: Ingress, name: eor-%d}\n", i)
+		}
+		return sb.String()
+	}
+	// A second entry for the same API, with other values.
+	second := func(ref, audience string) func(string) string {
+		return func(s string) string {
+			return s + "      - name: other\n        ref: " + ref + "\n        routes:\n          audience: " + audience +
+				"\n          targetRefs:\n            - {group: networking.k8s.io, kind: Ingress, name: other}\n"
+		}
+	}
+
+	accepted := []struct {
+		name string
+		edit func(string) string
+		// apis is the number of entries with routes.
+		apis int
+	}{
+		{"second group", replace("appkit.infoblox.dev/v1alpha1", "appkit.platform.infoblox.com/v1alpha1"), 1},
+		{"unknown field in spec", replace("spec:\n", "spec:\n  owner: {team: eng}\n  requires: {databases: [{name: db}]}\n"), 1},
+		{"unknown field in provides", replace("  provides:\n", "  provides:\n    events: [{name: e}]\n"), 1},
+		{"unknown field in the entry", replace("        serviceName: bi-server\n", "        serviceName: bi-server\n        port: 8080\n"), 1},
+		{"unknown top-level field and status", func(s string) string { return s + "status: {phase: Ready}\nextra: 1\n" }, 1},
+		{"entry without routes is skipped", func(s string) string {
+			return s + "      - name: no-routes\n        ref: not-a-pinned-ref\n        serviceName: other\n"
+		}, 1},
+		{"entry with null routes is skipped", func(s string) string {
+			return s + "      - name: null-routes\n        ref: {odd: shape}\n        routes: null\n"
+		}, 1},
+		{"no audience", replace("          audience: internal\n", ""), 1},
+		{"public audience", replace("audience: internal", "audience: public"), 1},
+		{"16 targetRefs", replace(target, targets(16)), 1},
+		{"same API two times with one audience", second("apx://openapi/eor/bi-server/v1@v1.0.0", "internal"), 2},
+		{"version with a build part", replace("@v1.0.0", "@v1.0.0-rc.1+build.5"), 1},
+	}
+	for _, tt := range accepted {
+		t.Run("accepted/"+tt.name, func(t *testing.T) {
+			doc := tt.edit(good)
+			if doc == good {
+				t.Fatal("the edit changed nothing")
+			}
+			got, err := ParseBinding([]byte(doc))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(got.Spec.APIs) != tt.apis || got.Spec.APIs[0].Ref != "openapi/eor/bi-server/v1" {
+				t.Errorf("apis = %+v", got.Spec.APIs)
+			}
+		})
 	}
 
 	tests := []struct {
@@ -393,24 +457,50 @@ spec:
 		edit func(string) string
 		want string
 	}{
-		{"unknown kind", replace("kind: RouteAPIBinding", "kind: RouteBinding"), `unsupported kind "RouteBinding"`},
-		{"unknown apiVersion", replace("v1alpha1", "v1beta1"), `unsupported apiVersion "traefik.infoblox.com/v1beta1"`},
-		{"other group", replace("traefik.infoblox.com/v1alpha1", "gateway.networking.k8s.io/v1alpha1"), "unsupported apiVersion"},
-		{"targetRef namespace", replace("name: eor}", "name: eor, namespace: other}"), "targetRefs[0]: a namespace field is not permitted"},
-		{"targetRef kind HTTPRoute", replace("kind: Ingress", "kind: HTTPRoute"), `kind "HTTPRoute" is not supported (expected Ingress)`},
+		{"unknown kind", replace("kind: AppContract", "kind: RouteBinding"), `unsupported kind "RouteBinding" (expected AppContract)`},
+		{"replaced kind", replace("kind: AppContract", "kind: RouteAPIBinding"),
+			"RouteAPIBinding is replaced by the routes object of an AppContract (spec.provides.apis[].routes)"},
+		{"unknown version", replace("v1alpha1", "v1beta1"),
+			`AppContract "eor": unsupported apiVersion "appkit.infoblox.dev/v1beta1" (expected appkit.infoblox.dev/v1alpha1 or appkit.platform.infoblox.com/v1alpha1)`},
+		{"other group", replace("appkit.infoblox.dev/v1alpha1", "traefik.infoblox.com/v1alpha1"),
+			`unsupported apiVersion "traefik.infoblox.com/v1alpha1" (expected appkit.infoblox.dev/v1alpha1 or appkit.platform.infoblox.com/v1alpha1)`},
+		{"targetRef namespace", replace("name: eor}", "name: eor, namespace: other}"),
+			`AppContract "eor": spec.provides.apis[0].routes.targetRefs[0]: a namespace field is not permitted`},
+		{"routes namespace", replace("          profile: default\n", "          namespace: other\n"), "spec.provides.apis[0].routes: a namespace field is not permitted"},
+		{"targetRef kind HTTPRoute", replace("kind: Ingress", "kind: HTTPRoute"), `spec.provides.apis[0].routes.targetRefs[0].kind "HTTPRoute" is not supported (expected Ingress)`},
 		{"targetRef group", replace("group: networking.k8s.io", "group: extensions"), `group "extensions" is not valid for kind Ingress`},
-		{"targetRef without name", replace(", name: eor}", "}"), "targetRefs[0].name is required"},
-		{"no targetRefs", replace("        - {group: networking.k8s.io, kind: Ingress, name: eor}\n", "        []\n"), "targetRefs is empty"},
-		{"no ref", replace("ref: openapi/eor/bi-server/v1", "ref: \"\""), "spec.apis[0].ref is required"},
-		{"no version", replace("      version: v1.0.0\n", ""), "spec.apis[0].version is required"},
-		{"relative prefix", replace("externalPrefix: /api/v1", "externalPrefix: api/v1"), `must start with "/"`},
-		{"unknown spec field", replace("      version: v1.0.0\n", "      version: v1.0.0\n      audience: public\n"), "field audience not found"},
+		{"targetRef without name", replace(", name: eor}", "}"), "spec.provides.apis[0].routes.targetRefs[0].name is required"},
+		{"no targetRefs", replace(target, "            []\n"), "spec.provides.apis[0].routes.targetRefs is empty"},
+		{"empty routes", func(s string) string { return s[:strings.Index(s, "        routes:")] + "        routes: {}\n" }, "routes.targetRefs is empty"},
+		{"17 targetRefs", replace(target, targets(17)), "spec.provides.apis[0].routes.targetRefs has 17 entries (the maximum is 16)"},
+		{"repeated targetRef", replace(target, target+target), `repeats Ingress "eor"`},
+		{"empty ref", replace("ref: apx://openapi/eor/bi-server/v1@v1.0.0", "ref: \"\""), `AppContract "eor": spec.provides.apis[0]: ref is required`},
+		{"no ref", replace("        ref: apx://openapi/eor/bi-server/v1@v1.0.0\n", ""), "spec.provides.apis[0]: ref is required"},
+		{"ref is not a string", replace("ref: apx://openapi/eor/bi-server/v1@v1.0.0", "ref: {id: a}"), "spec.provides.apis[0]: ref must be a string"},
+		{"routes without a pin", replace("@v1.0.0", ""), `spec.provides.apis[0]: ref "apx://openapi/eor/bi-server/v1": routes needs a pinned ref`},
+		{"routes with an empty pin", replace("@v1.0.0", "@"), "routes needs a pinned ref"},
+		{"ref without scheme", replace("apx://openapi", "openapi"),
+			`spec.provides.apis[0]: ref "openapi/eor/bi-server/v1@v1.0.0": routes needs a ref with the apx:// scheme`},
+		{"ref with another scheme", replace("apx://openapi", "https://openapi"), "routes needs a ref with the apx:// scheme"},
+		{"ref without API id", replace("apx://openapi/eor/bi-server/v1@", "apx://@"), "has no API id"},
+		{"relative prefix", replace("externalPrefix: /api/v1", "externalPrefix: api/v1"), `spec.provides.apis[0].routes.externalPrefix "api/v1" must start with "/"`},
+		{"unknown routes field", replace("          profile: default\n", "          timeout: 5s\n"), `AppContract "eor": spec.provides.apis[0].routes: unknown field "timeout"`},
+		{"unknown targetRef field", replace("name: eor}", "name: eor, port: 80}"), `spec.provides.apis[0].routes: unknown field "port"`},
+		{"bad audience", replace("audience: internal", "audience: partner"), `spec.provides.apis[0].routes.audience "partner" is not valid (expected public or internal)`},
 		{"no name", replace("name: eor, namespace: eor-prod, ", ""), "metadata.name is required"},
+		{"no entry with routes", func(s string) string { return s[:strings.Index(s, "        routes:")] },
+			`AppContract "eor": no entry of spec.provides.apis has routes`},
 		{"no apis", func(string) string {
-			return "apiVersion: traefik.infoblox.com/v1alpha1\nkind: RouteAPIBinding\nmetadata: {name: eor}\nspec: {apis: []}\n"
-		}, "spec.apis is empty"},
-		{"repeated targetRef", replace("        - {group: networking.k8s.io, kind: Ingress, name: eor}\n",
-			"        - {group: networking.k8s.io, kind: Ingress, name: eor}\n        - {group: networking.k8s.io, kind: Ingress, name: eor}\n"), `repeats Ingress "eor"`},
+			return "apiVersion: appkit.infoblox.dev/v1alpha1\nkind: AppContract\nmetadata: {name: eor}\nspec: {provides: {apis: []}}\n"
+		}, "no entry of spec.provides.apis has routes"},
+		{"two versions of one API", second("apx://openapi/eor/bi-server/v1@v1.1.0", "internal"),
+			"spec.provides.apis[1]: API openapi/eor/bi-server/v1 is pinned at two versions (v1.0.0 and v1.1.0)"},
+		{"two audiences of one API", second("apx://openapi/eor/bi-server/v1@v1.0.0", "public"),
+			`AppContract "eor": spec.provides.apis[1].routes.audience: API openapi/eor/bi-server/v1 has two audiences (internal and public)`},
+		{"error index counts the skipped entries", func(s string) string {
+			return strings.Replace(s, "      - name: bi-server\n", "      - name: first\n        ref: apx://openapi/eor/first/v1\n      - name: bi-server\n", 1) +
+				"          namespace: other\n"
+		}, "spec.provides.apis[1].routes: a namespace field is not permitted"},
 		{"empty document", func(string) string { return "" }, "empty binding document"},
 	}
 	for _, tt := range tests {
@@ -439,17 +529,91 @@ func TestParseBindingsStream(t *testing.T) {
 	if len(bs) != 2 || bs[0].Metadata.Name != "identity" || bs[1].Metadata.Name != "reports" {
 		t.Fatalf("bindings = %+v", bs)
 	}
+	// The entry without routes is not in the binding.
+	if apis := bs[0].Spec.APIs; len(apis) != 2 || apis[0].Ref != "openapi/iam/identity-internal/v2" || apis[0].Version != "v2.3.0" ||
+		apis[1].Ref != "openapi/iam/identity/v2" || apis[1].Version != "v2.1.0" {
+		t.Errorf("identity apis = %+v", bs[0].Spec.APIs)
+	}
 
-	_, err = ParseBindings([]byte("apiVersion: v1\nkind: Service\nmetadata: {name: x}\n"), "in.yaml")
-	if err == nil || !strings.Contains(err.Error(), "in.yaml: no RouteAPIBinding found (kinds in the input: Service)") {
-		t.Errorf("err = %v", err)
+	const contract = "apiVersion: appkit.infoblox.dev/v1alpha1\nkind: AppContract\n"
+	entry := func(ref, audience string) string {
+		s := "      - ref: " + ref + "\n        routes:\n          targetRefs: [{group: networking.k8s.io, kind: Ingress, name: web}]\n"
+		if audience != "" {
+			s += "          audience: " + audience + "\n"
+		}
+		return s
 	}
-	_, err = ParseBindings([]byte("kind: RouteAPIBinding\napiVersion: other/v1\nmetadata: {name: x}\n"), "in.yaml")
-	if err == nil || !strings.Contains(err.Error(), "unsupported apiVersion") {
-		t.Errorf("err = %v", err)
+	withRoutes := func(name, ref, audience string) string {
+		return contract + "metadata: {name: " + name + "}\nspec:\n  provides:\n    apis:\n" + entry(ref, audience)
 	}
+	const noRoutes = contract + "metadata: {name: plain}\nspec: {provides: {apis: [{name: a, ref: apx://openapi/a/v1}]}, requires: {x: 1}}\n"
+	const service = "apiVersion: v1\nkind: Service\nmetadata: {name: x}\n"
+	const replaced = "apiVersion: traefik.infoblox.com/v1alpha1\nkind: RouteAPIBinding\nmetadata: {name: old}\nspec: {apis: []}\n"
+
+	tests := []struct {
+		name string
+		in   string
+		// want is a part of the error; it is empty when the input is valid.
+		want string
+		// bindings is the number of bindings of a valid input.
+		bindings int
+	}{
+		{"contract without routes gives no binding", noRoutes + "---\n" + withRoutes("a", "apx://openapi/a/v1@v1.0.0", ""), "", 1},
+		{"other kinds are skipped", service + "---\n- a list\n---\n" + withRoutes("a", "apx://openapi/a/v1@v1.0.0", ""), "", 1},
+		{"one audience in two contracts", withRoutes("a", "apx://openapi/a/v1@v1.0.0", "public") + "---\n" + withRoutes("b", "apx://openapi/a/v1@v1.0.0", "public"), "", 2},
+		{"audience in one of two contracts", withRoutes("a", "apx://openapi/a/v1@v1.0.0", "public") + "---\n" + withRoutes("b", "apx://openapi/a/v1@v1.0.0", ""), "", 2},
+		{"no contract", service, "in.yaml: no AppContract with a routes object found (kinds in the input: Service)", 0},
+		{"only a contract without routes", service + "---\n" + noRoutes, "in.yaml: no AppContract with a routes object found (kinds in the input: Service, AppContract)", 0},
+		{"empty input", "", "in.yaml: no AppContract with a routes object found", 0},
+		{"replaced kind", replaced, `in.yaml: RouteAPIBinding "old": RouteAPIBinding is replaced by the routes object of an AppContract (spec.provides.apis[].routes)`, 0},
+		{"replaced kind next to a contract", withRoutes("a", "apx://openapi/a/v1@v1.0.0", "") + "---\n" + replaced, "RouteAPIBinding is replaced by the routes object of an AppContract", 0},
+		{"wrong group", strings.Replace(withRoutes("a", "apx://openapi/a/v1@v1.0.0", ""), "appkit.infoblox.dev", "other.example.com", 1),
+			`in.yaml: AppContract "a": unsupported apiVersion "other.example.com/v1alpha1" (expected appkit.infoblox.dev/v1alpha1 or appkit.platform.infoblox.com/v1alpha1)`, 0},
+		{"wrong group on a contract without routes", strings.Replace(noRoutes, "appkit.infoblox.dev", "other.example.com", 1), "unsupported apiVersion", 0},
+		{"wrong version", strings.Replace(withRoutes("a", "apx://openapi/a/v1@v1.0.0", ""), "v1alpha1", "v1", 1), `unsupported apiVersion "appkit.infoblox.dev/v1"`, 0},
+		{"two audiences in two contracts", withRoutes("a", "apx://openapi/a/v1@v1.0.0", "public") + "---\n" + withRoutes("b", "apx://openapi/a/v1@v1.0.0", "internal"),
+			`in.yaml: AppContract "b": spec.provides.apis[0].routes.audience: API openapi/a/v1 has two audiences (public and internal)`, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseBindings([]byte(tt.in), "in.yaml")
+			if tt.want == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(got) != tt.bindings {
+					t.Errorf("bindings = %d, want %d", len(got), tt.bindings)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("err = %v, want %q", err, tt.want)
+			}
+		})
+	}
+
 	if _, err := LoadBindings(filepath.Join("testdata", "missing.yaml"), "test", nil); err == nil {
 		t.Error("a missing file gives no error")
+	}
+}
+
+func TestRouteAudiences(t *testing.T) {
+	entry := func(ref, audience string) BindingAPI {
+		return BindingAPI{Ref: ref, Version: "v1.0.0", Audience: audience, TargetRefs: []TargetRef{ingress("web")}}
+	}
+	got, err := RouteAudiences([]*Binding{
+		binding("ns", entry("a/v1", AudiencePublic), entry("b/v1", "")),
+		binding("ns", entry("a/v1", ""), entry("c/v1", AudienceInternal)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got["a/v1"] != AudiencePublic || got["c/v1"] != AudienceInternal {
+		t.Errorf("audiences = %v", got)
+	}
+	_, err = RouteAudiences([]*Binding{binding("ns", entry("a/v1", AudiencePublic)), binding("ns", entry("a/v1", AudienceInternal))})
+	if err == nil || !strings.Contains(err.Error(), "API a/v1 has two audiences (public and internal)") {
+		t.Errorf("err = %v", err)
 	}
 }
 
